@@ -9,6 +9,7 @@ import os
 import PIL
 import matplotlib
 import pandas
+from datetime import datetime
 
 
 def sample():
@@ -18,7 +19,6 @@ def sample():
     basinoutpath = aprx.defaultGeodatabase + "\\basin_static_table"
     basintable = arcpy.management.CopyRows(basinpath, basinoutpath)
     basinpoints = arcpy.management.XYTableToPoint(basinoutpath, aprx.defaultGeodatabase + "\\basin_points_w_attr", "lon", "lat")
-
 
 
 def load_csv(in_path, out_path, convert=False):
@@ -72,13 +72,34 @@ def aprx_map(aprx, data):
     print("Output mapped to Map " + str(n + 1) + "in the project at " + aprx.filePath)
 
 
-def get_data_by_station():
+def get_station_data():
+    tstart = datetime.now()
+
     path = os.path.join(os.path.dirname(__file__), "PWQMN_cleaned\\Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
-    df = pandas.read_csv(path)
-    grouped = df.grouby()
+    df = pandas.read_csv(path, usecols=['MonitoringLocationName', 'MonitoringLocationID', 'MonitoringLocationLatitude', 'MonitoringLocationLongitude',
+                                        'ActivityStartDate'])
+    grouped = df.groupby(by=['MonitoringLocationName', 'MonitoringLocationID', 'MonitoringLocationLatitude', 'MonitoringLocationLongitude'], as_index=False)
+
+    # = pandas.DataFrame(grouped.groups.keys(), columns=['Name', 'ID', 'Longitude', 'Latitude', 'Start Date'])
+
+    delta = datetime.now() - tstart
+    print(delta.seconds, delta.microseconds)
+
+    station_data = []
+
+    for name, subset_df in grouped:    # iterate through sequences of (group name, subsetted object (df)]
+        time_range = pandas.to_datetime(subset_df['ActivityStartDate'])
+        station_data.append(name + (time_range.min(),))
+
+    station_data = pandas.DataFrame(station_data, columns=['Name', 'ID', 'Longitude', 'Latitude', 'Start Date'])
+    print(station_data)
+    return station_data
 
 
 def main():
+    station_data = get_station_data()
+    return
+
     data_path = input("Data Folder Path:\n")
     aprx_path = input("ArcGIS Project Path:\n")
 
@@ -105,10 +126,6 @@ def main():
 
     # save the aprx file
     aprx.save()
-'''
-
-def main():
-
 
 
 if __name__ == "__main__":
