@@ -6,6 +6,7 @@ contained within these modules, and projects used as ways to check work.
 import arcpy
 import sys
 import os
+import PIL
 
 
 def sample():
@@ -15,6 +16,9 @@ def sample():
     basinoutpath = aprx.defaultGeodatabase + "\\basin_static_table"
     basintable = arcpy.management.CopyRows(basinpath, basinoutpath)
     basinpoints = arcpy.management.XYTableToPoint(basinoutpath, aprx.defaultGeodatabase + "\\basin_points_w_attr", "lon", "lat")
+
+
+#def get_stations_pwqmn(period=(), bbox={lat_min: <min lat>, lat_max: <max lat>, lon_min: : <min lon>, lon_max: <max lon>}, vars=[var_1, var_2]):
 
 
 def load_csv(in_path, out_path):
@@ -29,6 +33,8 @@ def load_sqlite(in_path, out_path):
     pass
 
 
+# This function iterates over every file and folder within the given data path, and
+# loads valid data types into the project geodatabase
 def load_data(path, out_path):
     dir_list = os.listdir(path)
     data_dict = {}
@@ -51,12 +57,16 @@ def load_data(path, out_path):
 
 def aprx_map(aprx, data):
     n = len(aprx.listMaps())
+    # create a new map, named based on the existing number of maps
     newMap = aprx.createMap("Map " + str(n + 1))
+
+    # iterate over each piece of data loaded into the geodatabase
     for key in data.keys():
         try:
             newMap.addDataFromPath(data[key][1])
         except RuntimeError:
             pass
+        # save after sucessfully adding each layer to the new map
         aprx.save()
 
 
@@ -65,20 +75,30 @@ def main():
     aprx_path = input("ArcGIS Project Path:\n")
 
     if data_path == "":
-        data_path = r"C:\Users\j2557wan\OneDrive - University of Waterloo\Documents\MondayFileGallery"
+        data_path = os.path.join(os.path.dirname(__file__), "MondayFileGallery")
     if aprx_path == "":
-        aprx_path = r"C:\Users\j2557wan\OneDrive - University of Waterloo\Documents\ArcGIS\Projects\station data explore\station data explore 2.aprx"
+        aprx_path = os.path.join(os.path.dirname(__file__), "MyProject\\MyProject.aprx")
 
     aprx = arcpy.mp.ArcGISProject(aprx_path)
-    if os.path.exists(aprx.homeFolder + "\\newGDB.gdb"):
-        arcpy.management.Delete(aprx.homeFolder + "\\newGDB.gdb")
-    arcpy.management.CreateFileGDB(aprx.homeFolder, "newGDB.gdb")
 
-    data = load_data(data_path, aprx.homeFolder + "\\newGDB.gdb")
+    # Check if "newGDB.gdb" already exists within the ArcGIS Pro project
+    # If yes, delete it
+    newGDB_path = aprx.homeFolder + "\\newGDB.gdb"
+    if os.path.exists(newGDB_path):
+        arcpy.management.Delete(newGDB_path)
+    # Create a new geodatabase to house the loaded data
+    newGDB = arcpy.management.CreateFileGDB(aprx.homeFolder, "newGDB.gdb")
 
+    # load the data at data_path into the new geodatabase
+    data = load_data(data_path, newGDB_path)
+
+    # map the data that was just loaded
     aprx_map(aprx, data)
+
+    # save the aprx file
     aprx.save()
 
 
 if __name__ == "__main__":
+    workspace = sys.argv[0]
     main()
