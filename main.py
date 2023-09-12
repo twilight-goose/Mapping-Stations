@@ -7,6 +7,8 @@ import arcpy
 import sys
 import os
 import PIL
+import matplotlib
+import pandas
 
 
 def sample():
@@ -18,13 +20,11 @@ def sample():
     basinpoints = arcpy.management.XYTableToPoint(basinoutpath, aprx.defaultGeodatabase + "\\basin_points_w_attr", "lon", "lat")
 
 
-#def get_stations_pwqmn(period=(), bbox={lat_min: <min lat>, lat_max: <max lat>, lon_min: : <min lon>, lon_max: <max lon>}, vars=[var_1, var_2]):
 
-
-def load_csv(in_path, out_path):
+def load_csv(in_path, out_path, convert=False):
     arcpy.management.CopyRows(in_path, out_path)
     f_names = [f.name for f in arcpy.ListFields(out_path)]
-    if "lon" in f_names and "lat" in f_names:
+    if convert and "lon" in f_names and "lat" in f_names:
         arcpy.management.XYTableToPoint(out_path, out_path + "_points", "lon", "lat")
     return [out_path, out_path + "_points"]
 
@@ -48,7 +48,7 @@ def load_data(path, out_path):
         print("Loading " + file)
 
         if filetype == ".csv":
-            data_dict[filename] = load_csv(full_path, full_out_path)
+            data_dict[filename] = load_csv(full_path, full_out_path, convert=True)
         elif filetype == ".sqlite3":
             data_dict[filename] = load_sqlite(full_path, full_out_path)
 
@@ -68,6 +68,14 @@ def aprx_map(aprx, data):
             pass
         # save after sucessfully adding each layer to the new map
         aprx.save()
+
+    print("Output mapped to Map " + str(n + 1) + "in the project at " + aprx.filePath)
+
+
+def get_data_by_station():
+    path = os.path.join(os.path.dirname(__file__), "PWQMN_cleaned\\Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
+    df = pandas.read_csv(path)
+    grouped = df.grouby()
 
 
 def main():
@@ -97,6 +105,10 @@ def main():
 
     # save the aprx file
     aprx.save()
+'''
+
+def main():
+
 
 
 if __name__ == "__main__":
