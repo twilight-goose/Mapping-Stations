@@ -3,17 +3,17 @@ Arcpy library is used for data management, analysis, and manipulation. An ArcGIS
 but ideally there is no need to create/load projects to perfrom operations. Everything should be
 contained within these modules, and projects used as ways to check work.
 '''
-import arcpy
 import sys
 import os
-import pandas
+import pandas as pd
+import geopandas as gpd
+import arcpy
 import sqlite3
 from datetime import datetime
 
 
 PWQMN_PATH = os.path.join(os.path.dirname(__file__), "PWQMN_cleaned\\Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
 HYDAT_PATH = os.path.join(os.path.dirname(__file__), "Hydat.sqlite3\\Hydat.sqlite3")
-
 
 
 def sample():
@@ -34,8 +34,17 @@ def load_csv(in_path, out_path, convert=False):
 
 
 def load_sqlite():
-    connection = sqlite3.connect(HYDAT_PATH)
-    
+    # setting up
+    conn = sqlite3.connect(HYDAT_PATH)
+    cursor = conn.cursor()
+    sqlitemastertable = pd.read_sql_query("SELECT * FROM sqlite_master where type= 'table'", conn)
+    hydat_data = {}
+    for table in sqlitemastertable['tbl_name']:
+        hydat_data[table] = pd.read_sql_query("SELECT * FROM %s" % table, conn)
+        print("\nTable Name: " + table)
+        print(hydat_data[table])
+
+    return hydat_data
 
 
 # This function iterates over every file and folder within the given data path, and
@@ -85,7 +94,7 @@ def get_station_data(station_info_df, query):
     """
     tstart = datetime.now()
 
-    df = pandas.read_csv(PWQMN_PATH,
+    df = pd.read_csv(PWQMN_PATH,
                          usecols=['MonitoringLocationName', 'ActivityStartDate', 'SampleCollectionEquipmentName',
                                   'CharacteristicName', 'ResultSampleFraction', 'ResultValue', 'ResultUnit',
                                   'ResultValueType', 'ResultDetectionCondition',
@@ -107,13 +116,13 @@ def get_station_data(station_info_df, query):
 
 def get_station_info():
     """
-    This function reads from the cleaned PWQMN data into RAM using Pandas, and returns the following information about
+    This function reads from the cleaned PWQMN data into RAM using pd, and returns the following information about
     each station: Name, ID, Longitude, Latitude, and Start Date
     :return:
     """
     tstart = datetime.now()
 
-    df = pandas.read_csv(PWQMN_PATH, usecols=['MonitoringLocationName', 'MonitoringLocationID',
+    df = pd.read_csv(PWQMN_PATH, usecols=['MonitoringLocationName', 'MonitoringLocationID',
                                               'MonitoringLocationLatitude', 'MonitoringLocationLongitude',
                                               'ActivityStartDate'])
     grouped = df.groupby(by=['MonitoringLocationName', 'MonitoringLocationID', 'MonitoringLocationLatitude',
@@ -122,10 +131,10 @@ def get_station_info():
     station_data = []
 
     for name, subset_df in grouped:    # iterate through sequences of (group name, subsetted object (df)]
-        time_range = pandas.to_datetime(subset_df['ActivityStartDate'])
+        time_range = pd.to_datetime(subset_df['ActivityStartDate'])
         station_data.append(name + (time_range.min(), time_range.size, subset_df.index))
 
-    station_data = pandas.DataFrame(station_data, columns=['Name', 'ID', 'Longitude', 'Latitude', 'Start Date',
+    station_data = pd.DataFrame(station_data, columns=['Name', 'ID', 'Longitude', 'Latitude', 'Start Date',
                                                            'NumRecords', 'Indices'])
     station_data.set_index('Name')
     station_data.style.hide(['Indices'], axis=1)
@@ -137,8 +146,15 @@ def get_station_info():
 
 
 def main():
-    station_info = get_station_info()
-    station_data = get_station_data(station_info, 'MonitoringLocationName=="ABERFOYLE CREEK STATION"')
+    tstart = datetime.now()
+
+    #station_info = get_station_info()
+    #station_data = get_station_data(station_info, 'MonitoringLocationName=="ABERFOYLE CREEK STATION"')
+
+    hydrat_df = load_sqlite()
+
+    delta = datetime.now() - tstart
+    print("It took {0} seconds and {1} microseconds total".format(delta.seconds, delta.microseconds))
     return
 
     data_path = input("Data Folder Path:\n")
