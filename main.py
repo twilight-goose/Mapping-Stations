@@ -81,8 +81,16 @@ def load_monday_files():
     return data_dict
 
 
-def df_to_point(df):
-    
+def point_from_df(df, x_field='lat', y_field='lon'):
+    # probably want to add field searching and auto matching functionality
+    print(df.columns.values)
+    try:
+        print("X/Y fields found. Loading....")
+        pointArray = gpd.points_from_xy(df[x_field], df[y_field])
+        print("Dataframe converted to geopandas point array")
+        return pointArray
+    except KeyError:
+        print("X/Y field not found")
 
 
 def get_station_data(station_info_df, query):
@@ -147,14 +155,16 @@ def get_station_info():
 def main():
     tstart = datetime.now()
 
-    #station_info = get_station_info()
-    #station_data = get_station_data(station_info, 'MonitoringLocationName=="ABERFOYLE CREEK STATION"')
+    # station_info = get_station_info()
+    # station_data = get_station_data(station_info, 'MonitoringLocationName=="ABERFOYLE CREEK STATION"')
 
-    #hydrat_df = load_sqlite()
+    # hydrat_df = load_sqlite()
 
     # hydat_stations = get_hydat_stations()
 
-    load_monday_files()
+    mondayFiles = load_monday_files()
+    for key in mondayFiles.keys():
+        pointArray = point_from_df(mondayFiles[key])
     return
 
     delta = datetime.now() - tstart
