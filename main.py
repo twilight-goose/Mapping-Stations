@@ -13,7 +13,6 @@ from datetime import datetime
 
 
 PWQMN_PATH = os.path.join(os.path.dirname(__file__), "PWQMN_cleaned\\Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
-HYDAT_PATH = os.path.join(os.path.dirname(__file__), "Hydat.sqlite3\\Hydat.sqlite3")
 
 
 def sample():
@@ -33,18 +32,32 @@ def load_csv(in_path, out_path, convert=False):
     return [out_path, out_path + "_points"]
 
 
-def load_sqlite():
-    # setting up
-    conn = sqlite3.connect(HYDAT_PATH)
-    cursor = conn.cursor()
-    sqlitemastertable = pd.read_sql_query("SELECT * FROM sqlite_master where type= 'table'", conn)
-    hydat_data = {}
-    for table in sqlitemastertable['tbl_name']:
-        hydat_data[table] = pd.read_sql_query("SELECT * FROM %s" % table, conn)
-        print("\nTable Name: " + table)
-        print(hydat_data[table])
+def get_sqlite_table_list(connection):
+    pass
 
-    return hydat_data
+def load_sqlite():
+
+    hydat_path = os.path.join(os.path.dirname(__file__), "Hydat.sqlite3\\Hydat.sqlite3")
+    conn = sqlite3.connect(hydat_path)
+    cursor = conn.cursor()
+
+    table_list = pd.read_sql_query("SELECT * FROM sqlite_master where type= 'table'", conn)
+    station_data = pd.read_sql_query("SELECT * FROM 'STATIONS' WHERE PROV_TERR_STATE_LOC == 'ON'", conn)
+
+    station_data['STATION_NUMBER'] = station_data['STATION_NUMBER'].astype('|S')
+    print(station_data.dtypes)
+
+    for tbl_name in table_list['tbl_name'][1:]:
+        table_data = pd.read_sql_query("SELECT * FROM %s" % tbl_name, conn)
+        if 'STATION_NUMBER' in table_data.columns.values:
+            table_data['STATION_NUMBER'] = table_data['STATION_NUMBER'].astype('|S')
+            print(table_data.dtypes)
+
+            station_data = station_data.join(table_data, on=['STATION_NUMBER'], lsuffix="_L")
+
+    conn.close()
+    print(station_data)
+    return station_data
 
 
 # This function iterates over every file and folder within the given data path, and
@@ -152,6 +165,10 @@ def main():
     #station_data = get_station_data(station_info, 'MonitoringLocationName=="ABERFOYLE CREEK STATION"')
 
     hydrat_df = load_sqlite()
+
+    # hydat_stations = get_hydat_stations()
+    # print(hydat_stations.columns.values)
+    return
 
     delta = datetime.now() - tstart
     print("It took {0} seconds and {1} microseconds total".format(delta.seconds, delta.microseconds))
