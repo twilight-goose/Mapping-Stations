@@ -15,15 +15,6 @@ from datetime import datetime
 PWQMN_PATH = os.path.join(os.path.dirname(__file__), "PWQMN_cleaned\\Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
 
 
-def sample():
-    aprx = arcpy.mp.ArcGISProject(
-        r"C:\Users\j2557wan\OneDrive - University of Waterloo\Documents\ArcGIS\Projects\station data explore\station data explore 2.aprx")
-    basinpath = r"C:\Users\j2557wan\OneDrive - University of Waterloo\Documents\MondayFileGallery\static_attributes.csv"
-    basinoutpath = aprx.defaultGeodatabase + "\\basin_static_table"
-    basintable = arcpy.management.CopyRows(basinpath, basinoutpath)
-    basinpoints = arcpy.management.XYTableToPoint(basinoutpath, aprx.defaultGeodatabase + "\\basin_points_w_attr", "lon", "lat")
-
-
 def load_csv(in_path, out_path, convert=False):
     arcpy.management.CopyRows(in_path, out_path)
     f_names = [f.name for f in arcpy.ListFields(out_path)]
@@ -51,6 +42,7 @@ def load_sqlite():
         table_data = pd.read_sql_query("SELECT * FROM %s" % tbl_name, conn)
         if 'STATION_NUMBER' in table_data.columns.values:
             table_data['STATION_NUMBER'] = table_data['STATION_NUMBER'].astype('|S')
+            print("Table:" + tbl_name)
             print(table_data.dtypes)
 
             station_data = station_data.join(table_data, on=['STATION_NUMBER'], lsuffix="_L")
@@ -58,28 +50,6 @@ def load_sqlite():
     conn.close()
     print(station_data)
     return station_data
-
-
-# This function iterates over every file and folder within the given data path, and
-# loads valid data types into the project geodatabase
-def load_data(path, out_path):
-    dir_list = os.listdir(path)
-    data_dict = {}
-
-    for file in dir_list:
-        filename, filetype = os.path.splitext(os.path.basename(file))
-
-        full_path = path + "\\" + file
-        full_out_path = out_path + "\\" + filename
-
-        print("Loading " + file)
-
-        if filetype == ".csv":
-            data_dict[filename] = load_csv(full_path, full_out_path, convert=True)
-        elif filetype == ".sqlite3":
-            data_dict[filename] = load_sqlite(full_path, full_out_path)
-
-    return data_dict
 
 
 def aprx_map(aprx, data):
@@ -97,6 +67,22 @@ def aprx_map(aprx, data):
         aprx.save()
 
     print("Output mapped to Map " + str(n + 1) + "in the project at " + aprx.filePath)
+
+
+def load_monday_files():
+    print("Loading Monday File Gallery to Memory...")
+    mondayPath = os.path.join(os.path.dirname(__file__), "MondayFileGallery")
+    data_dict = {}
+
+    for file in filter(lambda x: x.endswith(".csv"), os.listdir(mondayPath)):
+        print("> loading '{0}'".format(file))
+        data_dict[file] = pd.read_csv(os.path.join(mondayPath, file))
+
+    return data_dict
+
+
+def df_to_point(df):
+    
 
 
 def get_station_data(station_info_df, query):
@@ -164,10 +150,11 @@ def main():
     #station_info = get_station_info()
     #station_data = get_station_data(station_info, 'MonitoringLocationName=="ABERFOYLE CREEK STATION"')
 
-    hydrat_df = load_sqlite()
+    #hydrat_df = load_sqlite()
 
     # hydat_stations = get_hydat_stations()
-    # print(hydat_stations.columns.values)
+
+    load_monday_files()
     return
 
     delta = datetime.now() - tstart
