@@ -6,10 +6,14 @@ contained within these modules, and projects used as ways to check work.
 import arcpy
 import sys
 import os
-import PIL
-import matplotlib
 import pandas
+import sqlite3
 from datetime import datetime
+
+
+PWQMN_PATH = os.path.join(os.path.dirname(__file__), "PWQMN_cleaned\\Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
+HYDAT_PATH = os.path.join(os.path.dirname(__file__), "Hydat.sqlite3\\Hydat.sqlite3")
+
 
 
 def sample():
@@ -29,8 +33,9 @@ def load_csv(in_path, out_path, convert=False):
     return [out_path, out_path + "_points"]
 
 
-def load_sqlite(in_path, out_path):
-    pass
+def load_sqlite():
+    connection = sqlite3.connect(HYDAT_PATH)
+    
 
 
 # This function iterates over every file and folder within the given data path, and
@@ -72,32 +77,68 @@ def aprx_map(aprx, data):
     print("Output mapped to Map " + str(n + 1) + "in the project at " + aprx.filePath)
 
 
-def get_station_data():
+def get_station_data(station_info_df, query):
+    """
+    This function performs a query on station info list, and retrieves dated water information of stations passing the
+    criteria
+    :return:
+    """
     tstart = datetime.now()
 
-    path = os.path.join(os.path.dirname(__file__), "PWQMN_cleaned\\Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
-    df = pandas.read_csv(path, usecols=['MonitoringLocationName', 'MonitoringLocationID', 'MonitoringLocationLatitude', 'MonitoringLocationLongitude',
-                                        'ActivityStartDate'])
-    grouped = df.groupby(by=['MonitoringLocationName', 'MonitoringLocationID', 'MonitoringLocationLatitude', 'MonitoringLocationLongitude'], as_index=False)
-
-    # = pandas.DataFrame(grouped.groups.keys(), columns=['Name', 'ID', 'Longitude', 'Latitude', 'Start Date'])
-
+    df = pandas.read_csv(PWQMN_PATH,
+                         usecols=['MonitoringLocationName', 'ActivityStartDate', 'SampleCollectionEquipmentName',
+                                  'CharacteristicName', 'ResultSampleFraction', 'ResultValue', 'ResultUnit',
+                                  'ResultValueType', 'ResultDetectionCondition',
+                                  'ResultDetectionQuantitationLimitMeasure',
+                                  'ResultDetectionQuantitationLimitUnit'],
+                         dtype={'ResultSampleFraction' : str,
+                                'ResultValue' : float,
+                                'ResultUnit' : str,
+                                'ResultDetectionCondition' : str,
+                                'ResultDetectionQuantitationLimitMeasure' : str,
+                                'ResultDetectionQuantitationLimitUnit' : str},
+                         )
     delta = datetime.now() - tstart
-    print(delta.seconds, delta.microseconds)
+    print("It took {0} seconds and {1} microseconds to query and retrieve water data".format(delta.seconds, delta.microseconds))
+    df.query(query, inplace=True)
+    print(df)
+    return df
+
+
+def get_station_info():
+    """
+    This function reads from the cleaned PWQMN data into RAM using Pandas, and returns the following information about
+    each station: Name, ID, Longitude, Latitude, and Start Date
+    :return:
+    """
+    tstart = datetime.now()
+
+    df = pandas.read_csv(PWQMN_PATH, usecols=['MonitoringLocationName', 'MonitoringLocationID',
+                                              'MonitoringLocationLatitude', 'MonitoringLocationLongitude',
+                                              'ActivityStartDate'])
+    grouped = df.groupby(by=['MonitoringLocationName', 'MonitoringLocationID', 'MonitoringLocationLatitude',
+                             'MonitoringLocationLongitude'],)
 
     station_data = []
 
     for name, subset_df in grouped:    # iterate through sequences of (group name, subsetted object (df)]
         time_range = pandas.to_datetime(subset_df['ActivityStartDate'])
-        station_data.append(name + (time_range.min(),))
+        station_data.append(name + (time_range.min(), time_range.size, subset_df.index))
 
-    station_data = pandas.DataFrame(station_data, columns=['Name', 'ID', 'Longitude', 'Latitude', 'Start Date'])
+    station_data = pandas.DataFrame(station_data, columns=['Name', 'ID', 'Longitude', 'Latitude', 'Start Date',
+                                                           'NumRecords', 'Indices'])
+    station_data.set_index('Name')
+    station_data.style.hide(['Indices'], axis=1)
+    delta = datetime.now() - tstart
+    print("It took {0} seconds and {1} microseconds to retrieve station data".format(delta.seconds, delta.microseconds))
+
     print(station_data)
     return station_data
 
 
 def main():
-    station_data = get_station_data()
+    station_info = get_station_info()
+    station_data = get_station_data(station_info, 'MonitoringLocationName=="ABERFOYLE CREEK STATION"')
     return
 
     data_path = input("Data Folder Path:\n")
