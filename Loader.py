@@ -2,19 +2,20 @@ import os
 from datetime import datetime
 import pandas as pd
 import geopandas as gpd
+import webbrowser
 import sqlite3
 
 
 class Timer:
     def __init__(self):
-        self.s_time = None
+        self.s_time = datetime.now()
 
     def start(self):
         self.s_time = datetime.now()
 
     def stop(self):
         d = datetime.now() - self.s_time
-        print("That took {0} seconds and {1} microseconds".format(d.seconds, d.microseconds))
+        print("That took {0} seconds and {1} microseconds\n".format(d.seconds, d.microseconds))
 
 
 hydat_path = os.path.join(os.path.dirname(__file__), "Hydat.sqlite3\\Hydat.sqlite3")
@@ -97,10 +98,10 @@ def get_pwqmn_stations():
     print("Loading PWQMN station info")
 
     df = pd.read_csv(pwqmn_PATH, usecols=['MonitoringLocationName',
-                                                 'MonitoringLocationID',
-                                                 'MonitoringLocationLatitude',
-                                                 'MonitoringLocationLongitude',
-                                                 'ActivityStartDate'])
+                                          'MonitoringLocationID',
+                                          'MonitoringLocationLatitude',
+                                          'MonitoringLocationLongitude',
+                                          'ActivityStartDate'])
     grouped = df.groupby(by=['MonitoringLocationName',
                              'MonitoringLocationID',
                              'MonitoringLocationLatitude',
@@ -108,7 +109,7 @@ def get_pwqmn_stations():
 
     station_data = []
 
-    # iterate through sequences of (group name, subsetted object (df)]
+    # iterate through sequences of (group name, subset object (df)]
     for name, subset_df in grouped:
         time_range = pd.to_datetime(subset_df['ActivityStartDate'])
         station_data.append(name + (time_range.min(),))
@@ -119,10 +120,8 @@ def get_pwqmn_stations():
     #      for name, subset_df in grouped]
 
     station_data = pd.DataFrame(station_data, columns=['Name', 'ID', 'Longitude',
-                                                       'Latitude', 'Start Date',
-                                                       'NumRecords', 'Indices'])
+                                                       'Latitude', 'Start Date'])
     station_data.set_index('Name')
-    station_data.style.hide(['Indices'], axis=1)
 
     timer.stop()
     return {"pwqmn_stations": station_data}
@@ -145,7 +144,7 @@ def find_xy_fields(df: pd.DataFrame, x: str, y: str) -> [str, str]:
      if found
      """
     fields = df.columns.values
-    x, y = "", ""
+
     for field in fields:
         if any(sub in field.upper() for sub in ["LON", "LONG", "LONGITUDE", "X"]):
             if x == "":
@@ -161,7 +160,8 @@ def find_xy_fields(df: pd.DataFrame, x: str, y: str) -> [str, str]:
     return x, y
 
 
-def point_from_df(name_df_pair: dict or pd.DataFrame, x_field="", y_field=""):
+def point_gdf_from_df(name_df_pair: dict or pd.DataFrame, x_field="", y_field="",
+                      map_result=False):
     """Given a pandas Dataframe or a {str: DataFrame} pair, tries
     to generate a GeometryArray
     """
@@ -174,17 +174,27 @@ def point_from_df(name_df_pair: dict or pd.DataFrame, x_field="", y_field=""):
 
     print("Converting %s to point data" % name)
 
-    x, y = find_xy_fields(df, x=x_field, y=y_field)
-    point_array = -1
+    x, y = find_xy_fields(df, x_field, y_field)
+    gdf = -1
 
     if x == "Failed" or y == "Failed" or x == "" or y == "":
         print("X/Y field not found. Operation Failed")
     else:
         try:
-            point_array = gpd.points_from_xy(df[x], df[y])
+            gdf = gpd.GeoDataFrame(
+                df, geometry=gpd.points_from_xy(df[x], df[y]), crs='epsg:3160'
+            )
             print("X/Y fields found. Dataframe converted to geopandas point array")
         except KeyError:
             print("X/Y field not found. Operation Failed")
 
     timer.stop()
-    return point_array
+
+    if map_result:
+        gdf = gdf.rename(columns={c:str(c) for c in gdf.columns})
+        m = gdf.explore()
+        outfp = os.path.join(os.path.dirname(__file__), "map.html")
+        m.save(outfp)
+        webbrowser.open(outfp)
+
+    return gdf
