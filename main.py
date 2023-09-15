@@ -2,10 +2,6 @@ import sys
 import Loader
 
 
-def get_sqlite_table_list(connection):
-    pass
-
-
 def map_all(data):
     point_data = {}
 
@@ -14,41 +10,22 @@ def map_all(data):
         if type(result) != int:
             point_data[key] = result
 
-    Loader.map_all(point_data)
+    Loader.map_gdfs(point_data)
+
+
+def create_bbox(*bbox_param):
+    bbox = {}
+    if bbox_param:
+        min_lat, max_lat, min_lon, max_lon = bbox_param
+        bbox = {'min_lat': min_lat, 'max_lat': max_lat,
+                'min_lon': min_lon, 'max_lon': max_lon}
+    return bbox
 
 
 def main():
     timer = Loader.Timer()
-
-    Loader.get_pwqmn_station_info(map_result=True)
-
-    return
-
-    data = Loader.load_all()
-    # map_all(data)
-
-    run = True
-    while run:
-        print("What dataset would you like to act on? (EXIT to exit)")
-        print("\n".join(data.keys()))
-
-        dataset = input()
-
-        if dataset not in data.keys():
-            print("Invalid dataset name")
-        elif dataset.upper() == "PWQMN":
-            pwqmn = True
-            while pwqmn:
-                print(data["pwqmn"].dtypes)
-                user_in = input("Type SQL Query (BACK to back):")
-                pwqmn = user_in.upper() != "BACK"
-                try:
-                    print(Loader.query_df(data["pwqmn"], user_in))
-                except ValueError or SyntaxError:
-                    print("Invalid query")
-
-        elif dataset == "EXIT":
-            run = False
+    Loader.get_monday_files(map_result=True)
+    # Loader.get_pwqmn_station_info(create_bbox(), map_result=True)
 
     timer.stop()
 

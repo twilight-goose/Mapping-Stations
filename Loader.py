@@ -19,6 +19,11 @@ class Timer:
         print("That took {0} seconds and {1} microseconds\n".format(d.seconds, d.microseconds))
 
 
+# ============================================================================= ##
+# File Paths ================================================================== ##
+# ============================================================================= ##
+
+
 hydat_path = os.path.join(os.path.dirname(__file__), "Hydat.sqlite3\\Hydat.sqlite3")
 pwqmn_PATH = os.path.join(os.path.dirname(__file__),
                           "PWQMN_cleaned\\Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
@@ -27,7 +32,18 @@ hydat_join_f = "STATION_NUMBER"
 timer = Timer()
 
 
-def get_monday_files():
+# ============================================================================= ##
+# Functions ++================================================================= ##
+# ============================================================================= ##
+
+
+def in_bbox(bbox: dict, cord: dict) -> bool:
+    return (not bbox or
+            (bbox['min_lat'] <= cord['lat'] <= bbox['max_lat'] and
+             bbox['min_lon'] <= cord['lon'] <= bbox['max_lon']))
+
+
+def get_monday_files(map_result=False):
     timer.start()
 
     print("Loading Monday File Gallery to Memory...")
@@ -38,10 +54,14 @@ def get_monday_files():
         data_dict[file] = pd.read_csv(os.path.join(mondayPath, file))
 
     timer.stop()
+
+    if map_result:
+        map_gdfs([point_gdf_from_df(data_dict['basins.csv']),
+                  point_gdf_from_df(data_dict['Q_C_pairs.csv'])])
     return data_dict
 
 
-def get_hydat_station_data(query=None):
+def get_hydat_station_data(period=None, bbox=None):
     timer.start()
 
     print("Creating a connection to '{0}'".format(hydat_path))
@@ -94,13 +114,7 @@ def get_all_pwqmn_data(query: str) -> pd.DataFrame:
     return df
 
 
-def in_bbox(bbox: dict, cord: dict) -> bool:
-    return (not bbox or
-            (bbox['min_lat'] <= cord['lat'] <= bbox['max_lat'] and
-             bbox['min_lon'] <= cord['lon'] <= bbox['max_lon']))
-
-
-def get_pwqmn_station_info(period={}, bbox={}, vars=(), map_result=False):
+def get_pwqmn_station_info(period=None, bbox=None, var=(), map_result=False):
     """
     This function reads from the cleaned PWQMN data using pd, and
     returns the following information about the set of stations
@@ -114,6 +128,8 @@ def get_pwqmn_station_info(period={}, bbox={}, vars=(), map_result=False):
         - Available variables
     :return:
     """
+    if bbox is None:
+        bbox = {}
     timer.start()
     print("Loading PWQMN station info")
 
@@ -140,7 +156,8 @@ def get_pwqmn_station_info(period={}, bbox={}, vars=(), map_result=False):
         observation_dates = pd.to_datetime(subset_df['ActivityStartDate'])
         variables = subset_df['CharacteristicName']
 
-        if in_bbox(bbox, name[2:4]) and (not vars or any([x in variables for x in vars])):
+        if in_bbox(bbox, {'lat': name[2], 'lon': name[3]}) and \
+                (not var or any([x in variables for x in var])):
             station_data.append(name + (observation_dates.min(), variables))
 
     station_data = pd.DataFrame(station_data,
@@ -150,7 +167,8 @@ def get_pwqmn_station_info(period={}, bbox={}, vars=(), map_result=False):
     timer.stop()
 
     if map_result:
-        point_gdf_from_df(station_data, map_result=True)
+        point_gdf_from_df(station_data, map_result=True,
+                          popup=['Name', 'ID', 'Latitude', 'Longitude', 'Start Date'])
 
     return {"pwqmn": station_data}
 
@@ -171,26 +189,21 @@ def find_xy_fields(df: pd.DataFrame, x: str, y: str) -> [str, str]:
     """Given a dataframe, returns the names of the X and y field,
      if found
      """
-    fields = df.columns.values
+    def _(i, field) -> str:
+        return field if i == "" else "Failed"
 
-    for field in fields:
+    for field in df.columns.values:
         if df[field].dtype == float:
             if field.upper() in ["LON", "LONG", "LONGITUDE", "X"]:
-                if x == "":
-                    x = field
-                else:
-                    x = "Failed"
+                x = _(x, field)
             elif field.upper() in ["LAT", "LATITUDE", "Y"]:
-                if y == "":
-                    y = field
-                else:
-                    y = "Failed"
+                y = _(y, field)
 
     return x, y
 
 
 def point_gdf_from_df(name_df_pair: dict or pd.DataFrame, x_field="", y_field="",
-                      map_result=False):
+                      map_result=False, popup=False, color="blue"):
     """Given a pandas Dataframe or a {str: DataFrame} pair, tries
     to generate a GeometryArray
     """
@@ -215,7 +228,7 @@ def point_gdf_from_df(name_df_pair: dict or pd.DataFrame, x_field="", y_field=""
             print("X/Y fields found. Dataframe converted to geopandas point array")
 
             if map_result:
-                m = gdf.explore()
+                m = gdf.explore(popup=popup, color=color)
                 outfp = os.path.join(os.path.dirname(__file__), "map.html")
                 m.save(outfp)
                 webbrowser.open(outfp)
@@ -226,20 +239,24 @@ def point_gdf_from_df(name_df_pair: dict or pd.DataFrame, x_field="", y_field=""
     return gdf
 
 
-def map_dfs(df_to_map):
-    if type(df_to_map) == dict:
-        df_to_map = list(df_to_map.values())
-    elif not hasattr(df_to_map, '__iter))'):
-        df_to_map = [df_to_map, ]
+def map_gdfs(gdf_to_map):
+    color_list = ['red', 'blue', 'yellow', 'purple', 'black']
 
-    def explore_recursive(gdfs, n):
-        if n == len(gdfs) - 1:
-            return gdfs[n].explore()
+    def explore_recursive(gdf_list, n):
+        if n == len(gdf_list) - 1:
+            return gdf_list[n].explore(color=color_list[random.randint(0,5)],
+                                       marker_kwds={'radius': 4})
         else:
-            return gdfs[n].explore(m=explore_recursive(gdfs, n + 1),
-                                   color=hex(random.randrange(0, 2**24)))
+            return gdf_list[n].explore(m=explore_recursive(gdf_list, n + 1),
+                                       color=color_list[random.randint(0,5)],
+                                       marker_kwds={'radius': 4})
 
-    m = explore_recursive(df_to_map, 0)
+    if type(gdf_to_map) == dict:
+        gdf_to_map = list(gdf_to_map.values())
+    elif not hasattr(gdf_to_map, '__iter__'):
+        gdf_to_map = [gdf_to_map, ]
+
+    m = explore_recursive(gdf_to_map, 0)
     outpath = os.path.join(os.path.dirname(__file__), "map.html")
     m.save(outpath)
     webbrowser.open(outpath)
