@@ -9,6 +9,11 @@ import matplotlib.pyplot as plt
 #import geodatasets
 
 
+# ============================================================================= ##
+# Timer Class ================================================================= ##
+# ============================================================================= ##
+
+
 class Timer:
     def __init__(self):
         self.s_time = datetime.now()
@@ -22,7 +27,7 @@ class Timer:
 
 
 # ============================================================================= ##
-# File Paths ================================================================== ##
+# File Paths & Constant timer ================================================= ##
 # ============================================================================= ##
 
 
@@ -35,11 +40,18 @@ timer = Timer()
 
 
 # ============================================================================= ##
-# Functions ++================================================================= ##
+# Functions =================================================================== ##
 # ============================================================================= ##
 
 
 def in_bbox(bbox: dict, cord: dict) -> bool:
+    """
+    Evaluates if a coordinate falls within a bounding box
+
+    :param bbox: the bounding box
+    :param cord: the (x, y) coordinate to check
+    :return: True if cord is within or on bbox; False otherwise
+    """
     return (not bbox or
             (bbox['min_lat'] <= cord['lat'] <= bbox['max_lat'] and
              bbox['min_lon'] <= cord['lon'] <= bbox['max_lon']))
@@ -53,25 +65,43 @@ def _map_result(map_result, gdf, popup, color, tooltip):
         webbrowser.open(outfp)
 
 
-def get_monday_files(map_result=False):
+def load_csvs(path):
+    """
+    Loads all .csv files in the provided folder directory as pandas
+    DataFrames
+
+    :param path: path to folder directory to iterate over
+    :return: {<str filename>: <pandas DataFrame>,...}
+    """
     timer.start()
 
-    print("Loading Monday File Gallery to Memory...")
-
     data_dict = {}
-    for file in filter(lambda x: x.endswith(".csv"), os.listdir(monday_path)):
+    for file in filter(lambda x: x.endswith(".csv"), os.listdir(path)):
         print("> loading '{0}'".format(file))
-        data_dict[file] = pd.read_csv(os.path.join(monday_path, file))
+        data_dict[file] = pd.read_csv(os.path.join(path, file))
 
     timer.stop()
 
-    if map_result:
-        map_gdfs([point_gdf_from_df(data_dict['basins.csv']),
-                  point_gdf_from_df(data_dict['Q_C_pairs.csv'])])
     return data_dict
 
 
+def get_monday_files():
+    """
+    Wrapper function that calls load_csvs to load .csv files
+    downloaded from the Monday.com file gallery
+
+    :return: {<str filename>: <pandas DataFrame>}
+    """
+    return load_csvs(monday_path)
+
+
 def get_hydat_station_data(period=None, bbox=None):
+    """
+
+    :param period:
+    :param bbox:
+    :return:
+    """
     timer.start()
 
     print("Creating a connection to '{0}'".format(hydat_path))
@@ -101,6 +131,7 @@ def get_all_pwqmn_data(query: str) -> pd.DataFrame:
     """
     This function retrieves dated water information of a subset of
     stations based on 'query'
+    :param query:
     :return:
     """
     timer.start()
@@ -135,8 +166,13 @@ def get_pwqmn_station_info(period=None, bbox=None, var=()):
         - Longitude
         - Latitude
         - Start Date
-        - Available variables
-    :return:
+        - Available Data
+
+    :param period:
+    :param bbox:
+    :param var:
+
+    :return: {"pwqmn": <pandas DataFrame>}
     """
     timer.start()
     print("Loading PWQMN station info")
@@ -177,25 +213,29 @@ def get_pwqmn_station_info(period=None, bbox=None, var=()):
     return {"pwqmn": station_data}
 
 
-def load_all() -> [pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Loads a set of data at predetermined locations as pandas
-    DataFrames
+def load_all() -> {str: pd.DataFrame}:
+    """
+    Loads all data as pandas DataFrames
 
-    Calls 3 functions that load the default files
-    from predetermined locations
+    :return: dict of <dataset name> : pandas DataFrame
     """
     return {**get_monday_files(),
             **get_hydat_station_data(),
             **get_pwqmn_station_info()}
 
 
-def find_xy_fields(df: pd.DataFrame, x: str, y: str) -> [str, str]:
-    """Given a dataframe, returns the names of the X and y field,
-     if found
-     """
+def find_xy_fields(df: pd.DataFrame) -> [str, str]:
+    """
+    Searches a pandas DataFrame for fields to use as longitudinal
+    and latitudinal values
+
+    :param df: the pandas DataFrame to search
+    :return: [<X field name> or "Failed", <Y field name> or "Failed"]
+    """
     def _(i, field) -> str:
         return field if i == "" else "Failed"
 
+    x, y = "", ""
     for field in df.columns.values:
         if df[field].dtype == float:
             if field.upper() in ["LON", "LONG", "LONGITUDE", "X"]:
@@ -206,21 +246,23 @@ def find_xy_fields(df: pd.DataFrame, x: str, y: str) -> [str, str]:
     return x, y
 
 
-def point_gdf_from_df(name_df_pair: dict or pd.DataFrame, x_field="", y_field="",
-                      map_result=False, popup=False, tooltip=True, color="blue"):
-    """Given a pandas Dataframe or a {str: DataFrame} pair, tries
-    to generate a GeometryArray
+def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFrame:
+    """
+    Convert a pandas DataFrame to a geopandas GeoDataFrame with point
+    geometry, if possible
+
+    :param df: pandas DataFrame
+    :param x_field: field to use as longitude
+    :param y_field: field to use as latitude
+    :return gdf: the converted gdf, or -1 if the conversion failed
     """
     timer.start()
 
-    if type(name_df_pair) == dict:
-        name, df = list(name_df_pair.items())[0]
+    if not x_field and not y_field:
+        x, y = find_xy_fields(df)
     else:
-        name, df = "DataFrame", name_df_pair
+        x, y = x_field, y_field
 
-    print("Converting %s to point data" % name)
-
-    x, y = find_xy_fields(df, x_field, y_field)
     gdf = -1
 
     if x == "Failed" or y == "Failed" or x == "" or y == "":
@@ -231,7 +273,6 @@ def point_gdf_from_df(name_df_pair: dict or pd.DataFrame, x_field="", y_field=""
                 df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=4326)
 
             print("X/Y fields found. Dataframe converted to geopandas point array")
-            _map_result(map_result, gdf, popup, color, tooltip)
         except KeyError:
             print("X/Y field not found. Operation Failed")
 
@@ -247,11 +288,12 @@ def check_gdfs_iter(gdfs):
     return gdfs
 
 
-def map_gdf(gdf, **kwargs):
-    pass
-
-
 def map_gdfs(gdfs_to_map):
+    """
+
+    :param gdfs_to_map:
+    :return:
+    """
     color_list = ['red', 'blue', 'yellow', 'purple', 'black']
 
     def explore_recursive(gdf_list, n):
@@ -268,12 +310,25 @@ def map_gdfs(gdfs_to_map):
     webbrowser.open(outpath)
 
 
-def plot_gdf(gdf, **kwargs):
+def plot_gdf(gdf: gpd.GeoDataFrame, **kwargs):
+    """
+    Plot a geopandas GeoDataFrame on a matplotlib plot
+
+    :param gdf: the geopandas GeoDataFrame to be plotted
+    :param kwargs:
+    :return:
+    """
     gdf.plot()
     plt.show()
 
 
-def plot_df(df):
+def plot_df(df: pd.DataFrame):
+    """
+    Plot a pandas DataFrame as point data, if possible
+
+    :param df: Pandas DataFrame to be plotted
+    :return:
+    """
     plot_gdf(point_gdf_from_df(df))
 
 
