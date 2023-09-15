@@ -92,7 +92,6 @@ def get_monday_files():
 
     :return: {<str filename>: <pandas DataFrame>}
     """
-    print("Loading monday.com file gallery")
     return load_csvs(monday_path)
 
 
@@ -101,43 +100,30 @@ def get_hydat_station_data(period=None, bbox=None):
 
     :param period:
     :param bbox:
-    :return: {"hydat": <pandas DataFrame>}
+    :return:
     """
     timer.start()
 
     print("Creating a connection to '{0}'".format(hydat_path))
     conn = sqlite3.connect(hydat_path)
-    cursor = conn.cursor()
 
-    cursor.execute("SELECT tbl_name FROM sqlite_master WHERE type='table' and tbl_name != 'STATIONS'")
-    table_list = cursor.fetchall()
+    table_list = pd.read_sql_query("SELECT * FROM sqlite_master where type= 'table'", conn)
+    station_data = pd.read_sql_query("SELECT * FROM 'STATIONS' WHERE PROV_TERR_STATE_LOC == 'ON'", conn)
 
-    query = "SELECT * FROM (SELECT * FROM 'STATIONS' WHERE PROV_TERR_STATE_LOC == 'ON') as t1"
+    station_data[hydat_join_f] = station_data[hydat_join_f].astype('|S')
 
-    n = 2
-    for tbl_name in table_list:
-        cursor.execute("PRAGMA table_info (%s)" % tbl_name[0])
-        schema_info = cursor.fetchall()
+    n = 0
 
-        print(tbl_name[0])
-        if any(hydat_join_f in column_info[1] for column_info in schema_info):
-            query += " JOIN {0} AS t{1} ON t{2}.STATION_NUMBER = t{1}.STATION_NUMBER".format(tbl_name[0], n, n - 1)
+    print("Joining station number identified data from other tables")
+    for tbl_name in table_list['tbl_name'][1:]:
+        table_data = pd.read_sql_query("SELECT * FROM %s" % tbl_name, conn)
+        if hydat_join_f in table_data.columns.values:
+            table_data[hydat_join_f] = table_data[hydat_join_f].astype('|S')
+            station_data = station_data.join(table_data, on=[hydat_join_f], lsuffix=str(n))
             n += 1
-
-    print("attempting query")
-    print(query)
-
-    cursor.execute(query)
-    station_data = cursor.fetchall()
-    timer.stop()
-    timer.start()
-    station_data = pd.read_sql_query(query, conn)
 
     timer.stop()
     conn.close()
-
-    print(station_data.dtypes)
-
     return {"hydat": station_data}
 
 

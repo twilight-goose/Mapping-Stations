@@ -2,7 +2,6 @@ import sys
 import Loader
 import matplotlib.pyplot as plt
 
-
 def map_all(data):
     point_data = {}
 
@@ -25,7 +24,9 @@ def create_bbox(*bbox_param):
 
 def main():
     timer = Loader.Timer()
-    data = Loader.get_hydat_station_data()
+    data = Loader.get_monday_files()
+    for key in data.keys():
+        Loader.plot_df(data[key])
 
     # Loader.get_pwqmn_station_info(bbox=create_bbox(43, 44, -81, -78))
 
