@@ -1,10 +1,12 @@
 import os
 import random
 from datetime import datetime
-import pandas as pd
-import geopandas as gpd
 import webbrowser
 import sqlite3
+import pandas as pd
+import geopandas as gpd
+import matplotlib.pyplot as plt
+#import geodatasets
 
 
 class Timer:
@@ -25,9 +27,9 @@ class Timer:
 
 
 hydat_path = os.path.join(os.path.dirname(__file__), "Hydat.sqlite3\\Hydat.sqlite3")
-pwqmn_PATH = os.path.join(os.path.dirname(__file__),
+pwqmn_path = os.path.join(os.path.dirname(__file__),
                           "PWQMN_cleaned\\Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
-mondayPath = os.path.join(os.path.dirname(__file__), "MondayFileGallery")
+monday_path = os.path.join(os.path.dirname(__file__), "MondayFileGallery")
 hydat_join_f = "STATION_NUMBER"
 timer = Timer()
 
@@ -43,15 +45,23 @@ def in_bbox(bbox: dict, cord: dict) -> bool:
              bbox['min_lon'] <= cord['lon'] <= bbox['max_lon']))
 
 
+def _map_result(map_result, gdf, popup, color, tooltip):
+    if map_result:
+        m = gdf.explore(popup=popup, color=color, tooltip=tooltip)
+        outfp = os.path.join(os.path.dirname(__file__), "map.html")
+        m.save(outfp)
+        webbrowser.open(outfp)
+
+
 def get_monday_files(map_result=False):
     timer.start()
 
     print("Loading Monday File Gallery to Memory...")
 
     data_dict = {}
-    for file in filter(lambda x: x.endswith(".csv"), os.listdir(mondayPath)):
+    for file in filter(lambda x: x.endswith(".csv"), os.listdir(monday_path)):
         print("> loading '{0}'".format(file))
-        data_dict[file] = pd.read_csv(os.path.join(mondayPath, file))
+        data_dict[file] = pd.read_csv(os.path.join(monday_path, file))
 
     timer.stop()
 
@@ -96,7 +106,7 @@ def get_all_pwqmn_data(query: str) -> pd.DataFrame:
     timer.start()
     print("Loading PWQMN station data")
 
-    df = pd.read_csv(pwqmn_PATH,
+    df = pd.read_csv(pwqmn_path,
                      usecols=['MonitoringLocationName', 'ActivityStartDate', 'SampleCollectionEquipmentName',
                               'CharacteristicName', 'ResultSampleFraction', 'ResultValue', 'ResultUnit',
                               'ResultValueType', 'ResultDetectionCondition',
@@ -114,7 +124,7 @@ def get_all_pwqmn_data(query: str) -> pd.DataFrame:
     return df
 
 
-def get_pwqmn_station_info(period=None, bbox=None, var=(), map_result=False):
+def get_pwqmn_station_info(period=None, bbox=None, var=()):
     """
     This function reads from the cleaned PWQMN data using pd, and
     returns the following information about the set of stations
@@ -128,15 +138,13 @@ def get_pwqmn_station_info(period=None, bbox=None, var=(), map_result=False):
         - Available variables
     :return:
     """
-    if bbox is None:
-        bbox = {}
     timer.start()
     print("Loading PWQMN station info")
 
     # make it accept kwargs as parameters
     # loads everything, then sends back a dataframe of just stations that pass the critera
 
-    df = pd.read_csv(pwqmn_PATH, usecols=['MonitoringLocationName',
+    df = pd.read_csv(pwqmn_path, usecols=['MonitoringLocationName',
                                           'MonitoringLocationID',
                                           'MonitoringLocationLatitude',
                                           'MonitoringLocationLongitude',
@@ -165,10 +173,6 @@ def get_pwqmn_station_info(period=None, bbox=None, var=(), map_result=False):
                                          'Longitude', 'Start Date', 'Variables'])
 
     timer.stop()
-
-    if map_result:
-        point_gdf_from_df(station_data, map_result=True,
-                          popup=['Name', 'ID', 'Latitude', 'Longitude', 'Start Date'])
 
     return {"pwqmn": station_data}
 
@@ -203,7 +207,7 @@ def find_xy_fields(df: pd.DataFrame, x: str, y: str) -> [str, str]:
 
 
 def point_gdf_from_df(name_df_pair: dict or pd.DataFrame, x_field="", y_field="",
-                      map_result=False, popup=False, color="blue"):
+                      map_result=False, popup=False, tooltip=True, color="blue"):
     """Given a pandas Dataframe or a {str: DataFrame} pair, tries
     to generate a GeometryArray
     """
@@ -225,13 +229,9 @@ def point_gdf_from_df(name_df_pair: dict or pd.DataFrame, x_field="", y_field=""
         try:
             gdf = gpd.GeoDataFrame(
                 df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=4326)
-            print("X/Y fields found. Dataframe converted to geopandas point array")
 
-            if map_result:
-                m = gdf.explore(popup=popup, color=color)
-                outfp = os.path.join(os.path.dirname(__file__), "map.html")
-                m.save(outfp)
-                webbrowser.open(outfp)
+            print("X/Y fields found. Dataframe converted to geopandas point array")
+            _map_result(map_result, gdf, popup, color, tooltip)
         except KeyError:
             print("X/Y field not found. Operation Failed")
 
@@ -239,27 +239,42 @@ def point_gdf_from_df(name_df_pair: dict or pd.DataFrame, x_field="", y_field=""
     return gdf
 
 
-def map_gdfs(gdf_to_map):
+def check_gdfs_iter(gdfs):
+    if type(gdfs) == dict:
+        gdfs = list(gdfs.values())
+    elif not hasattr(gdfs, '__iter__'):
+        gdfs = [gdfs, ]
+    return gdfs
+
+
+def map_gdf(gdf, **kwargs):
+    pass
+
+
+def map_gdfs(gdfs_to_map):
     color_list = ['red', 'blue', 'yellow', 'purple', 'black']
 
     def explore_recursive(gdf_list, n):
-        if n == len(gdf_list) - 1:
-            return gdf_list[n].explore(color=color_list[random.randint(0,5)],
-                                       marker_kwds={'radius': 4})
-        else:
-            return gdf_list[n].explore(m=explore_recursive(gdf_list, n + 1),
-                                       color=color_list[random.randint(0,5)],
-                                       marker_kwds={'radius': 4})
+        m = None
+        if n < len(gdf_list) - 1:
+            m = explore_recursive(gdf_list, n + 1)
+        return gdf_list[n].explore(m=m, color=color_list[random.randint(0, 5)],
+                                   marker_kwds={'radius': 4})
 
-    if type(gdf_to_map) == dict:
-        gdf_to_map = list(gdf_to_map.values())
-    elif not hasattr(gdf_to_map, '__iter__'):
-        gdf_to_map = [gdf_to_map, ]
-
-    m = explore_recursive(gdf_to_map, 0)
+    gdfs_to_map = check_gdfs_iter(gdfs_to_map)
+    m = explore_recursive(gdfs_to_map, 0)
     outpath = os.path.join(os.path.dirname(__file__), "map.html")
     m.save(outpath)
     webbrowser.open(outpath)
+
+
+def plot_gdf(gdf, **kwargs):
+    gdf.plot()
+    plt.show()
+
+
+def plot_df(df):
+    plot_gdf(point_gdf_from_df(df))
 
 
 def query_df(df, query):
