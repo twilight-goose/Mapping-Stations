@@ -20,6 +20,10 @@ def map_all(data):
 def main():
     timer = Loader.Timer()
 
+    Loader.get_pwqmn_station_info(map_result=True)
+
+    return
+
     data = Loader.load_all()
     # map_all(data)
 

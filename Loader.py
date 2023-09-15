@@ -94,7 +94,13 @@ def get_all_pwqmn_data(query: str) -> pd.DataFrame:
     return df
 
 
-def get_pwqmn_station_info(**kwargs):
+def in_bbox(bbox: dict, cord: dict) -> bool:
+    return (not bbox or
+            (bbox['min_lat'] <= cord['lat'] <= bbox['max_lat'] and
+             bbox['min_lon'] <= cord['lon'] <= bbox['max_lon']))
+
+
+def get_pwqmn_station_info(period={}, bbox={}, vars=(), map_result=False):
     """
     This function reads from the cleaned PWQMN data using pd, and
     returns the following information about the set of stations
@@ -119,11 +125,13 @@ def get_pwqmn_station_info(**kwargs):
                                           'MonitoringLocationLatitude',
                                           'MonitoringLocationLongitude',
                                           'ActivityStartDate',
-                                          'CharacteristicName'])
+                                          'CharacteristicName'],
+                     parse_dates=['ActivityStartDate'])
+
     grouped = df.groupby(by=['MonitoringLocationName',
                              'MonitoringLocationID',
                              'MonitoringLocationLatitude',
-                             'MonitoringLocationLongitude'],)
+                             'MonitoringLocationLongitude'])
 
     station_data = []
 
@@ -131,18 +139,19 @@ def get_pwqmn_station_info(**kwargs):
     for name, subset_df in grouped:
         observation_dates = pd.to_datetime(subset_df['ActivityStartDate'])
         variables = subset_df['CharacteristicName']
-        station_data.append(name + (observation_dates.min(), variables))
 
-    # "One-liner" alternative to the lines above
-    # station_data =\
-    #     [name + (pd.to_datetime(subset_df['ActivityStartDate']).min())
-    #      for name, subset_df in grouped]
+        if in_bbox(bbox, name[2:4]) and (not vars or any([x in variables for x in vars])):
+            station_data.append(name + (observation_dates.min(), variables))
 
-    station_data = pd.DataFrame(station_data, columns=['Name', 'ID', 'Latitude',
-                                                       'Longitude', 'Start Date', 'Variables'])
-    station_data.set_index('Name')
+    station_data = pd.DataFrame(station_data,
+                                columns=['Name', 'ID', 'Latitude',
+                                         'Longitude', 'Start Date', 'Variables'])
 
     timer.stop()
+
+    if map_result:
+        point_gdf_from_df(station_data, map_result=True)
+
     return {"pwqmn": station_data}
 
 
@@ -204,23 +213,24 @@ def point_gdf_from_df(name_df_pair: dict or pd.DataFrame, x_field="", y_field=""
             gdf = gpd.GeoDataFrame(
                 df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=4326)
             print("X/Y fields found. Dataframe converted to geopandas point array")
+
+            if map_result:
+                m = gdf.explore()
+                outfp = os.path.join(os.path.dirname(__file__), "map.html")
+                m.save(outfp)
+                webbrowser.open(outfp)
         except KeyError:
             print("X/Y field not found. Operation Failed")
 
     timer.stop()
-
-    if map_result:
-        m = gdf.explore()
-        outfp = os.path.join(os.path.dirname(__file__), "map.html")
-        m.save(outfp)
-        webbrowser.open(outfp)
-
     return gdf
 
 
-def map_all(seq: iter):
-    if type(seq) == dict:
-        seq = list(seq.values())
+def map_dfs(df_to_map):
+    if type(df_to_map) == dict:
+        df_to_map = list(df_to_map.values())
+    elif not hasattr(df_to_map, '__iter))'):
+        df_to_map = [df_to_map, ]
 
     def explore_recursive(gdfs, n):
         if n == len(gdfs) - 1:
@@ -229,7 +239,7 @@ def map_all(seq: iter):
             return gdfs[n].explore(m=explore_recursive(gdfs, n + 1),
                                    color=hex(random.randrange(0, 2**24)))
 
-    m = explore_recursive(seq, 0)
+    m = explore_recursive(df_to_map, 0)
     outpath = os.path.join(os.path.dirname(__file__), "map.html")
     m.save(outpath)
     webbrowser.open(outpath)
