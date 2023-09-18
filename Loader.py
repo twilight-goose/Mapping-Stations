@@ -15,6 +15,9 @@ import matplotlib.pyplot as plt
 
 
 class Timer:
+    """
+    Just for timing operations during development
+    """
     def __init__(self):
         self.s_time = datetime.now()
 
@@ -27,15 +30,41 @@ class Timer:
 
 
 class BBox:
+    """
+    Class that represents a longitude/latitude bound
+    """
     def __init__(self, min_lon=None, max_lon=None, min_lat=None, max_lat=None, *bounds):
+        """
+        Flexible method for instantiating BoundingBox objects. Sets
+        of valid argument sets:
+        1. None; Creates an empty BBox Object
+        2. 4 keyword arguments in any order;
+        3. 4 arbitrary positional arguments in the following order:
+            min_lon, max_lon, min_lat, max_lat
+        """
         if len(bounds) == 4:
-            min_lat, max_lat, min_lon, max_lon = bounds
+            min_lon, max_lon, min_lat, max_lat = bounds
         self.bounds = {'min_lon': min_lon, 'max_lon': max_lon,
                        'min_lat': min_lat, 'max_lat': max_lat}
 
-    def __contains__(self, cord):
+    def contains_point(self, cord: dict) -> bool:
+        """
+        :param cord: {'lon': <float>, 'lat': <float>}
+                     Longitude/Latitude coordinate of the point.
+        :return: True if cord lies within or on the BBox; False otherwise
+        """
         return self.bounds['min_lat'] <= cord['lat'] <= self.bounds['max_lat'] and \
                self.bounds['min_lon'] <= cord['lon'] <= self.bounds['max_lon']
+
+    def sql_query(self):
+        if self is None:
+            return ""
+        else:
+            min_lon, max_lon = self.bounds['min_lon'], self.bounds['max_lon']
+            min_lat, max_lat = self.bounds['min_lat'], self.bounds['max_lat']
+
+            return (" WHERE {0} <= 'LONGITUDE' AND {1} >= 'LONGITUDE' AND ".format(min_lon, max_lon) +
+                    "{0} <= 'LATITUDE' AND {1} >= 'LATITUDE'".format(min_lat, max_lat))
 
 
 # ============================================================================= ##
@@ -64,7 +93,7 @@ def in_bbox(bbox: BBox or None, cord: dict) -> bool:
     :param cord: the (x, y) coordinate to check
     :return: True if cord is within or on bbox; False otherwise
     """
-    return not bbox or cord in bbox
+    return not bbox or bbox.contains_point(cord)
 
 
 def find_xy_fields(df: pd.DataFrame) -> [str, str]:
@@ -89,7 +118,16 @@ def find_xy_fields(df: pd.DataFrame) -> [str, str]:
     return x, y
 
 
-def _map_result(map_result, gdf, popup, color, tooltip):
+def __map_result(map_result, gdf, popup, color, tooltip):
+    """
+
+    :param map_result:
+    :param gdf:
+    :param popup:
+    :param color:
+    :param tooltip:
+    :return:
+    """
     if map_result:
         m = gdf.explore(popup=popup, color=color, tooltip=tooltip)
         outfp = os.path.join(os.path.dirname(__file__), "map.html")
@@ -100,7 +138,7 @@ def _map_result(map_result, gdf, popup, color, tooltip):
 def load_csvs(path):
     """
     Loads all .csv files in the provided folder directory as pandas
-    DataFrames
+    DataFrames.
 
     :param path: path to folder directory to iterate over
     :return: {<str filename>: <pandas DataFrame>,...}
@@ -133,10 +171,38 @@ def get_hydat_station_data(period=None, bbox=None):
 
     :param period:
     :param bbox:
-    :return: {"hydat": <pandas DataFrame>}
+    :return: {"hydat": station_dict} where
+        station_dict is a dict of {<str station number>: table_data} and
+        table_data is a dict of {<str table name>: <pandas DataFrame>}
     """
-    def in_bbox_hydat(row):
-        return in_bbox(bbox, {'lon': row['LONGITUDE'], 'lat': row['LATITUDE']})
+    def get_period_sql_query(fields):
+        fields = [field[0] for field in fields]
+        query = " WHERE "
+
+        if any(period):
+            y = ""
+            if "DATE" in fields:
+                x = "DATE"
+            elif "YEAR" in fields:
+                x = "YEAR"
+            else:
+                x, y = "YEAR_FROM", "YEAR_TO"
+
+            if all(period):
+                query += f"('{x}' BETWEEN '{period[0]}' AND '{period[1]}')"
+                if y:
+                    query += f" OR ('{y}' BETWEEN '{period[0]}' AND '{period[1]}')"
+            elif not period[0] and period[1]:
+                query += f"('{x}' <= '{period[1]}')"
+                if y:
+                    query += f" OR ('{y}' <= '{period[1]}')"
+            else:
+                query += f"('{x}' >= '{period[0]}')"
+                if y:
+                    query += f" OR ('{y}' >= '{period[0]}')"
+        else:
+            return ""
+        return query
 
     timer.start()
 
@@ -144,36 +210,41 @@ def get_hydat_station_data(period=None, bbox=None):
     conn = sqlite3.connect(hydat_path)
 
     table_list = pd.read_sql_query("SELECT * FROM sqlite_master where type= 'table'", conn)
-    station_data = pd.read_sql_query("SELECT * FROM 'STATIONS' WHERE PROV_TERR_STATE_LOC == 'ON'", conn)
+    station_list = pd.read_sql_query("SELECT * FROM 'STATIONS'" + BBox.sql_query(bbox), conn)
+    station_dict = {}
 
-    station_data = station_data[station_data.apply(in_bbox_hydat, axis=1)]
-    station_data[hydat_join_f] = station_data[hydat_join_f].astype('|S')
-
-    n = 0
+    for i, row in station_list.iterrows():
+        st_number = row.pop(hydat_join_f)
+        station_dict[st_number] = {'Info': row}
 
     print("Joining station number identified data from other tables")
+
+    # Iterate through every other table in the sqlite3 database
     for tbl_name in table_list['tbl_name'][1:]:
-        table_data = pd.read_sql_query("SELECT * FROM %s" % tbl_name, conn)
+
+        curs = conn.execute('select * from %s' % tbl_name)
+        date_query = get_period_sql_query(curs.description)
+
+        # Read the contents of the table
+        table_data = pd.read_sql_query("SELECT * FROM %s" % tbl_name + BBox.sql_query(bbox) + date_query, conn)
+
+        # Check if the table contains data that can be linked to a station
         if hydat_join_f in table_data.columns.values:
-            table_data[hydat_join_f] = table_data[hydat_join_f].astype('|S')
+            grouped = table_data.groupby(by=hydat_join_f)
 
-            # join the data from this table to the station table
-            # mark duplicate fields using '_' so they can be removed
-            station_data = station_data.join(table_data, on=[hydat_join_f], lsuffix=str(n)+"_")
-            n += 1
-
-    # change the name of the first station number column to retain it
-    station_data.rename(columns={"STATION_NUMBER0_": hydat_join_f}, inplace=True)
-
-    # create a list of fields makred as duplicates and remove them
-    to_remove = list(station_data.columns[station_data.columns.str.startswith("STATION_NUMBER")])
-    station_data.drop(columns=to_remove, inplace=True)
+            for st_num, group in grouped:
+                group.pop(hydat_join_f)
+                try:
+                    station_dict[st_num][tbl_name] = group
+                except KeyError:
+                    station_dict[st_num] = {}
+                    station_dict[st_num][tbl_name] = group
 
     timer.stop()
     conn.close()        # close the sqlite3 connection
 
     # return the data
-    return {"hydat": station_data}
+    return {"hydat": station_dict}
 
 
 def get_pwqmn_station_info(period=None, bbox=None, var=()):
