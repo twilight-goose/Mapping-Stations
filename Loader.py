@@ -6,7 +6,7 @@ import sqlite3
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
-#import geodatasets
+# import geodatasets
 
 
 # ============================================================================= ##
@@ -24,6 +24,18 @@ class Timer:
     def stop(self):
         d = datetime.now() - self.s_time
         print("That took {0} seconds and {1} microseconds\n".format(d.seconds, d.microseconds))
+
+
+class BBox:
+    def __init__(self, min_lon=None, max_lon=None, min_lat=None, max_lat=None, *bounds):
+        if len(bounds) == 4:
+            min_lat, max_lat, min_lon, max_lon = bounds
+        self.bounds = {'min_lon': min_lon, 'max_lon': max_lon,
+                       'min_lat': min_lat, 'max_lat': max_lat}
+
+    def __contains__(self, cord):
+        return self.bounds['min_lat'] <= cord['lat'] <= self.bounds['max_lat'] and \
+               self.bounds['min_lon'] <= cord['lon'] <= self.bounds['max_lon']
 
 
 # ============================================================================= ##
@@ -44,7 +56,7 @@ timer = Timer()
 # ============================================================================= ##
 
 
-def in_bbox(bbox: dict, cord: dict) -> bool:
+def in_bbox(bbox: BBox or None, cord: dict) -> bool:
     """
     Evaluates if a coordinate falls within a bounding box
 
@@ -52,9 +64,29 @@ def in_bbox(bbox: dict, cord: dict) -> bool:
     :param cord: the (x, y) coordinate to check
     :return: True if cord is within or on bbox; False otherwise
     """
-    return (not bbox or
-            (bbox['min_lat'] <= cord['lat'] <= bbox['max_lat'] and
-             bbox['min_lon'] <= cord['lon'] <= bbox['max_lon']))
+    return not bbox or cord in bbox
+
+
+def find_xy_fields(df: pd.DataFrame) -> [str, str]:
+    """
+    Searches a pandas DataFrame for fields to use as longitudinal
+    and latitudinal values
+
+    :param df: the pandas DataFrame to search
+    :return: [<X field name> or "Failed", <Y field name> or "Failed"]
+    """
+    def _(i, field) -> str:
+        return field if i == "" else "Failed"
+
+    x, y = "", ""
+    for field in df.columns.values:
+        if df[field].dtype == float:
+            if field.upper() in ["LON", "LONG", "LONGITUDE", "X"]:
+                x = _(x, field)
+            elif field.upper() in ["LAT", "LATITUDE", "Y"]:
+                y = _(y, field)
+
+    return x, y
 
 
 def _map_result(map_result, gdf, popup, color, tooltip):
@@ -92,6 +124,7 @@ def get_monday_files():
 
     :return: {<str filename>: <pandas DataFrame>}
     """
+    print("Loading monday.com file gallery")
     return load_csvs(monday_path)
 
 
@@ -100,8 +133,11 @@ def get_hydat_station_data(period=None, bbox=None):
 
     :param period:
     :param bbox:
-    :return:
+    :return: {"hydat": <pandas DataFrame>}
     """
+    def in_bbox_hydat(row):
+        return in_bbox(bbox, {'lon': row['LONGITUDE'], 'lat': row['LATITUDE']})
+
     timer.start()
 
     print("Creating a connection to '{0}'".format(hydat_path))
@@ -110,6 +146,7 @@ def get_hydat_station_data(period=None, bbox=None):
     table_list = pd.read_sql_query("SELECT * FROM sqlite_master where type= 'table'", conn)
     station_data = pd.read_sql_query("SELECT * FROM 'STATIONS' WHERE PROV_TERR_STATE_LOC == 'ON'", conn)
 
+    station_data = station_data[station_data.apply(in_bbox_hydat, axis=1)]
     station_data[hydat_join_f] = station_data[hydat_join_f].astype('|S')
 
     n = 0
@@ -119,98 +156,102 @@ def get_hydat_station_data(period=None, bbox=None):
         table_data = pd.read_sql_query("SELECT * FROM %s" % tbl_name, conn)
         if hydat_join_f in table_data.columns.values:
             table_data[hydat_join_f] = table_data[hydat_join_f].astype('|S')
-            station_data = station_data.join(table_data, on=[hydat_join_f], lsuffix=str(n))
+
+            # join the data from this table to the station table
+            # mark duplicate fields using '_' so they can be removed
+            station_data = station_data.join(table_data, on=[hydat_join_f], lsuffix=str(n)+"_")
             n += 1
 
+    # change the name of the first station number column to retain it
+    station_data.rename(columns={"STATION_NUMBER0_": hydat_join_f}, inplace=True)
+
+    # create a list of fields makred as duplicates and remove them
+    to_remove = list(station_data.columns[station_data.columns.str.startswith("STATION_NUMBER")])
+    station_data.drop(columns=to_remove, inplace=True)
+
     timer.stop()
-    conn.close()
+    conn.close()        # close the sqlite3 connection
+
+    # return the data
     return {"hydat": station_data}
 
 
-def get_all_pwqmn_data(query: str) -> pd.DataFrame:
+def get_pwqmn_station_info(period=None, bbox=None, var=()):
     """
-    This function retrieves dated water information of a subset of
-    stations based on 'query'
-    :param query:
-    :return:
-    """
-    timer.start()
-    print("Loading PWQMN station data")
+    Reads from the cleaned PWQMN data using pandas
+        - Name
+        - ID
+        - Longitude
+        - Latitude
+        - Available Data
 
-    df = pd.read_csv(pwqmn_path,
-                     usecols=['MonitoringLocationName', 'ActivityStartDate', 'SampleCollectionEquipmentName',
-                              'CharacteristicName', 'ResultSampleFraction', 'ResultValue', 'ResultUnit',
-                              'ResultValueType', 'ResultDetectionCondition',
-                              'ResultDetectionQuantitationLimitMeasure',
-                              'ResultDetectionQuantitationLimitUnit'],
+    :param period: Time period of interest
+    :param bbox: <BBox> representing area of interest
+    :param var: Variables of interest
+
+    :return: {"pwqmn": list of ((<Name>, <Location ID>, <Longitude>, <Latitude>, <Variables>),
+                                <pandas DataFrame>)}
+    """
+    def filter_pwqmn(row):
+        """
+        Filters a row of PWQMN data
+
+        :param row:
+        :return: True if the record satisfies 3 conditions, False otherwise
+        Conditions:
+            1. Contains one of the variables of interest
+            2. Is within the desired bounding box
+            3. Is within the desired period
+        """
+        return (in_bbox(bbox, {'lat': row['Latitude'], 'lon': row['Longitude']})) and \
+               (not period or
+                   (not period[0] or period[0] <= row['Date']) and
+                   (not period[1] or period[1] >= row['Date'])) and \
+               (not var or row['Variable'] in var)
+
+    timer.start()
+    print("Loading PWQMN station info")
+
+    # Load PWQMN data as a DataFrame
+    df = pd.read_csv(pwqmn_path, usecols=['MonitoringLocationName',
+                                          'MonitoringLocationID',
+                                          'MonitoringLocationLongitude',
+                                          'MonitoringLocationLatitude',
+                                          'ActivityStartDate',
+                                          'CharacteristicName',
+                                          'SampleCollectionEquipmentName',
+                                          'ResultSampleFraction',
+                                          'ResultValue',
+                                          'ResultUnit',
+                                          'ResultValueType',
+                                          'ResultDetectionCondition',
+                                          'ResultDetectionQuantitationLimitMeasure',
+                                          'ResultDetectionQuantitationLimitUnit'],
                      dtype={'ResultSampleFraction': str,
                             'ResultValue': float,
                             'ResultUnit': str,
                             'ResultDetectionCondition': str,
                             'ResultDetectionQuantitationLimitMeasure': str,
                             'ResultDetectionQuantitationLimitUnit': str})
-    df.query(query, inplace=True)
 
-    timer.stop()
-    return df
+    # Rename DataFrame columns for ease of manipulation
+    df.rename(columns={'MonitoringLocationName': 'Name',
+                       'MonitoringLocationID': "Location ID",
+                       'MonitoringLocationLongitude': 'Longitude',
+                       'MonitoringLocationLatitude': 'Latitude',
+                       'ActivityStartDate': 'Date',
+                       'CharacteristicName': 'Variable'}, inplace=True)
 
+    # Filter the DataFrame based on the contents of each row
+    df = df.loc[df.apply(filter_pwqmn, axis=1)]
 
-def get_pwqmn_station_info(period=None, bbox=None, var=()):
-    """
-    This function reads from the cleaned PWQMN data using pd, and
-    returns the following information about the set of stations
-    that satisfy requirements passed in kwargs (or all if nothing is
-    passed):
-        - Name
-        - ID
-        - Longitude
-        - Latitude
-        - Start Date
-        - Available Data
+    # Group the data based on common location
+    group_list = df.groupby(by=['Name', 'Location ID', 'Longitude', 'Latitude']).__iter__()
 
-    :param period:
-    :param bbox:
-    :param var:
-
-    :return: {"pwqmn": <pandas DataFrame>}
-    """
-    timer.start()
-    print("Loading PWQMN station info")
-
-    # make it accept kwargs as parameters
-    # loads everything, then sends back a dataframe of just stations that pass the critera
-
-    df = pd.read_csv(pwqmn_path, usecols=['MonitoringLocationName',
-                                          'MonitoringLocationID',
-                                          'MonitoringLocationLatitude',
-                                          'MonitoringLocationLongitude',
-                                          'ActivityStartDate',
-                                          'CharacteristicName'],
-                     parse_dates=['ActivityStartDate'])
-
-    grouped = df.groupby(by=['MonitoringLocationName',
-                             'MonitoringLocationID',
-                             'MonitoringLocationLatitude',
-                             'MonitoringLocationLongitude'])
-
-    station_data = []
-
-    # iterate through sequences of (group name, subset object (df)]
-    for name, subset_df in grouped:
-        observation_dates = pd.to_datetime(subset_df['ActivityStartDate'])
-        variables = subset_df['CharacteristicName']
-
-        if in_bbox(bbox, {'lat': name[2], 'lon': name[3]}) and \
-                (not var or any([x in variables for x in var])):
-            station_data.append(name + (observation_dates.min(), variables))
-
-    station_data = pd.DataFrame(station_data,
-                                columns=['Name', 'ID', 'Latitude',
-                                         'Longitude', 'Start Date', 'Variables'])
-
+    # Usually takes around 80 seconds
     timer.stop()
 
-    return {"pwqmn": station_data}
+    return {"pwqmn": group_list}
 
 
 def load_all() -> {str: pd.DataFrame}:
@@ -222,28 +263,6 @@ def load_all() -> {str: pd.DataFrame}:
     return {**get_monday_files(),
             **get_hydat_station_data(),
             **get_pwqmn_station_info()}
-
-
-def find_xy_fields(df: pd.DataFrame) -> [str, str]:
-    """
-    Searches a pandas DataFrame for fields to use as longitudinal
-    and latitudinal values
-
-    :param df: the pandas DataFrame to search
-    :return: [<X field name> or "Failed", <Y field name> or "Failed"]
-    """
-    def _(i, field) -> str:
-        return field if i == "" else "Failed"
-
-    x, y = "", ""
-    for field in df.columns.values:
-        if df[field].dtype == float:
-            if field.upper() in ["LON", "LONG", "LONGITUDE", "X"]:
-                x = _(x, field)
-            elif field.upper() in ["LAT", "LATITUDE", "Y"]:
-                y = _(y, field)
-
-    return x, y
 
 
 def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFrame:
@@ -263,7 +282,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFr
     else:
         x, y = x_field, y_field
 
-    gdf = -1
+    gdf = -1        # default output value, indicates if an error occurred
 
     if x == "Failed" or y == "Failed" or x == "" or y == "":
         print("X/Y field not found. Operation Failed")

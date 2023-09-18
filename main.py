@@ -2,6 +2,7 @@ import sys
 import Loader
 import matplotlib.pyplot as plt
 
+
 def map_all(data):
     point_data = {}
 
@@ -13,22 +14,12 @@ def map_all(data):
     Loader.map_gdfs(point_data)
 
 
-def create_bbox(*bbox_param):
-    bbox = {}
-    if bbox_param:
-        min_lat, max_lat, min_lon, max_lon = bbox_param
-        bbox = {'min_lat': min_lat, 'max_lat': max_lat,
-                'min_lon': min_lon, 'max_lon': max_lon}
-    return bbox
-
-
 def main():
     timer = Loader.Timer()
-    data = Loader.get_monday_files()
-    for key in data.keys():
-        Loader.plot_df(data[key])
 
-    # Loader.get_pwqmn_station_info(bbox=create_bbox(43, 44, -81, -78))
+    # data = Loader.get_hydat_station_data()
+    Loader.get_pwqmn_station_info(bbox=Loader.BBox(-81, -78, 43, 44),
+                                  period=["2001-01-20", "2003-01-20"])
 
     timer.stop()
 
