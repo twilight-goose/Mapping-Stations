@@ -243,6 +243,10 @@ def get_hydat_station_data(period=None, bbox=None):
     timer.stop()
     conn.close()        # close the sqlite3 connection
 
+    print(type(station_dict))
+    print(type(station_dict[list(station_dict.keys())[10]]))
+    print(type(station_dict[list(station_dict.keys())[10]][list(station_dict[list(station_dict.keys())[10]].keys())[0]]))
+
     # return the data
     return {"hydat": station_dict}
 
