@@ -17,7 +17,7 @@ def map_all(data):
 def main():
     timer = Loader.Timer()
 
-    data = Loader.load_all(period=["2010-01-12", None], bbox=Loader.BBox(-80 ,-75, 40, 43))
+    data = Loader.load_all(period=[None, "2010-01-12"], bbox=Loader.BBox(-80, -75, 40, 43))
     # Loader.get_pwqmn_station_info(bbox=Loader.BBox(-81, -78, 43, 44),
     #                               period=["2001-01-20", "2003-01-20"])
 
