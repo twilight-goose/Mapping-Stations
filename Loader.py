@@ -6,7 +6,7 @@ import sqlite3
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
-# import geodatasets
+import contextily as cx
 
 
 # ============================================================================= ##
@@ -32,6 +32,10 @@ class Timer:
 class BBox:
     """
     Class that represents a longitude/latitude bound
+
+    Mainly here to provide a framework for bounding box objects and
+    provide a means of adding additional functionality when desired
+    such as in sql_query
     """
     def __init__(self, min_lon=None, max_lon=None, min_lat=None, max_lat=None, *bounds):
         """
@@ -57,14 +61,19 @@ class BBox:
                self.bounds['min_lon'] <= cord['lon'] <= self.bounds['max_lon']
 
     def sql_query(self):
+        """
+        Translates the bounding box's bounds into an SQL query
+        :return:
+        """
+        # For calls from functions where no boundary is declared
         if self is None:
             return ""
         else:
             min_lon, max_lon = self.bounds['min_lon'], self.bounds['max_lon']
             min_lat, max_lat = self.bounds['min_lat'], self.bounds['max_lat']
 
-            return (" WHERE {0} <= 'LONGITUDE' AND {1} >= 'LONGITUDE' AND ".format(min_lon, max_lon) +
-                    "{0} <= 'LATITUDE' AND {1} >= 'LATITUDE'".format(min_lat, max_lat))
+            return (f" WHERE {min_lon} <= 'LONGITUDE' AND {max_lon} >= 'LONGITUDE' AND " +
+                    f"{min_lat} <= 'LATITUDE' AND {max_lat} >= 'LATITUDE'")
 
 
 # ============================================================================= ##
@@ -72,10 +81,11 @@ class BBox:
 # ============================================================================= ##
 
 
-hydat_path = os.path.join(os.path.dirname(__file__), "Hydat.sqlite3\\Hydat.sqlite3")
-pwqmn_path = os.path.join(os.path.dirname(__file__),
+file_base_path = os.path.dirname(__file__)
+hydat_path = os.path.join(file_base_path, "Hydat.sqlite3\\Hydat.sqlite3")
+pwqmn_path = os.path.join(file_base_path,
                           "PWQMN_cleaned\\Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
-monday_path = os.path.join(os.path.dirname(__file__), "MondayFileGallery")
+monday_path = os.path.join(file_base_path, "MondayFileGallery")
 hydat_join_f = "STATION_NUMBER"
 timer = Timer()
 
@@ -141,7 +151,7 @@ def load_csvs(path):
     DataFrames.
 
     :param path: path to folder directory to iterate over
-    :return: {<str filename>: <pandas DataFrame>,...}
+    :return: {<str filename>: <pandas DataFrame>,  ...}
     """
     timer.start()
 
@@ -160,7 +170,7 @@ def get_monday_files():
     Wrapper function that calls load_csvs to load .csv files
     downloaded from the Monday.com file gallery
 
-    :return: {<str filename>: <pandas DataFrame>}
+    :return: {<str filename>: <pandas DataFrame>, ...}
     """
     print("Loading monday.com file gallery")
     return load_csvs(monday_path)
@@ -172,8 +182,8 @@ def get_hydat_station_data(period=None, bbox=None):
     :param period:
     :param bbox:
     :return: {"hydat": station_dict} where
-        station_dict is a dict of {<str station number>: table_data} and
-        table_data is a dict of {<str table name>: <pandas DataFrame>}
+        station_dict is a dict of <str station number>: table_data> and
+        table_data is a dict of <str table name>: <pandas DataFrame>
     """
     def get_period_sql_query(fields):
         fields = [field[0] for field in fields]
@@ -364,7 +374,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFr
     else:
         try:
             gdf = gpd.GeoDataFrame(
-                df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=4326)
+                df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs='epsg:3160')
 
             print("X/Y fields found. Dataframe converted to geopandas point array")
         except KeyError:
@@ -404,26 +414,39 @@ def map_gdfs(gdfs_to_map):
     webbrowser.open(outpath)
 
 
-def plot_gdf(gdf: gpd.GeoDataFrame, **kwargs):
+def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, **kwargs):
     """
     Plot a geopandas GeoDataFrame on a matplotlib plot
 
     :param gdf: the geopandas GeoDataFrame to be plotted
+    :param name:
+    :param save:
     :param kwargs:
-    :return:
+    :return: True if the mapping was successful, False otherwise
     """
-    gdf.plot()
-    plt.show()
+    if type(gdf) is gpd.GeoDataFrame:
+        gdf.plot()
+        if save:
+            plt.savefig(os.path.join(file_base_path, name + "_plot.png"))
+            print(f"Plot successfully saved to {name}_plot.png\n")
+        plt.show()
+    else:
+        print(name, "could not be plotted")
 
 
-def plot_df(df: pd.DataFrame):
+def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):
     """
     Plot a pandas DataFrame as point data, if possible
 
     :param df: Pandas DataFrame to be plotted
+    :param save:
+    :param name:
     :return:
     """
-    plot_gdf(point_gdf_from_df(df))
+    if type(df) != pd.DataFrame:
+        raise TypeError("Parameter passed as 'df' is not a DataFrame'")
+
+    plot_gdf(point_gdf_from_df(df), save=save, name=name, **kwargs)
 
 
 def query_df(df, query):
