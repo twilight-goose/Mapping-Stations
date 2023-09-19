@@ -204,6 +204,11 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str
             tables that the station number appears in
     """
     def get_period_sql_query(fields) -> str:
+        """
+        I don't want to understand this code, so commenting it is a future problem
+        :param fields:
+        :return:
+        """
         fields = [field[0] for field in fields]
         query = ""
         if period is not None and any(period):
