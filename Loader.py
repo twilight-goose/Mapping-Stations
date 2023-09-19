@@ -7,6 +7,7 @@ import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import contextily as cx
+import geodatasets
 
 
 # ============================================================================= ##
@@ -43,7 +44,7 @@ class BBox:
         of valid argument sets:
         1. None; Creates an empty BBox Object
         2. 4 keyword arguments in any order;
-        3. 4 arbitrary positional arguments in the following order:
+        3. 4 positional arguments in the following order:
             min_lon, max_lon, min_lat, max_lat
         """
         if len(bounds) == 4:
@@ -53,17 +54,22 @@ class BBox:
 
     def contains_point(self, cord: dict) -> bool:
         """
+        Determines if the bounding box of self contains cord
+
         :param cord: {'lon': <float>, 'lat': <float>}
                      Longitude/Latitude coordinate of the point.
+
         :return: True if cord lies within or on the BBox; False otherwise
         """
-        return self.bounds['min_lat'] <= cord['lat'] <= self.bounds['max_lat'] and \
-               self.bounds['min_lon'] <= cord['lon'] <= self.bounds['max_lon']
+        return self is None or \
+            self.bounds['min_lat'] <= cord['lat'] <= self.bounds['max_lat'] and \
+            self.bounds['min_lon'] <= cord['lon'] <= self.bounds['max_lon']
 
-    def sql_query(self):
+    def sql_query(self) -> str:
         """
-        Translates the bounding box's bounds into an SQL query
-        :return:
+        Translates the bounding box into a SQL query string
+
+        :return: SQL query string starting with "WHERE"
         """
         # For calls from functions where no boundary is declared
         if self is None:
@@ -95,27 +101,21 @@ timer = Timer()
 # ============================================================================= ##
 
 
-def in_bbox(bbox: BBox or None, cord: dict) -> bool:
-    """
-    Evaluates if a coordinate falls within a bounding box
-
-    :param bbox: the bounding box
-    :param cord: the (x, y) coordinate to check
-    :return: True if cord is within or on bbox; False otherwise
-    """
-    return not bbox or bbox.contains_point(cord)
-
-
 def find_xy_fields(df: pd.DataFrame) -> [str, str]:
     """
-    Searches a pandas DataFrame for fields to use as longitudinal
-    and latitudinal values
+    Searches a pandas DataFrame for specific field names to use as
+    longitudinal and latitudinal values.
+
+    If more than 1 match is found for X or Y, "Failed" will be
+    returned. If no match is found for X or Y, an empty string
+    will be returned.
 
     :param df: the pandas DataFrame to search
+
     :return: [<X field name> or "Failed", <Y field name> or "Failed"]
     """
-    def _(i, field) -> str:
-        return field if i == "" else "Failed"
+    def _(i, _field) -> str:  # when I removed this the function stopped working, so it stays
+        return _field if i == "" else "Failed"
 
     x, y = "", ""
     for field in df.columns.values:
@@ -145,13 +145,15 @@ def __map_result(map_result, gdf, popup, color, tooltip):
         webbrowser.open(outfp)
 
 
-def load_csvs(path):
+def load_csvs(path: str) -> {str: pd.DataFrame}:
     """
     Loads all .csv files in the provided folder directory as pandas
     DataFrames.
 
     :param path: path to folder directory to iterate over
-    :return: {<str filename>: <pandas DataFrame>,  ...}
+
+    :return: dict of length n where n is the number of .csv files in path
+                {<str filename>: <pandas DataFrame>,  ...}
     """
     timer.start()
 
@@ -165,27 +167,43 @@ def load_csvs(path):
     return data_dict
 
 
-def get_monday_files():
+def get_monday_files() -> {str: pd.DataFrame}:
     """
     Wrapper function that calls load_csvs to load .csv files
     downloaded from the Monday.com file gallery
 
-    :return: {<str filename>: <pandas DataFrame>, ...}
+    :return: dict of length n where n is the number of .csv files in
+             the 'monday_path' directory
+            {<str filename>: <pandas DataFrame>, ...}
     """
     print("Loading monday.com file gallery")
     return load_csvs(monday_path)
 
 
-def get_hydat_station_data(period=None, bbox=None):
+def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str: pd.DataFrame}}}:
     """
+    Retrieves HYDAT station data in the period and bbox of interest
 
-    :param period:
-    :param bbox:
+    :param period: Tuple of length 2 containing (<start date>, <end date>)
+                   Dates can be either <str> in format "YYYY-MM-DD" or
+                   None; If None, all dates after/before the start/end
+                   date is retrieved
+    :param bbox: BBox object declaring area of interest or None
+    :param var:
+
     :return: {"hydat": station_dict} where
-        station_dict is a dict of <str station number>: table_data> and
-        table_data is a dict of <str table name>: <pandas DataFrame>
+
+        station_dict = {<str station number>: table_data>, ...}
+
+            station_dict is a dict of length n where n is the number of
+            unique station numbers in the HYDAT sqlite3 database.
+
+        table_data = {<str table name>: <pandas DataFrame> pairs, ...}
+
+            table_data is a dict of length n where n is the number of
+            tables that the station number appears in
     """
-    def get_period_sql_query(fields):
+    def get_period_sql_query(fields) -> str:
         fields = [field[0] for field in fields]
         query = " WHERE "
 
@@ -261,7 +279,7 @@ def get_hydat_station_data(period=None, bbox=None):
     return {"hydat": station_dict}
 
 
-def get_pwqmn_station_info(period=None, bbox=None, var=()):
+def get_pwqmn_station_info(period=None, bbox=None, var=()) -> {str: list}:
     """
     Reads from the cleaned PWQMN data using pandas
         - Name
@@ -274,8 +292,13 @@ def get_pwqmn_station_info(period=None, bbox=None, var=()):
     :param bbox: <BBox> representing area of interest
     :param var: Variables of interest
 
-    :return: {"pwqmn": list of ((<Name>, <Location ID>, <Longitude>, <Latitude>, <Variables>),
-                                <pandas DataFrame>)}
+    :return: {"pwqmn": list of (station_info, station_data) pairs} where
+
+                station_info is a tuple length 6 of strings in the
+                following order:
+                    (<Name>, <Location ID>, <Longitude>, <Latitude>, <Variables>)
+
+                station_data is a <pandas DataFrame> of valid data entries
     """
     def filter_pwqmn(row):
         """
@@ -288,7 +311,7 @@ def get_pwqmn_station_info(period=None, bbox=None, var=()):
             2. Is within the desired bounding box
             3. Is within the desired period
         """
-        return (in_bbox(bbox, {'lat': row['Latitude'], 'lon': row['Longitude']})) and \
+        return (BBox.contains_point(bbox, {'lat': row['Latitude'], 'lon': row['Longitude']})) and \
                (not period or
                    (not period[0] or period[0] <= row['Date']) and
                    (not period[1] or period[1] >= row['Date'])) and \
@@ -355,9 +378,13 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFr
     Convert a pandas DataFrame to a geopandas GeoDataFrame with point
     geometry, if possible
 
-    :param df: pandas DataFrame
-    :param x_field: field to use as longitude
-    :param y_field: field to use as latitude
+    If x and y fields are not provided, the function will search the
+    DataFrame for fields to use with find_xy_fields()
+
+    :param df: pandas DataFrame to convert
+    :param x_field: field to use as longitude (optional)
+    :param y_field: field to use as latitude (optional)
+
     :return gdf: the converted gdf, or -1 if the conversion failed
     """
     timer.start()
@@ -374,8 +401,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFr
     else:
         try:
             gdf = gpd.GeoDataFrame(
-                df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs='epsg:3160')
-
+                df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=4326)
             print("X/Y fields found. Dataframe converted to geopandas point array")
         except KeyError:
             print("X/Y field not found. Operation Failed")
@@ -419,17 +445,19 @@ def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, **kwargs):
     Plot a geopandas GeoDataFrame on a matplotlib plot
 
     :param gdf: the geopandas GeoDataFrame to be plotted
-    :param name:
-    :param save:
+    :param name: name to save the plot to
+    :param save: True or False; whether to save the plot to disk
     :param kwargs:
-    :return: True if the mapping was successful, False otherwise
+    :return: None
     """
     if type(gdf) is gpd.GeoDataFrame:
-        gdf.plot()
+
+        ax = gdf.plot(figsize=(10, 6), aspect=2)
+
         if save:
             plt.savefig(os.path.join(file_base_path, name + "_plot.png"))
             print(f"Plot successfully saved to {name}_plot.png\n")
-        plt.show()
+        plt.clf()
     else:
         print(name, "could not be plotted")
 
@@ -439,15 +467,12 @@ def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):
     Plot a pandas DataFrame as point data, if possible
 
     :param df: Pandas DataFrame to be plotted
-    :param save:
-    :param name:
-    :return:
+    :param save: True or False; whether to save the plot to disk
+    :param name: name to save the plot to
+    :return: None
+    :raises TypeError: if df is not a Pandas DataFrame
     """
     if type(df) != pd.DataFrame:
         raise TypeError("Parameter passed as 'df' is not a DataFrame'")
 
     plot_gdf(point_gdf_from_df(df), save=save, name=name, **kwargs)
-
-
-def query_df(df, query):
-    return df.query(query)
