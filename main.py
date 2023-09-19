@@ -17,9 +17,7 @@ def map_all(data):
 def main():
     timer = Loader.Timer()
 
-    # data = Loader.get_hydat_station_data(period=["2001-01-20", "2003-01-20"])
-    data = Loader.get_monday_files()
-    i = [Loader.plot_df(data[x], save=True, name=x) for x in data.keys()]
+    data = Loader.load_all(period=["2010-01-12", None], bbox=Loader.BBox(-80 ,-75, 40, 43))
     # Loader.get_pwqmn_station_info(bbox=Loader.BBox(-81, -78, 43, 44),
     #                               period=["2001-01-20", "2003-01-20"])
 

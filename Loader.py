@@ -78,7 +78,7 @@ class BBox:
             min_lon, max_lon = self.bounds['min_lon'], self.bounds['max_lon']
             min_lat, max_lat = self.bounds['min_lat'], self.bounds['max_lat']
 
-            return (f" WHERE {min_lon} <= 'LONGITUDE' AND {max_lon} >= 'LONGITUDE' AND " +
+            return (f"{min_lon} <= 'LONGITUDE' AND {max_lon} >= 'LONGITUDE' AND " +
                     f"{min_lat} <= 'LATITUDE' AND {max_lat} >= 'LATITUDE'")
 
 
@@ -205,9 +205,8 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str
     """
     def get_period_sql_query(fields) -> str:
         fields = [field[0] for field in fields]
-        query = " WHERE "
-
-        if any(period):
+        query = ""
+        if period is not None and any(period):
             y = ""
             if "DATE" in fields:
                 x = "DATE"
@@ -228,17 +227,22 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str
                 query += f"('{x}' >= '{period[0]}')"
                 if y:
                     query += f" OR ('{y}' >= '{period[0]}')"
-        else:
-            return ""
         return query
+
+    if period is not None and len(period) == 1:
+        raise TypeError("Period expected 2 values, found", len(period))
 
     timer.start()
 
     print("Creating a connection to '{0}'".format(hydat_path))
     conn = sqlite3.connect(hydat_path)
 
+    bbox_query = BBox.sql_query(bbox)
+    if bbox_query:
+        bbox_query = " WHERE " + bbox_query
+
     table_list = pd.read_sql_query("SELECT * FROM sqlite_master where type= 'table'", conn)
-    station_list = pd.read_sql_query("SELECT * FROM 'STATIONS'" + BBox.sql_query(bbox), conn)
+    station_list = pd.read_sql_query("SELECT * FROM 'STATIONS'" + bbox_query, conn)
     station_dict = {}
 
     for i, row in station_list.iterrows():
@@ -250,11 +254,19 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str
     # Iterate through every other table in the sqlite3 database
     for tbl_name in table_list['tbl_name'][1:]:
 
+        # Read the field names of the table and generate a sql query using it
         curs = conn.execute('select * from %s' % tbl_name)
         date_query = get_period_sql_query(curs.description)
 
+        if bbox_query:
+            query = bbox_query + " AND " + date_query
+        elif date_query:
+            query = " WHERE " + date_query
+        else:
+            query = ""
+
         # Read the contents of the table
-        table_data = pd.read_sql_query("SELECT * FROM %s" % tbl_name + BBox.sql_query(bbox) + date_query, conn)
+        table_data = pd.read_sql_query("SELECT * FROM %s" % tbl_name + query, conn)
 
         # Check if the table contains data that can be linked to a station
         if hydat_join_f in table_data.columns.values:
@@ -310,12 +322,17 @@ def get_pwqmn_station_info(period=None, bbox=None, var=()) -> {str: list}:
             1. Contains one of the variables of interest
             2. Is within the desired bounding box
             3. Is within the desired period
+        :raises IndexError:
+            Raises an IndexError if period has a length of 1
         """
         return (BBox.contains_point(bbox, {'lat': row['Latitude'], 'lon': row['Longitude']})) and \
                (not period or
                    (not period[0] or period[0] <= row['Date']) and
                    (not period[1] or period[1] >= row['Date'])) and \
                (not var or row['Variable'] in var)
+
+    if period is not None and len(period) == 1:
+        raise TypeError("Period needs a start and end date. Expected 2 values, only found 1")
 
     timer.start()
     print("Loading PWQMN station info")
@@ -362,15 +379,15 @@ def get_pwqmn_station_info(period=None, bbox=None, var=()) -> {str: list}:
     return {"pwqmn": group_list}
 
 
-def load_all() -> {str: pd.DataFrame}:
+def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
     """
     Loads all data as pandas DataFrames
 
     :return: dict of <dataset name> : pandas DataFrame
     """
     return {**get_monday_files(),
-            **get_hydat_station_data(),
-            **get_pwqmn_station_info()}
+            **get_hydat_station_data(period, bbox),
+            **get_pwqmn_station_info(period, bbox)}
 
 
 def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFrame:
