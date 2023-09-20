@@ -87,8 +87,36 @@ psycopg2   : None
 pyarrow    : None
 rtree      : 1.0.1
 ```
-
-If you have a PROJ version less than 9.2.0 and/or a pyproj version less than 3.5.0, they need to be updated
+Geopandas version 0.14.0 should install up-to-date releases of PROG and PYPROJ, but if you have a PROJ version less than 9.2.0 and/or a pyproj version less than 3.5.0, they need to be updated
 
 ### 3b: Updating proj and pyproj
+To update proj and pyproj, run the following commands in Anaconda Prompt. Pyproj version 3.5.0 works with
+a release of PROJ that implemented a crucial bugfix (reported [here](https://github.com/geopandas/geopandas/issues/2874)).
 
+```commandline
+conda uninstall -n fall2023 pyproj
+conda install -n fall2023 pyproj=3.5.0
+```
+
+Once you have pyproj version 3.5.0 installed, you should have all required dependencies.
+Next, you need to configure project structure and data paths.
+
+### 4. Configuring Project Structure and Data Paths
+```commandline
+<project_folder>
+    | data
+        | Hydat
+            |--hydat.sqlite3
+        | MondayFileGallery
+            |--<file 1>.csv
+            ...
+            |--<file n>.csv
+        | PWQMN_cleaned
+            |--Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv
+    | src
+    | plots
+    | maps
+```
+Data loading functions within these python files assumes the above project structure. To load
+data/files from directories or files with different names, data file paths can be modified near the
+top of "/src/load_data.py". Anything beyond changing file and folder names is **not recommended**.
