@@ -12,9 +12,11 @@ def main():
     # Loader.get_pwqmn_station_info(bbox=Loader.BBox(-81, -78, 43, 44),
     #                               period=["2001-01-20", "2003-01-20"])
 
-    data = load_data.get_monday_files()
-    for key in data.keys():
-        display_df.plot_df(data[key], save=True, name=key)
+    # data = load_data.get_monday_files()
+    # for key in data.keys():
+    #     display_df.plot_df(data[key], save=True, name=key)
+    data = load_data.get_hydat_station_data()
+
     timer.stop()
 
 
