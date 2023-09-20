@@ -8,7 +8,87 @@ The goal of these steps is to set up a conda channel that has python and geopand
 to run the scripts.
 
 ## Steps
-1. Create a new conda environment
-2. Using conda, install geopandas (a compatible version of pandas will install with geopandas)
-3. Check your pyproj version, and update it to pyproj 3.5.0 if necessary
-4. Change the file paths in "Loader.py" to match the location of your data
+1. Install conda
+2. Create a new conda environment
+3. Install other dependencies
+5. Change the file paths in "/src/load_data.py" to match the location of your data if necessary
+
+### 1. Install Conda
+From [the anaconda website](https://www.anaconda.com/) download the Anaconda installer compatible with your system.
+This comes with Anaconda Prompt, which is where you will access conda. If you have worked with conda before,
+and already have access to conda through another platform (such as miniconda), these setup steps may work there
+as well, but full functionality is not guaranteed.
+
+### 2. Create a new conda environment
+Conda provides environment creation functionality built in. Open Anaconda Prompt and create a new environment using conda.
+"fall2023" can be replaced with any name of your choosing consisting of ONLY LETTERS, NUMBERS, AND UNDERSCORES.
+
+```bash
+conda create -n fall2023 python=3.9.18
+```
+
+### 3. Install Dependencies
+The dependency that needs to be installed manually is geopandas (0.14.0)
+
+```bash
+conda install -n fall2023 geopandas=0.14.0
+```
+
+A number of other dependencies will come with geopandas. You can check the version of each of these dependencies
+by activating your environment and opening a python terminal.
+```bash
+conda activate fall2023
+python
+```
+This will start python, and you should see the following:
+```bash
+Python 3.9.18 | packaged by conda-forge | (main, Aug 30 2023, 03:40:31) [MSC v.1929 64 bit (AMD64)] on win32
+Type "help", "copyright", "credits" or "license" for more information.
+>>>
+```
+Once here, use
+```bash
+import geopandas
+geopandas.show_versions()
+```
+If geopandas and python have been correctly installed, you will see something akin to:
+
+```commandline
+SYSTEM INFO
+-----------
+python     : 3.9.18 | packaged by conda-forge | (main, Aug 30 2023, 03:40:31) [MSC v.1929 64 bit (AMD64)]
+executable : <location of python executable>
+machine    : <Machine>
+
+GEOS, GDAL, PROJ INFO
+---------------------
+GEOS       : 3.11.2
+GEOS lib   : None
+GDAL       : 3.7.0
+GDAL data dir: None
+PROJ       : 9.2.0
+PROJ data dir: <proj data directory>
+
+PYTHON DEPENDENCIES
+-------------------
+geopandas  : 0.14.0
+numpy      : 1.26.0
+pandas     : 2.1.0
+pyproj     : 3.5.0
+shapely    : 2.0.1
+fiona      : 1.9.4
+geoalchemy2: None
+geopy      : 2.4.0
+matplotlib : 3.8.0
+mapclassify: 2.5.0
+pygeos     : None
+pyogrio    : None
+psycopg2   : None
+pyarrow    : None
+rtree      : 1.0.1
+```
+
+If you have a PROJ version less than 9.2.0 and/or a pyproj version less than 3.5.0, they need to be updated
+
+### 3b: Updating proj and pyproj
+

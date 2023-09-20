@@ -4,13 +4,14 @@ import random
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import contextily as cx
 from load_data import proj_path
 from timer import Timer
 
 
 plot_save_dir = os.path.join(proj_path, "plots")
 map_save_dir = os.path.join(proj_path, "maps")
-timer = Timer
+timer = Timer()
 
 
 def find_xy_fields(df: pd.DataFrame) -> [str, str]:
@@ -136,10 +137,13 @@ def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, **kwargs):
     """
     if type(gdf) is gpd.GeoDataFrame:
 
-        ax = gdf.plot(figsize=(10, 6), aspect=2)
+        ax = gdf.plot(figsize=(6, 6), aspect=6)
+        cx.add_basemap(ax, crs=gdf.crs)
 
         if save:
+            ax.set_aspect(2)
             plt.savefig(os.path.join(plot_save_dir, name + "_plot.png"))
+
             print(f"Plot successfully saved to {name}_plot.png\n")
         plt.clf()
     else:

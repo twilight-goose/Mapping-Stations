@@ -6,7 +6,7 @@ hydat_url = "http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip"
 pwqmn_url = "http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip"
 
 
-def check_path(path: str, name: str, url: str):
+def check_path(path: str, name="Unnamed", url="<data source not found>"):
     """
     Checks the
 
@@ -20,7 +20,7 @@ def check_path(path: str, name: str, url: str):
         raise FileNotFoundError(
             f"{name} data not found in expected location. Data available for "
             f"download from {url}; link can also be found in repository "
-            f"README.")
+            f"README. Expected location: {path}")
 
 
 def check_paths(proj_path: str, data_path: str, hydat_path: str,
@@ -55,9 +55,9 @@ def check_paths(proj_path: str, data_path: str, hydat_path: str,
     """
 
     if os.path.exists(proj_path) and os.path.exists(data_path):
-        check_path('Hydat', hydat_path, hydat_url)
-        check_path('PWQMN', pwqmn_path, pwqmn_url)
-        check_path('Monday', monday_path, monday_url)
+        check_path(hydat_path, 'Hydat', hydat_url)
+        check_path(pwqmn_path, 'PWQMN', pwqmn_url)
+        check_path(monday_path, 'Monday', monday_url)
     else:
         raise FileNotFoundError(f"{data_path} could not be found. Check "
                                 f"project file structure.")
