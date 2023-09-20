@@ -137,22 +137,17 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str
     :param bbox: BBox object declaring area of interest or None
     :param var:
 
-    :return: {"hydat": <pandas DataFrame>} where
+    :return: {"hydat": station_dict} where
 
-        The DataFrame has n rows, where n is the unique station numbers
-        in the HYDAT sqlite3 database.
+        station_dict = {<str station number>: table_data>, ...}
 
-        The DataFrame has 2 columns: 'STATION_NUMBER' and 'table_data'
-        where 'table_data' is a dict of length m where m is the number
-        of tables that the station number appears in.
+            station_dict is a dict of length n where n is the number of
+            unique station numbers in the HYDAT sqlite3 database.
 
-        DataFrame format example:
+        table_data = {<str table name>: <pandas DataFrame>, ...}
 
-        STATION_NUMBER  |   table_data
-        -------------------------------
-        <str st 1 num>  |   {<str tbl name 1>: <pandas DataFrame 1>, ...}
-        ...             |    ...
-        <str st n num>  |   {<str tbl name 1>: <pandas DataFrame 1>, ...}
+            table_data is a dict of length n where n is the number of
+            tables that the station number appears in
     """
     def get_period_sql_query(fields) -> str:
         """
@@ -220,9 +215,8 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str
     if bbox_query:
         bbox_query = " WHERE " + bbox_query
 
-    # initialize a DataFrame to store station data in
-    station_data = pd.DataFrame(columns=["STATION_NUMBER", "TABLE_DATA"])
-    station_data.set_index("STATION_NUMBER", inplace=True)
+    # initialize a dictionary to store station data in
+    station_dict = {}
 
     # read table info from sqlite_master
     table_list = pd.read_sql_query("SELECT * FROM sqlite_master where type= 'table'", conn)
@@ -230,8 +224,10 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str
     # read station info from the STATIONS table within the database and
     # load that info into the station data dict
     station_list = pd.read_sql_query("SELECT * FROM 'STATIONS'" + bbox_query, conn)
+
     for i, row in station_list.iterrows():
-        station_data.loc[len(station_data)] = {row.pop(hydat_join_f): {'Info': row}}
+        st_number = row.pop(hydat_join_f)
+        station_dict[st_number] = {'Info': row}
 
     print("Joining station number identified data from other tables")
 
@@ -274,23 +270,20 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str
                 # if station_dict has the st_num key
                 try:
                     # if the key exists, just need to add the data
-                    station_data.at[st_num, 'TABLE_DATA'][tbl_name] = group
-                    station_data[st_num]['TABLE_DATA'] = group
+                    station_dict[st_num][tbl_name] = group
                 except KeyError:
                     # station_dict does not have the st_num as a key,
                     # add it as a new dict before adding the table data
-                    station_data.loc[len(station_data)] = {st_num: {tbl_name: group}}
+                    station_dict[st_num] = {}
+                    station_dict[st_num][tbl_name] = group
+
+                return
 
     timer.stop()
     conn.close()        # close the sqlite3 connection
 
-    #print(type(station_dict))
-    #print(type(station_dict[list(station_dict.keys())[10]]))
-    #print(type(station_dict[list(station_dict.keys())[10]][list(station_dict[list(station_dict.keys())[10]].keys())[0]]))
-
     # return the data
-    print(station_data)
-    return {"hydat": station_data}
+    return {"hydat": station_dict}
 
 
 def get_pwqmn_station_info(period=None, bbox=None, var=()) -> {str: list}:
