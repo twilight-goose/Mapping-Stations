@@ -74,4 +74,5 @@ class BBox:
         """
         if type(bbox) is BBox or bbox is None:
             return BBox.contains_point(bbox, {'lon': series[x_field], 'lat': series[y_field]})
+
         raise ValueError("None or BBox object expected but", type(bbox), "found")

@@ -32,16 +32,19 @@ from timer import Timer
 # ========================================================================= ##
 
 
+# Set up path strings to streamline reading from paths
 cwd = os.path.dirname(__file__)
 proj_path = os.path.dirname(cwd)
 data_path = os.path.join(proj_path, "data")
 
 
+# Paths to obtain data from
 hydat_path = os.path.join(data_path, "Hydat", "Hydat.sqlite3")
 pwqmn_path = os.path.join(data_path, "PWQMN_cleaned", "Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
 monday_path = os.path.join(data_path, "MondayFileGallery")
 
 
+# Before loading anything, check if the data paths exist
 check_files.check_paths(proj_path, data_path, hydat_path, pwqmn_path, monday_path)
 
 
@@ -61,18 +64,22 @@ def find_xy_fields(df: pd.DataFrame) -> [str, str]:
 
     If more than 1 match is found for X or Y, "Failed" will be
     returned. If no match is found for X or Y, an empty string
-    will be returned.
+    will be returned. Not case-sensitive.
 
     :param df: the pandas DataFrame to search
 
     :return: [<X field name> or "Failed", <Y field name> or "Failed"]
     """
-    def _(i, _field) -> str:  # when I removed this the function stopped working, so it stays
-        return _field if i == "" else "Failed"
+    def _(i, field_name) -> str:
+        return field_name if i == "" else "Failed"
 
     x, y = "", ""
     for field in df.columns.values:
+
+        # First check that the field is a valid type
         if df[field].dtype == float:
+
+            # Check if the field matches one of the X or Y field names
             if field.upper() in ["LON", "LONG", "LONGITUDE", "X"]:
                 x = _(x, field)
             elif field.upper() in ["LAT", "LATITUDE", "Y"]:
@@ -88,15 +95,16 @@ def check_period(period):
 
     :param period: the period to be checked
 
-    :raises TypeError: if period is not valid. period is valid if it
-                       is either:
+    :raises TypeError:
 
-        Tuple/list of (<start date>, <end date>); dates can be either
-        <str> in format "YYYY-MM-DD" or None
+            if period is not valid. period is valid if it is either:
 
-        or
+                Tuple/list of (<start date>, <end date>); dates can be
+                either <str> in format "YYYY-MM-DD" or None
 
-        None
+                or
+
+                None
     """
     if period is not None:
         if len(period) != 2:
@@ -111,7 +119,7 @@ def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
     DataFrames.
 
     :param path: path of folder directory to iterate over
-    :param bbox:
+    :param bbox: BBox object declaring area of interest or None
 
     :return: dict of length n where n is the number of .csv files in path
                 {<str filename>: <pandas DataFrame>,  ...}
@@ -130,12 +138,13 @@ def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
         # loading times can become long
         df = pd.read_csv(os.path.join(path, file))
 
-        # filter the data by location if lat/lon fields can be found
-        lon, lat = find_xy_fields(df)
+        # check if a filtering by bbox is necessary
+        if bbox is not None:
+            # filter the data by location if lat/lon fields can be found
+            lon, lat = find_xy_fields(df)
 
-        if lat and lon and lat != "Failed" and lon != "Failed":
-
-            data_dict[file] = df.loc[df.apply(BBox.filter_df, axis=1, args=(bbox, lon, lat))]
+            if lat and lon and lat != "Failed" and lon != "Failed":
+                data_dict[file] = df.loc[df.apply(BBox.filter_df, axis=1, args=(bbox, lon, lat))]
 
     timer.stop()
 
@@ -145,7 +154,7 @@ def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
 def get_monday_files(bbox=None) -> {str: pd.DataFrame}:
     """
     Wrapper function that calls load_csvs to load .csv files
-    downloaded from the Monday.com file gallery
+    downloaded from the monday.com file gallery
 
     :return: dict of length n where n is the number of .csv files in
              the 'monday_path' directory.
