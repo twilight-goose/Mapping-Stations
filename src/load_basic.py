@@ -181,17 +181,7 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str
     :param bbox: BBox object declaring area of interest or None
     :param var:
 
-    :return: {"hydat": station_dict} where
-
-        station_dict = {<str station number>: table_data>, ...}
-
-            station_dict is a dict of length n where n is the number of
-            unique station numbers in the HYDAT sqlite3 database.
-
-        table_data = {<str table name>: <pandas DataFrame>, ...}
-
-            table_data is a dict of length n where n is the number of
-            tables that the station number appears in
+    :return: {"hydat": <pandas DataFrame>}
     """
     def get_period_sql_query(fields) -> str:
         """
@@ -259,75 +249,18 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str
     if bbox_query:
         bbox_query = " WHERE " + bbox_query
 
-    # initialize a dictionary to store station data in
-    station_dict = {}
-
     # read table info from sqlite_master
     table_list = pd.read_sql_query("SELECT * FROM sqlite_master where type= 'table'", conn)
 
     # read station info from the STATIONS table within the database and
     # load that info into the station data dict
-    station_list = pd.read_sql_query("SELECT * FROM 'STATIONS'" + bbox_query, conn)
-
-    for i, row in station_list.iterrows():
-        st_number = row.pop(hydat_join_f)
-        station_dict[st_number] = {'Info': row}
-
-    print("Joining station number identified data from other tables")
-
-    # Iterate through every table in the database (other than STATIONS)
-    for tbl_name in table_list['tbl_name'][1:]:
-
-        # Read only the field names of the table
-        curs = conn.execute('PRAGMA table_info(%s)' % tbl_name)
-        fields = [field[1] for field in curs.fetchall()]
-
-        # If the table contains a 'STATION_NUMBER' field, there is
-        # data that can be added to station_dict.
-        if hydat_join_f in fields:
-            # the period sql query
-            date_query = get_period_sql_query(fields)
-
-            # combine the bounding box and date queries.
-            if bbox_query:
-                query = bbox_query + " AND " + date_query
-            elif date_query:
-                query = " WHERE " + date_query
-            else:
-                query = ""
-
-            # Read from the table the rows that satisfy the query
-            table_data = pd.read_sql_query("SELECT * FROM %s" % tbl_name + query, conn)
-
-            # Group the rows by STATION_NUMBER
-            grouped = table_data.groupby(by=hydat_join_f)
-
-            # Add the table_data to the dict within station_dict with
-            # the corresponding 'STATION_NUMBER' key
-            for st_num, group in grouped:
-
-                # remove 'STATION_NUMBER' from the table_data to
-                # prevent duplicate fields
-                group.pop(hydat_join_f)
-
-                # not all station numbers are in 'STATIONS', so check
-                # if station_dict has the st_num key
-                try:
-                    # if the key exists, just need to add the data
-                    station_dict[st_num][tbl_name] = group
-                except KeyError:
-                    # station_dict does not have the st_num as a key,
-                    # add it as a new dict before adding the table data
-                    station_dict[st_num] = {}
-                    station_dict[st_num][tbl_name] = group
-
-                return
+    station_df = pd.read_sql_query("SELECT * FROM 'STATIONS'" + bbox_query, conn)
 
     timer.stop()
     conn.close()        # close the sqlite3 connection
 
     # return the data
-    return {"hydat": station_dict}
+    return {"hydat": station_df}
 
 
 def get_pwqmn_station_info(period=None, bbox=None, var=()) -> {str: list}:
@@ -338,14 +271,7 @@ def get_pwqmn_station_info(period=None, bbox=None, var=()) -> {str: list}:
     :param bbox: <BBox> representing area of interest
     :param var: Variables of interest
 
-    :return: {"pwqmn": dict of station_info: station_data where
-
-                station_info is a tuple length 6 of strings in the
-                following order:
-
-                (<Name>, <Location ID>, <Longitude>, <Latitude>, <Variables>)
-
-                station_data is a <pandas DataFrame> of valid data entries
+    :return: {"pwqmn": <pandas DataFrame>}
     """
     def filter_pwqmn(row):
         """
@@ -361,9 +287,6 @@ def get_pwqmn_station_info(period=None, bbox=None, var=()) -> {str: list}:
                 3. Is within the desired period
         """
         return (BBox.contains_point(bbox, {'lat': row['Latitude'], 'lon': row['Longitude']})) and \
-               (not period or
-                   (not period[0] or period[0] <= row['Date']) and
-                   (not period[1] or period[1] >= row['Date'])) and \
                (not var or row['Variable'] in var)
 
     # Check that period is valid
@@ -377,63 +300,30 @@ def get_pwqmn_station_info(period=None, bbox=None, var=()) -> {str: list}:
                                           'MonitoringLocationID',
                                           'MonitoringLocationLongitude',
                                           'MonitoringLocationLatitude',
-                                          'ActivityStartDate',
-                                          'CharacteristicName',
-                                          'SampleCollectionEquipmentName',
-                                          'ResultSampleFraction',
-                                          'ResultValue',
-                                          'ResultUnit',
-                                          'ResultValueType',
-                                          'ResultDetectionCondition',
-                                          'ResultDetectionQuantitationLimitMeasure',
-                                          'ResultDetectionQuantitationLimitUnit'],
-                     dtype={'ResultSampleFraction': str,
-                            'ResultValue': float,
-                            'ResultUnit': str,
-                            'ResultDetectionCondition': str,
-                            'ResultDetectionQuantitationLimitMeasure': str,
-                            'ResultDetectionQuantitationLimitUnit': str})
+                                          'CharacteristicName'])
 
     # Rename DataFrame columns for ease of manipulation
     df.rename(columns={'MonitoringLocationName': 'Name',
                        'MonitoringLocationID': "Location ID",
                        'MonitoringLocationLongitude': 'Longitude',
                        'MonitoringLocationLatitude': 'Latitude',
-                       'ActivityStartDate': 'Date',
                        'CharacteristicName': 'Variable'}, inplace=True)
 
     # Filter the DataFrame based on the contents of each row
     df = df.loc[df.apply(filter_pwqmn, axis=1)]
 
-    # Group the data based on common location name, id, and lon/lat
-    groups = df.groupby(by=['Name', 'Location ID', 'Longitude', 'Latitude']).groups
-
     # Usually takes around 80 seconds
     timer.stop()
 
-    return {"pwqmn": groups}
+    return {"pwqmn": df}
 
 
 def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
     """
     Loads all data from the paths declared at the top of the file
 
-    :return: dict of <str dataset name> : data where
-
-        data = <pandas DataFrame> or <dict> or <list>
-
-            where <dict> is of the form described by
-            get_hydat_station_data() or of the form
-            described by get_pwqmn_station_info().
-
-            for structure details, refer to individual
-             function outputs.
+    :return: dict of <str dataset name> : <pandas DataFrame>
     """
-    return {**get_monday_files(),
-            **get_hydat_station_data(period, bbox),
-            **get_pwqmn_station_info(period, bbox)}
-
-
-
-
-
+    return {**get_monday_files(bbox=bbox),
+            **get_hydat_station_data(period=period, bbox=bbox),
+            **get_pwqmn_station_info(period=period, bbox=bbox)}

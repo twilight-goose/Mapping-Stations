@@ -175,7 +175,7 @@ def gdf_from_hydat(hydat_dict: dict) -> gpd.GeoDataFrame:
     """
 
 
-def gdf_from_pwqmn(pwqmn_list: list) -> gpd.GeoDataFrame:
+def gdf_from_pwqmn(pwqmn_list: dict) -> gpd.GeoDataFrame:
     """
     Generates a gdf from a dict of a specific structure.
 
@@ -195,7 +195,8 @@ def gdf_from_pwqmn(pwqmn_list: list) -> gpd.GeoDataFrame:
             does not have the expected structure.
     """
 
-    pwqmn_station_info = [info for info, data in pwqmn_list]
+    pwqmn_station_info = [key for key in pwqmn_list.keys()]
+    print(pwqmn_station_info)
     df = pd.DataFrame(data=pwqmn_station_info, columns=["Name", "Location ID", "Longitude", "Latitude", "Variables"])
     gdf = point_gdf_from_df(df)
 

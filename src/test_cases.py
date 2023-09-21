@@ -1,6 +1,7 @@
 import sys
 from timer import Timer
 from bbox import BBox
+import load_basic
 import load_data
 import display_df
 
@@ -25,8 +26,12 @@ def main():
 
     # display_df.map_gdfs(gdfs)
 
-    data = load_data.get_pwqmn_station_info(period=["2008-01-10", "2010-01-12"], bbox=BBox(-80, -75, 40, 43))
-    display_df.gdf_from_pwqmn(data)
+    # data = load_data.get_pwqmn_station_info(period=["2008-01-10", "2010-01-12"], bbox=BBox(-80, -75, 40, 43))
+    # gdf = display_df.gdf_from_pwqmn(data)
+    # display_df.map_gdfs(gdf)
+
+    data = load_basic.load_all(period=["2008-12-01", "2010-12-12"], bbox=BBox(-80, -75, 40, 43))
+    print(data)
 
     timer.stop()
 
