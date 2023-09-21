@@ -35,8 +35,8 @@ class BBox:
         :return: True if cord lies within or on the BBox; False otherwise
         """
         return self is None or \
-            self.bounds['min_lat'] <= cord['lat'] <= self.bounds['max_lat'] and \
-            self.bounds['min_lon'] <= cord['lon'] <= self.bounds['max_lon']
+            (self.bounds['min_lat'] <= cord['lat'] <= self.bounds['max_lat'] and
+                self.bounds['min_lon'] <= cord['lon'] <= self.bounds['max_lon'])
 
     def sql_query(self) -> str:
         """
@@ -53,3 +53,25 @@ class BBox:
 
             return (f"{min_lon} <= 'LONGITUDE' AND {max_lon} >= 'LONGITUDE' AND " +
                     f"{min_lat} <= 'LATITUDE' AND {max_lat} >= 'LATITUDE'")
+
+    def filter_df(series, bbox, x_field: str, y_field: str):
+        """
+        A wrapper function for passing BBox.contains_point to
+        <pandas DataFrame>.apply() for the purpose of filtering a
+        DataFrame. Not to be used outside the .apply() function
+
+        Works with both pandas DataFrames and Series, without needing
+        to import the pandas library.
+
+        :param series: The pandas DataFrame to be scanned
+        :param bbox: The bounding box object (or None)
+        :param x_field: The name of the x_field of the series
+        :param y_field: The name of the y_field of the series
+
+        :return bool:
+
+        :raises ValueError:
+        """
+        if type(bbox) is BBox or bbox is None:
+            return BBox.contains_point(bbox, {'lon': series[x_field], 'lat': series[y_field]})
+        raise ValueError("None or BBox object expected but", type(bbox), "found")

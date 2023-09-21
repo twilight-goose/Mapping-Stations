@@ -13,6 +13,11 @@ plot_save_dir = os.path.join(proj_path, "plots")
 map_save_dir = os.path.join(proj_path, "maps")
 timer = Timer()
 
+# set a default crs to convert all longitude/latitude coordinates to
+# Equal area projection chosen to preserve accuracy when searching for
+# closest points
+default_crs = 'EPSG:3348'
+
 
 def __map_result(map_result, gdf, popup, color, tooltip):
     """
@@ -26,9 +31,9 @@ def __map_result(map_result, gdf, popup, color, tooltip):
     """
     if map_result:
         m = gdf.explore(popup=popup, color=color, tooltip=tooltip)
-        outfp = os.path.join(os.path.dirname(__file__), "map.html")
-        m.save(outfp)
-        webbrowser.open(outfp)
+        save_path = os.path.join(map_save_dir, "map.html")
+        m.save(save_path)
+        webbrowser.open(save_path)
 
 
 def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFrame:
@@ -47,6 +52,9 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFr
     """
     timer.start()
 
+    if type(df) != pd.DataFrame:
+        raise TypeError("Pandas DataFrame expected but", type(df), "found")
+
     if not x_field and not y_field:
         x, y = find_xy_fields(df)
     else:
@@ -59,7 +67,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFr
     else:
         try:
             gdf = gpd.GeoDataFrame(
-                df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=4326)
+                df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=default_crs)
             print("X/Y fields found. Dataframe converted to geopandas point array")
         except KeyError:
             print("X/Y field not found. Operation Failed")
@@ -79,7 +87,8 @@ def check_gdfs_iter(gdfs):
 def map_gdfs(gdfs_to_map):
     """
 
-    :param gdfs_to_map:
+    :param gdfs_to_map
+
     :return:
     """
     color_list = ['red', 'blue', 'yellow', 'purple', 'black']
@@ -88,12 +97,12 @@ def map_gdfs(gdfs_to_map):
         m = None
         if n < len(gdf_list) - 1:
             m = explore_recursive(gdf_list, n + 1)
-        return gdf_list[n].explore(m=m, color=color_list[random.randint(0, 5)],
+        return gdf_list[n].explore(m=m, style_kwds={'color': color_list[random.randint(0,5)]},
                                    marker_kwds={'radius': 4})
 
     gdfs_to_map = check_gdfs_iter(gdfs_to_map)
     m = explore_recursive(gdfs_to_map, 0)
-    outpath = os.path.join(os.path.dirname(__file__), "map.html")
+    outpath = os.path.join(map_save_dir, "map.html")
     m.save(outpath)
     webbrowser.open(outpath)
 
@@ -106,7 +115,8 @@ def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, **kwargs):
     :param name: name to save the plot to
     :param save: True or False; whether to save the plot to disk
     :param kwargs:
-    :return: None
+
+    :return:
     """
     if type(gdf) is gpd.GeoDataFrame:
 
@@ -130,10 +140,74 @@ def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):
     :param df: Pandas DataFrame to be plotted
     :param save: True or False; whether to save the plot to disk
     :param name: name to save the plot to
-    :return: None
+
+    :return:
+
     :raises TypeError: if df is not a Pandas DataFrame
     """
     if type(df) != pd.DataFrame:
         raise TypeError("Parameter passed as 'df' is not a DataFrame'")
 
     plot_gdf(point_gdf_from_df(df), save=save, name=name, **kwargs)
+
+
+def gdf_from_pwqmn(pwqmn_dict):
+    """
+    Generates a gdf from a dict of a specific structure.
+
+    :param pwqmn_dict: input dict with a specific structure.
+
+    Expected structure:
+
+        pwqmn_dict = {<str station number>: table_data>, ...}
+
+            pwqmn_dict is a dict of length n where n is the number of
+            unique station numbers in the HYDAT sqlite3 database.
+
+        table_data = {<str table name>: <pandas DataFrame>, ...}
+
+            table_data is a dict of length n where n is the number of
+            tables that the station number appears in
+
+    :return:
+
+    :raises DataStructureError:
+
+            Raises a custom error 'DataStructureError' if pwqmn_dict
+            does not have the expected structure.
+    """
+
+
+def plot_pwqmn(pwqmn_dict):
+    """
+    Plots PWQMN data
+
+    :param pwqmn_dict: a dict with a specific structure
+
+    :return:
+    """
+
+
+def plot_all(datasets, save=False):
+    """
+    Plots all georeferenced data in data_dict
+
+    :param datasets: dict of <dataset name>: data where
+
+                data = <pandas DataFrame> or <dict>
+
+                    if data is a dict, data is expected to have a
+                    specific structure
+
+    :param save: bool; whether to save the plotted data
+
+    :return:
+    """
+    ds_names = datasets.keys()
+
+    for ds_name in ds_names:
+        dataset = datasets[ds_name]
+        if type(dataset) is pd.DataFrame:
+            plot_df(dataset, name=ds_name, save=save)
+        elif type(dataset) is dict:
+            plot_pwqmn(dataset)

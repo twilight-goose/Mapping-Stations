@@ -132,9 +132,10 @@ def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
 
         # filter the data by location if lat/lon fields can be found
         lon, lat = find_xy_fields(df)
+
         if lat and lon and lat != "Failed" and lon != "Failed":
-            lat_lon = {'lon': lon, 'lat': lat}
-            data_dict[file] = df.loc[df.apply(BBox.contains_point, axis=1, args=(bbox, lat_lon))]
+
+            data_dict[file] = df.loc[df.apply(BBox.filter_df, axis=1, args=(bbox, lon, lat))]
 
     timer.stop()
 
@@ -410,10 +411,17 @@ def get_pwqmn_station_info(period=None, bbox=None, var=()) -> {str: list}:
 
 def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
     """
-    Loads all data as pandas DataFrames. Refer to individual functions
-    for pandas DataFrame formats.
+    Loads all data from the paths declared at the top of the file
 
-    :return: dict of <str dataset name> : <pandas DataFrame>
+    :return: dict of <str dataset name> : data where
+
+        data = <pandas DataFrame> or <dict>
+
+            where <dict> is of the form described by
+            get_pwqmn_station_info().
+
+            for DataFrame/dict structure details, refer to
+            individual function outputs.
     """
     return {**get_monday_files(),
             **get_hydat_station_data(period, bbox),

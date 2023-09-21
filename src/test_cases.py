@@ -21,10 +21,17 @@ def main():
     timer = Timer()
 
     data = load_data.load_all(period=[None, "2010-01-12"], bbox=BBox(-80, -75, 40, 43))
+    gdfs = []
 
     for key in data.keys():
-        if type(data[key]) != dict:
-            display_df.plot_df(data[key], save=True, name=key)
+        try:
+            gdf = display_df.point_gdf_from_df(data[key])
+            if not(type(gdf) is int):
+                gdfs.append(gdf)
+        except TypeError:
+            pass
+
+    display_df.map_gdfs(gdfs)
 
     timer.stop()
 
