@@ -29,10 +29,12 @@ class BBox:
         """
         Determines if the bounding box of self contains cord
 
+        :param self: BBox object or None
         :param cord: {'lon': <float>, 'lat': <float>}
                      Longitude/Latitude coordinate of the point.
 
-        :return: True if cord lies within or on the BBox; False otherwise
+        :return: True if cord lies within or on the BBox or BBox is
+                 None; False otherwise
         """
         return self is None or \
             (self.bounds['min_lat'] <= cord['lat'] <= self.bounds['max_lat'] and
