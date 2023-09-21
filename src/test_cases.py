@@ -20,18 +20,13 @@ def tests():
 def main():
     timer = Timer()
 
-    data = load_data.load_all(period=[None, "2010-01-12"], bbox=BBox(-80, -75, 40, 43))
-    gdfs = []
+    # data = load_data.load_all(period=[None, "2010-01-12"], bbox=BBox(-80, -75, 40, 43))
+    # gdfs = display_df.plot_all(data)
 
-    for key in data.keys():
-        try:
-            gdf = display_df.point_gdf_from_df(data[key])
-            if not(type(gdf) is int):
-                gdfs.append(gdf)
-        except TypeError:
-            pass
+    # display_df.map_gdfs(gdfs)
 
-    display_df.map_gdfs(gdfs)
+    data = load_data.get_pwqmn_station_info(period=["2008-01-10", "2010-01-12"], bbox=BBox(-80, -75, 40, 43))
+    display_df.gdf_from_pwqmn(data)
 
     timer.stop()
 

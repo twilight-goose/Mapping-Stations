@@ -333,21 +333,17 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str
 def get_pwqmn_station_info(period=None, bbox=None, var=()) -> {str: list}:
     """
     Reads from the cleaned PWQMN data using pandas
-        - Name
-        - ID
-        - Longitude
-        - Latitude
-        - Available Data
 
     :param period: Time period of interest
     :param bbox: <BBox> representing area of interest
     :param var: Variables of interest
 
-    :return: {"pwqmn": list of (station_info, station_data) pairs} where
+    :return: {"pwqmn": dict of station_info: station_data where
 
                 station_info is a tuple length 6 of strings in the
                 following order:
-                    (<Name>, <Location ID>, <Longitude>, <Latitude>, <Variables>)
+
+                (<Name>, <Location ID>, <Longitude>, <Latitude>, <Variables>)
 
                 station_data is a <pandas DataFrame> of valid data entries
     """
@@ -410,7 +406,7 @@ def get_pwqmn_station_info(period=None, bbox=None, var=()) -> {str: list}:
     df = df.loc[df.apply(filter_pwqmn, axis=1)]
 
     # Group the data based on common location name, id, and lon/lat
-    group_list = df.groupby(by=['Name', 'Location ID', 'Longitude', 'Latitude']).__iter__()
+    group_list = df.groupby(by=['Name', 'Location ID', 'Longitude', 'Latitude']).groups
 
     # Usually takes around 80 seconds
     timer.stop()
@@ -424,13 +420,14 @@ def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
 
     :return: dict of <str dataset name> : data where
 
-        data = <pandas DataFrame> or <dict>
+        data = <pandas DataFrame> or <dict> or <list>
 
             where <dict> is of the form described by
-            get_pwqmn_station_info().
+            get_hydat_station_data() or of the form
+            described by get_pwqmn_station_info().
 
-            for DataFrame/dict structure details, refer to
-            individual function outputs.
+            for structure details, refer to individual
+             function outputs.
     """
     return {**get_monday_files(),
             **get_hydat_station_data(period, bbox),

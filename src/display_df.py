@@ -8,6 +8,22 @@ import contextily as cx
 from timer import Timer
 from load_data import proj_path, find_xy_fields
 
+"""
+display_df.py
+
+Summary:
+Provides a variety of functions for conversion and display of
+pandas DataFrames with compatible structures
+
+Functions that plot or map gdfs will never produce output; to get
+the resulting gdf, call the correct conversion function to obtain
+the gdf and plot it separately.
+
+Overview:
+
+
+
+"""
 
 plot_save_dir = os.path.join(proj_path, "plots")
 map_save_dir = os.path.join(proj_path, "maps")
@@ -17,23 +33,6 @@ timer = Timer()
 # Equal area projection chosen to preserve accuracy when searching for
 # closest points
 default_crs = 'EPSG:3348'
-
-
-def __map_result(map_result, gdf, popup, color, tooltip):
-    """
-
-    :param map_result:
-    :param gdf:
-    :param popup:
-    :param color:
-    :param tooltip:
-    :return:
-    """
-    if map_result:
-        m = gdf.explore(popup=popup, color=color, tooltip=tooltip)
-        save_path = os.path.join(map_save_dir, "map.html")
-        m.save(save_path)
-        webbrowser.open(save_path)
 
 
 def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFrame:
@@ -115,53 +114,56 @@ def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, **kwargs):
     :param name: name to save the plot to
     :param save: True or False; whether to save the plot to disk
     :param kwargs:
-
-    :return:
     """
-    if type(gdf) is gpd.GeoDataFrame:
+    assert type(gdf) is gpd.GeoDataFrame, ("Expected GeoDataFrame but found",
+                                           str(type(gdf)))
 
-        ax = gdf.plot(figsize=(6, 6), aspect=6)
-        cx.add_basemap(ax, crs=gdf.crs)
+    ax = gdf.plot(figsize=(6, 6), aspect=6)
+    cx.add_basemap(ax, crs=gdf.crs)
 
-        if save:
-            ax.set_aspect(2)
-            plt.savefig(os.path.join(plot_save_dir, name + "_plot.png"))
+    if save:
+        ax.set_aspect(2)
+        plt.savefig(os.path.join(plot_save_dir, name + "_plot.png"))
 
-            print(f"Plot successfully saved to {name}_plot.png\n")
-        plt.clf()
-    else:
-        print(name, "could not be plotted")
+        print(f"Plot successfully saved to {name}_plot.png\n")
+    plt.clf()
 
 
 def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):
     """
-    Plot a pandas DataFrame as point data, if possible
+    Plot a pandas DataFrame as point data, if possible. Does not
+    return the resulting GeoDataFrame; to get the resulting
+    GeoDataFrame, use point_gdf_from_df() and plot the result with
+    plot_gdf()
 
     :param df: Pandas DataFrame to be plotted
     :param save: True or False; whether to save the plot to disk
     :param name: name to save the plot to
-
-    :return:
 
     :raises TypeError: if df is not a Pandas DataFrame
     """
     if type(df) != pd.DataFrame:
         raise TypeError("Parameter passed as 'df' is not a DataFrame'")
 
-    plot_gdf(point_gdf_from_df(df), save=save, name=name, **kwargs)
+    output = point_gdf_from_df(df)
+
+    # Only try to plot the output if the conversion was successful
+    if type(output) is gpd.GeoDataFrame:
+        plot_gdf(output, save=save, name=name, **kwargs)
+    else:
+        print(name + " could not be plotted")
 
 
-def gdf_from_pwqmn(pwqmn_dict):
+def gdf_from_hydat(hydat_dict: dict) -> gpd.GeoDataFrame:
     """
-    Generates a gdf from a dict of a specific structure.
 
-    :param pwqmn_dict: input dict with a specific structure.
+    :param hydat_dict: input dict with a specific structure.
 
     Expected structure:
 
-        pwqmn_dict = {<str station number>: table_data>, ...}
+        hydat_dict = {<str station number>: table_data>, ...}
 
-            pwqmn_dict is a dict of length n where n is the number of
+            hydat_dict is a dict of length n where n is the number of
             unique station numbers in the HYDAT sqlite3 database.
 
         table_data = {<str table name>: <pandas DataFrame>, ...}
@@ -170,6 +172,22 @@ def gdf_from_pwqmn(pwqmn_dict):
             tables that the station number appears in
 
     :return:
+    """
+
+
+def gdf_from_pwqmn(pwqmn_list: list) -> gpd.GeoDataFrame:
+    """
+    Generates a gdf from a dict of a specific structure.
+
+    :param pwqmn_list: dict of station_info: station_data pairs where
+
+                station_info is a tuple length 6 of strings in the
+                following order:
+                    (<Name>, <Location ID>, <Longitude>, <Latitude>, <Variables>)
+
+                station_data is a <pandas DataFrame> of valid data entries
+
+    :return: <Geopandas.GeoDataFrame>
 
     :raises DataStructureError:
 
@@ -177,20 +195,63 @@ def gdf_from_pwqmn(pwqmn_dict):
             does not have the expected structure.
     """
 
+    pwqmn_station_info = [info for info, data in pwqmn_list]
+    df = pd.DataFrame(data=pwqmn_station_info, columns=["Name", "Location ID", "Longitude", "Latitude", "Variables"])
+    gdf = point_gdf_from_df(df)
 
-def plot_pwqmn(pwqmn_dict):
+    return gdf
+
+
+def plot_pwqmn(pwqmn_list: list):
     """
-    Plots PWQMN data
+    Plots PWQMN data. Does not return the resulting GeoDataFrame.
+    To get the resulting GeoDataFrame, use gdf_from_pwqmn() and plot
+    it using plot_gdf()
 
-    :param pwqmn_dict: a dict with a specific structure
+    :param pwqmn_list: a dict with a specific structure
 
     :return:
     """
+    plot_gdf(gdf_from_pwqmn(pwqmn_list))
+
+
+def convert_all(datasets: dict) -> dict:
+    """
+
+    :param datasets:
+    :return:
+    """
+    ds_names = datasets.keys()
+    gdf = None
+    gdfs = {}
+
+    for ds_name in ds_names:
+        dataset = datasets[ds_name]
+
+        if type(dataset) is pd.DataFrame:
+            gdf = point_gdf_from_df(dataset)
+
+        elif type(dataset) is dict:
+            # The hydat and pwqmn data are the only ones that should
+            # be in dict format
+            if ds_name == "hydat":
+                gdf = gdf_from_hydat(dataset)
+            elif ds_name == "pwqmn":
+                gdf = gdf_from_pwqmn(dataset)
+
+        # if the conversion was successful, add it to the output dict
+        if type(gdf) is gpd.GeoDataFrame:
+            gdfs[ds_name] = gdf
+
+    return gdfs
 
 
 def plot_all(datasets, save=False):
     """
-    Plots all georeferenced data in data_dict
+    Plots all georeferenced data in data_dict.
+
+    Produces a geodataframe from every dataset in datasets where it is
+    possible and plots them. Does not produce output
 
     :param datasets: dict of <dataset name>: data where
 
@@ -200,14 +261,7 @@ def plot_all(datasets, save=False):
                     specific structure
 
     :param save: bool; whether to save the plotted data
-
-    :return:
     """
-    ds_names = datasets.keys()
+    gdfs = convert_all(datasets)
 
-    for ds_name in ds_names:
-        dataset = datasets[ds_name]
-        if type(dataset) is pd.DataFrame:
-            plot_df(dataset, name=ds_name, save=save)
-        elif type(dataset) is dict:
-            plot_pwqmn(dataset)
+
