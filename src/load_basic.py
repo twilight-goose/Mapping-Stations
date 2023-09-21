@@ -145,6 +145,8 @@ def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
 
             if lat and lon and lat != "Failed" and lon != "Failed":
                 data_dict[file] = df.loc[df.apply(BBox.filter_df, axis=1, args=(bbox, lon, lat))]
+        else:
+            data_dict[file] = df
 
     timer.stop()
 
@@ -164,7 +166,7 @@ def get_monday_files(bbox=None) -> {str: pd.DataFrame}:
     return load_csvs(monday_path, bbox=bbox)
 
 
-def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str: pd.DataFrame}}}:
+def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: pd.DataFrame}:
     """
     Retrieves HYDAT station data in the period and bbox of interest
 
@@ -247,14 +249,13 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str
     # generate a sql query from the bbox bounding box
     bbox_query = BBox.sql_query(bbox)
     if bbox_query:
-        bbox_query = " WHERE " + bbox_query
-
-    # read table info from sqlite_master
-    table_list = pd.read_sql_query("SELECT * FROM sqlite_master where type= 'table'", conn)
+        bbox_query = " AND " + bbox_query
 
     # read station info from the STATIONS table within the database and
     # load that info into the station data dict
-    station_df = pd.read_sql_query("SELECT * FROM 'STATIONS'" + bbox_query, conn)
+    station_df = pd.read_sql_query("SELECT STATION_NUMBER, STATION_NAME, HYD_STATUS, SED_STATUS, LATITUDE, LONGITUDE,"
+                                   "DRAINAGE_AREA_GROSS, DRAINAGE_AREA_EFFECT FROM 'STATIONS' WHERE PROV_TERR_STATE_"
+                                   "LOC == 'ON'" + bbox_query, conn)
 
     timer.stop()
     conn.close()        # close the sqlite3 connection
@@ -307,15 +308,26 @@ def get_pwqmn_station_info(period=None, bbox=None, var=()) -> {str: list}:
                        'MonitoringLocationID': "Location ID",
                        'MonitoringLocationLongitude': 'Longitude',
                        'MonitoringLocationLatitude': 'Latitude',
-                       'CharacteristicName': 'Variable'}, inplace=True)
+                       'CharacteristicName': 'Variables'}, inplace=True)
 
-    # Filter the DataFrame based on the contents of each row
-    df = df.loc[df.apply(filter_pwqmn, axis=1)]
+    grouped = df.groupby(by=['Name', 'Location ID', 'Longitude', 'Latitude'])
+
+    station_data = []
+
+    for name, subset_df in grouped:  # iterate through sequences of (group name, subsetted object (df)]
+
+        variables = subset_df['Variables']
+        cord = {'lon': name[2], 'lat': name[3]}
+
+        if BBox.contains_point(bbox, cord) and (not var or any([x in variables for x in var])):
+            station_data.append(name + (variables,))
+
+    station_data = pd.DataFrame(station_data, columns=['Name', 'ID', 'Longitude', 'Latitude', 'Variables'])
 
     # Usually takes around 80 seconds
     timer.stop()
 
-    return {"pwqmn": df}
+    return {"pwqmn": station_data}
 
 
 def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
@@ -324,6 +336,6 @@ def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
 
     :return: dict of <str dataset name> : <pandas DataFrame>
     """
-    return {**get_monday_files(bbox=bbox),
-            **get_hydat_station_data(period=period, bbox=bbox),
-            **get_pwqmn_station_info(period=period, bbox=bbox)}
+    return {**get_monday_files(),
+            **get_hydat_station_data(),
+            **get_pwqmn_station_info()}

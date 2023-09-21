@@ -66,7 +66,8 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFr
     else:
         try:
             gdf = gpd.GeoDataFrame(
-                df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=default_crs)
+                df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=4326)
+            gdf.to_crs(epsg=3348)
             print("X/Y fields found. Dataframe converted to geopandas point array")
         except KeyError:
             print("X/Y field not found. Operation Failed")
@@ -118,15 +119,15 @@ def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, **kwargs):
     assert type(gdf) is gpd.GeoDataFrame, ("Expected GeoDataFrame but found",
                                            str(type(gdf)))
 
-    ax = gdf.plot(figsize=(6, 6), aspect=6)
-    cx.add_basemap(ax, crs=gdf.crs)
+    ax = gdf.plot(figsize=(8, 8))
+    cx.add_basemap(ax, crs=gdf.crs, zoom=15)
+
+    print(gdf.crs.to_string())
 
     if save:
-        ax.set_aspect(2)
         plt.savefig(os.path.join(plot_save_dir, name + "_plot.png"))
-
         print(f"Plot successfully saved to {name}_plot.png\n")
-    plt.clf()
+    plt.show()
 
 
 def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):

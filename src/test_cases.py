@@ -31,7 +31,13 @@ def main():
     # display_df.map_gdfs(gdf)
 
     data = load_basic.load_all(period=["2008-12-01", "2010-12-12"], bbox=BBox(-80, -75, 40, 43))
-    print(data)
+    gdfs = {}
+
+    for name in data.keys():
+        gdf = display_df.point_gdf_from_df(data[name])
+        if type(gdf) is not int:
+            gdfs[name] = gdf
+            display_df.plot_gdf(gdf)
 
     timer.stop()
 
