@@ -1,6 +1,7 @@
 import os.path
 
 
+# Source data urls
 monday_url = "https://github.com/twilight-goose/Mapping-Stations/tree/main/data/MondayFileGallery"
 hydat_url = "http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip"
 pwqmn_url = "http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip"
@@ -8,15 +9,17 @@ pwqmn_url = "http://juliane-mai.com/resources/data_nandita/Provincial_Water_Qual
 
 def check_path(path: str, name="Unnamed", url="<data source not found>"):
     """
-    Checks the
+    Checks if the data path exists. If it doesn't exist and a url is
+    passed, will suggest where to download/obtain the data
 
-    :param path:
-    :param name:
-    :param url:
+    :param path: The file path to check
+    :param name: The name of the dataset that was checked
+    :param url: URL to obtain the data from
 
     :raises FileNotFoundError:
     """
     if not os.path.exists(path):
+        # raise an error to prevent anything from proceeding
         raise FileNotFoundError(
             f"{name} data not found in expected location. Data available for "
             f"download from {url}; link can also be found in repository "
