@@ -121,3 +121,32 @@ Next, you need to configure project structure and data paths.
 Data loading functions within these python files assumes the above project structure. To load
 data/files from directories or files with different names, data file paths can be modified near the
 top of "/src/load_data.py". Anything beyond changing file and folder names is **not recommended**.
+
+Functions in "src/load_data.py" were designed to accommodate specific versions of the Hydat and PWQMN
+datasets. Specifically, Hydat dataset tables are expected to have a field exactly named "STATION_NUMBER".
+The HYDAT dataset is also expected to contain the following table names:
+
+- STATIONS
+
+The PWQMN dataset is expected to contain the following fields, and a missing one will result in ValueErrors.
+```
+'MonitoringLocationName',
+'MonitoringLocationID',
+'MonitoringLocationLongitude',
+'MonitoringLocationLatitude',
+'ActivityStartDate',
+'CharacteristicName',
+'SampleCollectionEquipmentName',
+'ResultSampleFraction',
+'ResultValue',
+'ResultUnit',
+'ResultValueType',
+'ResultDetectionCondition',
+'ResultDetectionQuantitationLimitMeasure',
+'ResultDetectionQuantitationLimitUnit'
+```
+
+## Testing Code
+
+
+##

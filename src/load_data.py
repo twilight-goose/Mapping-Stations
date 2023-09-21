@@ -54,6 +54,33 @@ timer = Timer()
 # ========================================================================= ##
 
 
+def find_xy_fields(df: pd.DataFrame) -> [str, str]:
+    """
+    Searches a pandas DataFrame for specific field names to use as
+    longitudinal and latitudinal values.
+
+    If more than 1 match is found for X or Y, "Failed" will be
+    returned. If no match is found for X or Y, an empty string
+    will be returned.
+
+    :param df: the pandas DataFrame to search
+
+    :return: [<X field name> or "Failed", <Y field name> or "Failed"]
+    """
+    def _(i, _field) -> str:  # when I removed this the function stopped working, so it stays
+        return _field if i == "" else "Failed"
+
+    x, y = "", ""
+    for field in df.columns.values:
+        if df[field].dtype == float:
+            if field.upper() in ["LON", "LONG", "LONGITUDE", "X"]:
+                x = _(x, field)
+            elif field.upper() in ["LAT", "LATITUDE", "Y"]:
+                y = _(y, field)
+
+    return x, y
+
+
 def check_period(period):
     """
     Checks that period is in a valid period format. Raises an error
@@ -78,12 +105,13 @@ def check_period(period):
             raise TypeError("Period of wrong type,", type(period), "found")
 
 
-def load_csvs(path: str) -> {str: pd.DataFrame}:
+def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
     """
     Loads all .csv files in the provided folder directory as pandas
     DataFrames.
 
     :param path: path of folder directory to iterate over
+    :param bbox:
 
     :return: dict of length n where n is the number of .csv files in path
                 {<str filename>: <pandas DataFrame>,  ...}
@@ -99,15 +127,21 @@ def load_csvs(path: str) -> {str: pd.DataFrame}:
 
         # read the entirety of the .csv and add it to the dictionary
         # not recommended for use with large .csv files (>500 mb) as
-        # loading times can become very long
-        data_dict[file] = pd.read_csv(os.path.join(path, file))
+        # loading times can become long
+        df = pd.read_csv(os.path.join(path, file))
+
+        # filter the data by location if lat/lon fields can be found
+        lon, lat = find_xy_fields(df)
+        if lat and lon and lat != "Failed" and lon != "Failed":
+            lat_lon = {'lon': lon, 'lat': lat}
+            data_dict[file] = df.loc[df.apply(BBox.contains_point, axis=1, args=(bbox, lat_lon))]
 
     timer.stop()
 
     return data_dict
 
 
-def get_monday_files() -> {str: pd.DataFrame}:
+def get_monday_files(bbox=None) -> {str: pd.DataFrame}:
     """
     Wrapper function that calls load_csvs to load .csv files
     downloaded from the Monday.com file gallery
@@ -117,7 +151,7 @@ def get_monday_files() -> {str: pd.DataFrame}:
                 {<str filename>: <pandas DataFrame>, ...}
     """
     print("Loading monday.com file gallery")
-    return load_csvs(monday_path)
+    return load_csvs(monday_path, bbox=bbox)
 
 
 def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str: pd.DataFrame}}}:

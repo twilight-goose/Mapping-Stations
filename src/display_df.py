@@ -5,40 +5,13 @@ import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import contextily as cx
-from load_data import proj_path
 from timer import Timer
+from load_data import proj_path, find_xy_fields
 
 
 plot_save_dir = os.path.join(proj_path, "plots")
 map_save_dir = os.path.join(proj_path, "maps")
 timer = Timer()
-
-
-def find_xy_fields(df: pd.DataFrame) -> [str, str]:
-    """
-    Searches a pandas DataFrame for specific field names to use as
-    longitudinal and latitudinal values.
-
-    If more than 1 match is found for X or Y, "Failed" will be
-    returned. If no match is found for X or Y, an empty string
-    will be returned.
-
-    :param df: the pandas DataFrame to search
-
-    :return: [<X field name> or "Failed", <Y field name> or "Failed"]
-    """
-    def _(i, _field) -> str:  # when I removed this the function stopped working, so it stays
-        return _field if i == "" else "Failed"
-
-    x, y = "", ""
-    for field in df.columns.values:
-        if df[field].dtype == float:
-            if field.upper() in ["LON", "LONG", "LONGITUDE", "X"]:
-                x = _(x, field)
-            elif field.upper() in ["LAT", "LATITUDE", "Y"]:
-                y = _(y, field)
-
-    return x, y
 
 
 def __map_result(map_result, gdf, popup, color, tooltip):
