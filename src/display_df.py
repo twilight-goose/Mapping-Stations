@@ -67,7 +67,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFr
         try:
             gdf = gpd.GeoDataFrame(
                 df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=4326)
-            gdf.to_crs(epsg=3348)
+            gdf.to_crs(epsg=3348, inplace=True)
             print("X/Y fields found. Dataframe converted to geopandas point array")
         except KeyError:
             print("X/Y field not found. Operation Failed")
