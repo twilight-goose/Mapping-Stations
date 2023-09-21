@@ -6,6 +6,11 @@ from bbox import BBox
 from timer import Timer
 
 
+# ========================================================================= ##
+# License ================================================================= ##
+# ========================================================================= ##
+
+
 # Copyright (c) 2023 James Wang - jcw4698(at)gmail.com
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy

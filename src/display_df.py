@@ -18,11 +18,6 @@ pandas DataFrames with compatible structures
 Functions that plot or map gdfs will never produce output; to get
 the resulting gdf, call the correct conversion function to obtain
 the gdf and plot it separately.
-
-Overview:
-
-
-
 """
 
 plot_save_dir = os.path.join(proj_path, "plots")
@@ -116,17 +111,16 @@ def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, **kwargs):
     :param save: True or False; whether to save the plot to disk
     :param kwargs:
     """
-    assert type(gdf) is gpd.GeoDataFrame, ("Expected GeoDataFrame but found",
-                                           str(type(gdf)))
 
     ax = gdf.plot(figsize=(8, 8))
-    cx.add_basemap(ax, crs=gdf.crs, zoom=15)
 
     print(gdf.crs.to_string())
 
     if save:
         plt.savefig(os.path.join(plot_save_dir, name + "_plot.png"))
         print(f"Plot successfully saved to {name}_plot.png\n")
+
+    print("plotting")
     plt.show()
 
 

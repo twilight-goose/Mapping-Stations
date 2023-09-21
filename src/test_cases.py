@@ -34,9 +34,11 @@ def main():
     gdfs = {}
 
     for name in data.keys():
+        print(name)
         gdf = display_df.point_gdf_from_df(data[name])
         if type(gdf) is not int:
             gdfs[name] = gdf
+            print("Trying to plot")
             display_df.plot_gdf(gdf)
 
     timer.stop()

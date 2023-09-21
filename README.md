@@ -31,8 +31,8 @@ conda create -n fall2023 python=3.9.18
 The 2 dependences that need to be installed manually are geopandas (0.14.0) and contextily (1.3.0)
 
 ```bash
-conda install -n fall2023 geopandas=0.14.0
-conda install -n fall2023 contextily
+conda install -n fall2023 geopandas
+conda install -c conda-forge -n fall2023 contextily
 ```
 
 A number of other dependencies will come with geopandas. You can check the version of each of these dependencies

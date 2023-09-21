@@ -1,7 +1,7 @@
 import os.path
 
 
-# Source data urls
+# Data source URLs
 monday_url = "https://github.com/twilight-goose/Mapping-Stations/tree/main/data/MondayFileGallery"
 hydat_url = "http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip"
 pwqmn_url = "http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip"
