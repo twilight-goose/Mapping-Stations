@@ -38,8 +38,8 @@ def main():
         gdf = display_df.point_gdf_from_df(data[name])
         if type(gdf) is not int:
             gdfs[name] = gdf
-            print("Trying to plot")
-            display_df.plot_gdf(gdf)
+
+    display_df.plot_gdf(list(gdfs.values())[0])
 
     timer.stop()
 

@@ -2,52 +2,37 @@
 
 This repository exists
 
-## Environment Creation & Setup
-The setup steps listed below present one way to set up the environment that will enable you to run this code.
-The goal of these steps is to set up a conda channel that has python and geopandas installed, which is needed
-to run the scripts.
+## Python Environment
+It is recommended to conda to set up a Python environment, but any method of creating a python 3.9.18 environment
+should function as normal. Python 3.9.18 is recommended, as the code was written and tested in 3.9.18. Later
+versions with adequate compatibility with project packages may work, but use them at your own risk.
 
-## Steps
-1. Install conda
-2. Create a new conda environment
-3. Install other dependencies
-5. Change the file paths in "/src/load_data.py" to match the location of your data if necessary
-
-### 1. Install Conda
+### Conda setup and installation
 From [the anaconda website](https://www.anaconda.com/) download the Anaconda installer compatible with your system.
 This comes with Anaconda Prompt, which is where you will access conda. If you have worked with conda before,
 and already have access to conda through another platform (such as miniconda), these setup steps may work there
 as well, but full functionality is not guaranteed.
 
-### 2. Create a new conda environment
-Conda provides environment creation functionality built in. Open Anaconda Prompt and create a new environment using conda.
-"fall2023" can be replaced with any name of your choosing consisting of ONLY LETTERS, NUMBERS, AND UNDERSCORES.
-
 ```bash
-conda create -n fall2023 python=3.9.18
-```
+conda create -n env-conda-3.9.18 python=3.9.18
+conda activate env-conda-3.9.18
 
-### 3. Install Dependencies
-The 2 dependences that need to be installed manually are geopandas (0.14.0) and contextily (1.3.0)
+conda install -n env-conda-3.9.18 -c conda-forge geopandas
+conda install -n env-conda-3.9.18 -c conda-forge matplotlib
 
-```bash
-conda install -n fall2023 geopandas
-conda install -c conda-forge -n fall2023 contextily
+python -m pip install basemap
+python -m pip install basemap-data-hires
 ```
 
 A number of other dependencies will come with geopandas. You can check the version of each of these dependencies
-by activating your environment and opening a python terminal.
+by opening a python terminal, importing geopandas, and calling geopandas.show_versions()
 ```bash
-conda activate fall2023
 python
+
+import geopandas
+geopandas.show_versions()
 ```
-This will start python, and you should see the following:
-```bash
-Python 3.9.18 | packaged by conda-forge | (main, Aug 30 2023, 03:40:31) [MSC v.1929 64 bit (AMD64)] on win32
-Type "help", "copyright", "credits" or "license" for more information.
->>>
-```
-Once here, use
+Once here, do
 ```bash
 import geopandas
 geopandas.show_versions()
@@ -67,7 +52,7 @@ GEOS       : 3.11.2
 GEOS lib   : None
 GDAL       : 3.7.0
 GDAL data dir: None
-PROJ       : 9.2.0
+PROJ       : 9.2.0i
 PROJ data dir: <proj data directory>
 
 PYTHON DEPENDENCIES
@@ -88,7 +73,7 @@ psycopg2   : None
 pyarrow    : None
 rtree      : 1.0.1
 ```
-Geopandas version 0.14.0 should install up-to-date releases of PROG and PYPROJ, but if you have a PROJ version less than 9.2.0 and/or a pyproj version less than 3.5.0, they need to be updated
+Verions of geopandas after 0.14.0 should install up-to-date releases of PROG and PYPROJ, but if you have a PROJ version less than 9.2.0 and/or a pyproj version less than 3.5.0, they need to be updated
 
 ### 3b: Updating proj and pyproj
 To update proj and pyproj, run the following commands in Anaconda Prompt. Pyproj version 3.5.0 works with

@@ -4,7 +4,7 @@ import random
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
-import contextily as cx
+from mpl_toolkits.basemap import Basemap
 from timer import Timer
 from load_data import proj_path, find_xy_fields
 
@@ -62,7 +62,6 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFr
         try:
             gdf = gpd.GeoDataFrame(
                 df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=4326)
-            gdf.to_crs(epsg=3348, inplace=True)
             print("X/Y fields found. Dataframe converted to geopandas point array")
         except KeyError:
             print("X/Y field not found. Operation Failed")
@@ -112,15 +111,27 @@ def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, **kwargs):
     :param kwargs:
     """
 
-    ax = gdf.plot(figsize=(8, 8))
+    g_series = gdf.geometry
+    min_lon, max_lon = min(g_series.x), max(g_series.x)
+    min_lat, max_lat = min(g_series.y), max(g_series.y)
+    m = Basemap(width=(max_lon - min_lon + 0.5) * 111139, height=(max_lat - min_lat + 1) * 111139,
+                resolution='h', projection='laea', \
+                lat_ts=45, lat_0=(max_lat-min_lat)/2 + min_lat, lon_0=(max_lon-min_lon)/2+min_lon)
 
-    print(gdf.crs.to_string())
+    plt.figure(figsize=(8, 6))
+    m.drawcoastlines()
+    m.drawcountries()
+    m.drawrivers()
+    m.drawstates(color='0.5')
+
+    m.scatter(g_series.x, g_series.y, latlon=True, s=8)
 
     if save:
         plt.savefig(os.path.join(plot_save_dir, name + "_plot.png"))
         print(f"Plot successfully saved to {name}_plot.png\n")
 
     print("plotting")
+
     plt.show()
 
 
