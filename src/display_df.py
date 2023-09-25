@@ -121,16 +121,26 @@ def plot_g_series(g_series: gpd.GeoSeries, name="", save=False):
     if all(g_series.total_bounds):
         min_lon, min_lat, max_lon, max_lat = g_series.total_bounds
 
-        print(min_lon, min_lat, max_lon, max_lat)
+        lon_buffer = (max_lon - min_lon) * 0.2
+        lat_buffer = (max_lat - max_lat) * 0.2
 
         ax = plt.axes(projection=lambert)
-        ax.set_extent([min_lon, max_lon, min_lat, max_lat])
+        ax.set_extent([min_lon - lon_buffer, max_lon + lon_buffer,
+                       min_lat - lat_buffer, max_lat + lat_buffer])
         ax.stock_img()
         ax.add_feature(cfeature.COASTLINE)
         ax.add_feature(cfeature.BORDERS)
         ax.add_feature(cfeature.STATES)
 
-        plt.scatter(g_series.x, g_series.y,color='red', transform=geodetic)
+        if g_series.geom_type[0] == "Point":
+
+            plt.scatter(g_series.x, g_series.y, color='red', transform=geodetic)
+
+        elif g_series.geom_type[0] == "LineString":
+
+            for line in g_series:
+                plt.plot(*line.xy, color='red', transform=geodetic)
+
         plt.show()
 
 
