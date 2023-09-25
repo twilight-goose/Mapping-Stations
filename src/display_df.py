@@ -4,7 +4,8 @@ import random
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
-from mpl_toolkits.basemap import Basemap
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import shapely
 from timer import Timer
 from load_data import proj_path, find_xy_fields
@@ -28,7 +29,14 @@ timer = Timer()
 # set a default crs to convert all longitude/latitude coordinates to
 # Equal area projection chosen to preserve accuracy when searching for
 # closest points
-default_crs = 'EPSG:9822'
+geodetic = ccrs.Geodetic()
+albers = ccrs.AlbersEqualArea(central_longitude=-85, central_latitude=50)
+
+# standard parallels were taken from stats canada
+lambert = ccrs.LambertConformal(central_longitude=-85, central_latitude=50,
+                                standard_parallels=(46, 77),
+                                cutoff=30)
+# lambert = ccrs.epsg(3348)
 
 
 def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFrame:
@@ -113,27 +121,16 @@ def plot_g_series(g_series: gpd.GeoSeries, name="", save=False):
     if all(g_series.total_bounds):
         min_lon, min_lat, max_lon, max_lat = g_series.total_bounds
 
-        m = Basemap(width=(max_lon - min_lon + 0.5) * 111139, height=(max_lat - min_lat + 1) * 111139,
-                    resolution='h', projection='aea',
-                    lat_ts=45, lat_0=(max_lat - min_lat) / 2 + min_lat, lon_0=(max_lon - min_lon) / 2 + min_lon)
+        print(min_lon, min_lat, max_lon, max_lat)
 
-        plt.figure(figsize=(8, 6))
-        m.drawcoastlines()
-        m.drawcountries()
-        m.drawrivers()
-        m.drawstates(color='0.5')
+        ax = plt.axes(projection=lambert)
+        ax.set_extent([min_lon, max_lon, min_lat, max_lat])
+        ax.stock_img()
+        ax.add_feature(cfeature.COASTLINE)
+        ax.add_feature(cfeature.BORDERS)
+        ax.add_feature(cfeature.STATES)
 
-        if g_series.geom_type[0] == shapely.Point:
-            m.scatter(g_series.x, g_series.y, s=8, latlon=True)
-        elif g_series.geom_type[0] == shapely.LineString:
-            m.plot(g_series, s=8, latlon=True)
-
-        if save:
-            plt.savefig(os.path.join(plot_save_dir, name + "_plot.png"))
-            print(f"Plot successfully saved to {name}_plot.png\n")
-
-        print("plotting")
-
+        plt.scatter(g_series.x, g_series.y,color='red', transform=geodetic)
         plt.show()
 
 
@@ -199,12 +196,7 @@ def convert_all(datasets: dict) -> dict:
 
 
 def plot_closest(gdf_1: gpd.GeoDataFrame, gdf_2: gpd.GeoDataFrame):
-    gdf_1 = gdf_1.to_crs(epsg=9822, inplace=True)
-    gdf_2 = gdf_2.to_crs(epsg=9822, inplace=True)
-
     joined = gdf_1.sjoin_nearest(gdf_2, max_distance=1000, distance_col='Distance')
-
-    print(joined.dtypes)
 
 
 def plot_all(datasets, save=False):
