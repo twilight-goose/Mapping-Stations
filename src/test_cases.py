@@ -1,6 +1,6 @@
 import sys
 from timer import Timer
-from bbox import BBox
+from classes import BBox
 import load_basic
 import load_data
 import display_df

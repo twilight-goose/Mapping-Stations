@@ -2,7 +2,7 @@ import os.path
 import sqlite3
 import pandas as pd
 import check_files
-from bbox import BBox
+from classes import BBox
 from timer import Timer
 
 
@@ -328,6 +328,20 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: {str: {str
 
     # return the data
     return {"hydat": station_dict}
+
+
+def pwqmn_to_sqlite3():
+    """
+    Converts the PWQMN .csv data to sqlite3 format to improve read
+    and query speeds. Is only run if the pwqmn.sqlite3 is not detected.
+
+    :return:
+    """
+    check_files.check_paths()
+
+    sqlite3.connect(os.path.join(data_path, "pwqmn.sqlite3"))
+
+
 
 
 def get_pwqmn_station_info(period=None, bbox=None, var=()) -> {str: list}:

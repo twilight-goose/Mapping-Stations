@@ -7,7 +7,7 @@ hydat_url = "http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip"
 pwqmn_url = "http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip"
 
 
-def check_path(path: str, name="Unnamed", url="<data source not found>"):
+def check_path(path: str, name="Unnamed", url="<data source not found>", ):
     """
     Checks if the data path exists. If it doesn't exist and a url is
     passed, will suggest where to download/obtain the data
@@ -19,7 +19,6 @@ def check_path(path: str, name="Unnamed", url="<data source not found>"):
     :raises FileNotFoundError:
     """
     if not os.path.exists(path):
-        # raise an error to prevent anything from proceeding
         raise FileNotFoundError(
             f"{name} data not found in expected location. Data available for "
             f"download from {url}; link can also be found in repository "

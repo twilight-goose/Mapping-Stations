@@ -6,7 +6,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
 from timer import Timer
-from load_data import proj_path, find_xy_fields
+from load_basic import proj_path, find_xy_fields
 
 """
 display_df.py
