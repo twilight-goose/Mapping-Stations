@@ -130,8 +130,12 @@ The PWQMN dataset is expected to contain the following fields, and a missing one
 'ResultDetectionQuantitationLimitMeasure',
 'ResultDetectionQuantitationLimitUnit'
 ```
+The HYDAT and PWQMN data used in this project were pre-processed by [Juliane Mai]https://github.com/julemai).
+[Hydat Data](http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip)
+[PWQMN Data](http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip)
+[MondayFileGallery](https://github.com/twilight-goose/Mapping-Stations/tree/main/data/MondayFileGallery)
 
 ## Testing Code
+```commandline
 
-
-##
+```

@@ -6,7 +6,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
 from timer import Timer
-from load_basic import proj_path, find_xy_fields
+from load_data import proj_path, find_xy_fields
 
 """
 display_df.py
@@ -160,27 +160,6 @@ def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):
         print(name + " could not be plotted")
 
 
-def gdf_from_hydat(hydat_dict: dict) -> gpd.GeoDataFrame:
-    """
-
-    :param hydat_dict: input dict with a specific structure.
-
-    Expected structure:
-
-        hydat_dict = {<str station number>: table_data>, ...}
-
-            hydat_dict is a dict of length n where n is the number of
-            unique station numbers in the HYDAT sqlite3 database.
-
-        table_data = {<str table name>: <pandas DataFrame>, ...}
-
-            table_data is a dict of length n where n is the number of
-            tables that the station number appears in
-
-    :return:
-    """
-
-
 def gdf_from_pwqmn(pwqmn_list: dict) -> gpd.GeoDataFrame:
     """
     Generates a gdf from a dict of a specific structure.
@@ -270,5 +249,3 @@ def plot_all(datasets, save=False):
     :param save: bool; whether to save the plotted data
     """
     gdfs = convert_all(datasets)
-
-

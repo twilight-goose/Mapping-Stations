@@ -1,7 +1,6 @@
 import sys
 from timer import Timer
 from classes import BBox
-import load_basic
 import load_data
 import display_df
 
@@ -30,7 +29,7 @@ def main():
     # gdf = display_df.gdf_from_pwqmn(data)
     # display_df.map_gdfs(gdf)
 
-    data = load_basic.load_all(period=["2008-12-01", "2010-12-12"], bbox=BBox(-80, -75, 40, 43))
+    data = load_data.load_all(period=["2008-12-01", "2010-12-12"], bbox=BBox(-80, -75, 40, 43))
     gdfs = {}
 
     for name in data.keys():
@@ -38,8 +37,7 @@ def main():
         gdf = display_df.point_gdf_from_df(data[name])
         if type(gdf) is not int:
             gdfs[name] = gdf
-
-    display_df.plot_gdf(list(gdfs.values())[0])
+            display_df.plot_gdf(list(gdfs.values())[0])
 
     timer.stop()
 
