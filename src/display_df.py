@@ -28,7 +28,7 @@ timer = Timer()
 # set a default crs to convert all longitude/latitude coordinates to
 # Equal area projection chosen to preserve accuracy when searching for
 # closest points
-default_crs = 'EPSG:3348'
+default_crs = 'EPSG:9822'
 
 
 def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFrame:
@@ -102,29 +102,39 @@ def map_gdfs(gdfs_to_map):
 
 
 def plot_g_series(g_series: gpd.GeoSeries, name="", save=False):
-    min_lon, max_lon = min(g_series.x), max(g_series.x)
-    min_lat, max_lat = min(g_series.y), max(g_series.y)
+    """
+    Plot a Geopandas GeoSeries.
 
-    m = Basemap(width=(max_lon - min_lon + 0.5) * 111139, height=(max_lat - min_lat + 1) * 111139,
-                resolution='h', projection='laea',
-                lat_ts=45, lat_0=(max_lat - min_lat) / 2 + min_lat, lon_0=(max_lon - min_lon) / 2 + min_lon)
+    :param g_series:
+    :param name:
+    :param save:
+    :return:
+    """
+    if all(g_series.total_bounds):
+        min_lon, min_lat, max_lon, max_lat = g_series.total_bounds
 
-    plt.figure(figsize=(8, 6))
-    m.drawcoastlines()
-    m.drawcountries()
-    m.drawrivers()
-    m.drawstates(color='0.5')
+        m = Basemap(width=(max_lon - min_lon + 0.5) * 111139, height=(max_lat - min_lat + 1) * 111139,
+                    resolution='h', projection='aea',
+                    lat_ts=45, lat_0=(max_lat - min_lat) / 2 + min_lat, lon_0=(max_lon - min_lon) / 2 + min_lon)
 
-    for line in g_series:
-        m.plot(line.x, line.y, latlon=True)
+        plt.figure(figsize=(8, 6))
+        m.drawcoastlines()
+        m.drawcountries()
+        m.drawrivers()
+        m.drawstates(color='0.5')
 
-    if save:
-        plt.savefig(os.path.join(plot_save_dir, name + "_plot.png"))
-        print(f"Plot successfully saved to {name}_plot.png\n")
+        if g_series.geom_type[0] == shapely.Point:
+            m.scatter(g_series.x, g_series.y, s=8, latlon=True)
+        elif g_series.geom_type[0] == shapely.LineString:
+            m.plot(g_series, s=8, latlon=True)
 
-    print("plotting")
+        if save:
+            plt.savefig(os.path.join(plot_save_dir, name + "_plot.png"))
+            print(f"Plot successfully saved to {name}_plot.png\n")
 
-    plt.show()
+        print("plotting")
+
+        plt.show()
 
 
 def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, **kwargs):
@@ -188,25 +198,13 @@ def convert_all(datasets: dict) -> dict:
     return gdfs
 
 
-def plot_closest(gdf_1: gpd.GeoDataFrame,
-                 gdf_2: gpd.GeoDataFrame):
-    def find_closest(gdf_1: gpd.GeoDataFrame,
-                     gdf_2: gpd.GeoDataFrame):
-        sindex_1 = gdf_1.geometry.sindex
-        sindex_2 = gdf_2.geometry.sindex
+def plot_closest(gdf_1: gpd.GeoDataFrame, gdf_2: gpd.GeoDataFrame):
+    gdf_1 = gdf_1.to_crs(epsg=9822, inplace=True)
+    gdf_2 = gdf_2.to_crs(epsg=9822, inplace=True)
 
-        nearest = sindex_2.nearest(gdf_1.geometry)
+    joined = gdf_1.sjoin_nearest(gdf_2, max_distance=1000, distance_col='Distance')
 
-        return nearest
-
-    nearest = find_closest(gdf_1, gdf_2)
-    s = []
-    print(gdf_1.geometry)
-    for i in range(len(gdf_1.geometry)):
-        print(gdf_1.geometry[i], gdf_2.geometry[i])
-        s.append(shapely.LineString(gdf_1.geometry[i], gdf_2.geometry[i]))
-
-    plot_g_series(gpd.GeoSeries(s))
+    print(joined.dtypes)
 
 
 def plot_all(datasets, save=False):

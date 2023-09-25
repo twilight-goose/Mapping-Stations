@@ -39,11 +39,8 @@ def main():
     #         gdfs[name] = gdf
     #         display_df.plot_gdf(list(gdfs.values())[0])
 
-    hydat = load_data.get_hydat_station_data(period=["2000-12-01", "2010-12-12"], bbox=BBox(-80, -75, 40, 43))
-    pwqmn = load_data.get_pwqmn_station_data(period=["2000-12-01", "2010-12-12"], bbox=BBox(-80, -75, 40, 43))
-
-    print(hydat)
-    print(pwqmn)
+    hydat = load_data.get_hydat_station_data(period=["2008-12-01", "2010-12-12"], bbox=BBox(-80, -75, 40, 43))
+    pwqmn = load_data.get_pwqmn_station_data(period=["2008-12-01", "2010-12-12"], bbox=BBox(-80, -75, 40, 43))
 
     hydat = display_df.point_gdf_from_df(hydat['hydat'])
     pwqmn = display_df.point_gdf_from_df(pwqmn['pwqmn'])

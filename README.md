@@ -19,9 +19,7 @@ conda activate env-conda-3.9.18
 
 conda install -n env-conda-3.9.18 -c conda-forge geopandas
 conda install -n env-conda-3.9.18 -c conda-forge matplotlib
-
-python -m pip install basemap
-python -m pip install basemap-data-hires
+conda install -n env-conda-3.9.19 -c conda-forge cartopy
 ```
 
 A number of other dependencies will come with geopandas. You can check the version of each of these dependencies
