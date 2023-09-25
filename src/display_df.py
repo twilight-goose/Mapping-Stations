@@ -5,6 +5,7 @@ import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
+import shapely
 from timer import Timer
 from load_data import proj_path, find_xy_fields
 
@@ -70,14 +71,6 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFr
     return gdf
 
 
-def check_gdfs_iter(gdfs):
-    if type(gdfs) == dict:
-        gdfs = list(gdfs.values())
-    elif not hasattr(gdfs, '__iter__'):
-        gdfs = [gdfs, ]
-    return gdfs
-
-
 def map_gdfs(gdfs_to_map):
     """
 
@@ -85,6 +78,13 @@ def map_gdfs(gdfs_to_map):
 
     :return:
     """
+    def check_gdfs_iter(gdfs):
+        if type(gdfs) == dict:
+            gdfs = list(gdfs.values())
+        elif not hasattr(gdfs, '__iter__'):
+            gdfs = [gdfs, ]
+        return gdfs
+
     color_list = ['red', 'blue', 'yellow', 'purple', 'black']
 
     def explore_recursive(gdf_list, n):
@@ -101,6 +101,32 @@ def map_gdfs(gdfs_to_map):
     webbrowser.open(outpath)
 
 
+def plot_g_series(g_series: gpd.GeoSeries, name="", save=False):
+    min_lon, max_lon = min(g_series.x), max(g_series.x)
+    min_lat, max_lat = min(g_series.y), max(g_series.y)
+
+    m = Basemap(width=(max_lon - min_lon + 0.5) * 111139, height=(max_lat - min_lat + 1) * 111139,
+                resolution='h', projection='laea',
+                lat_ts=45, lat_0=(max_lat - min_lat) / 2 + min_lat, lon_0=(max_lon - min_lon) / 2 + min_lon)
+
+    plt.figure(figsize=(8, 6))
+    m.drawcoastlines()
+    m.drawcountries()
+    m.drawrivers()
+    m.drawstates(color='0.5')
+
+    for line in g_series:
+        m.plot(line.x, line.y, latlon=True)
+
+    if save:
+        plt.savefig(os.path.join(plot_save_dir, name + "_plot.png"))
+        print(f"Plot successfully saved to {name}_plot.png\n")
+
+    print("plotting")
+
+    plt.show()
+
+
 def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, **kwargs):
     """
     Plot a geopandas GeoDataFrame on a matplotlib plot
@@ -110,29 +136,8 @@ def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, **kwargs):
     :param save: True or False; whether to save the plot to disk
     :param kwargs:
     """
-
     g_series = gdf.geometry
-    min_lon, max_lon = min(g_series.x), max(g_series.x)
-    min_lat, max_lat = min(g_series.y), max(g_series.y)
-    m = Basemap(width=(max_lon - min_lon + 0.5) * 111139, height=(max_lat - min_lat + 1) * 111139,
-                resolution='h', projection='laea', \
-                lat_ts=45, lat_0=(max_lat-min_lat)/2 + min_lat, lon_0=(max_lon-min_lon)/2+min_lon)
-
-    plt.figure(figsize=(8, 6))
-    m.drawcoastlines()
-    m.drawcountries()
-    m.drawrivers()
-    m.drawstates(color='0.5')
-
-    m.scatter(g_series.x, g_series.y, latlon=True, s=8)
-
-    if save:
-        plt.savefig(os.path.join(plot_save_dir, name + "_plot.png"))
-        print(f"Plot successfully saved to {name}_plot.png\n")
-
-    print("plotting")
-
-    plt.show()
+    plot_g_series(g_series, name, save)
 
 
 def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):
@@ -160,47 +165,6 @@ def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):
         print(name + " could not be plotted")
 
 
-def gdf_from_pwqmn(pwqmn_list: dict) -> gpd.GeoDataFrame:
-    """
-    Generates a gdf from a dict of a specific structure.
-
-    :param pwqmn_list: dict of station_info: station_data pairs where
-
-                station_info is a tuple length 6 of strings in the
-                following order:
-                    (<Name>, <Location ID>, <Longitude>, <Latitude>, <Variables>)
-
-                station_data is a <pandas DataFrame> of valid data entries
-
-    :return: <Geopandas.GeoDataFrame>
-
-    :raises DataStructureError:
-
-            Raises a custom error 'DataStructureError' if pwqmn_dict
-            does not have the expected structure.
-    """
-
-    pwqmn_station_info = [key for key in pwqmn_list.keys()]
-    print(pwqmn_station_info)
-    df = pd.DataFrame(data=pwqmn_station_info, columns=["Name", "Location ID", "Longitude", "Latitude", "Variables"])
-    gdf = point_gdf_from_df(df)
-
-    return gdf
-
-
-def plot_pwqmn(pwqmn_list: list):
-    """
-    Plots PWQMN data. Does not return the resulting GeoDataFrame.
-    To get the resulting GeoDataFrame, use gdf_from_pwqmn() and plot
-    it using plot_gdf()
-
-    :param pwqmn_list: a dict with a specific structure
-
-    :return:
-    """
-    plot_gdf(gdf_from_pwqmn(pwqmn_list))
-
-
 def convert_all(datasets: dict) -> dict:
     """
 
@@ -217,19 +181,32 @@ def convert_all(datasets: dict) -> dict:
         if type(dataset) is pd.DataFrame:
             gdf = point_gdf_from_df(dataset)
 
-        elif type(dataset) is dict:
-            # The hydat and pwqmn data are the only ones that should
-            # be in dict format
-            if ds_name == "hydat":
-                gdf = gdf_from_hydat(dataset)
-            elif ds_name == "pwqmn":
-                gdf = gdf_from_pwqmn(dataset)
-
         # if the conversion was successful, add it to the output dict
         if type(gdf) is gpd.GeoDataFrame:
             gdfs[ds_name] = gdf
 
     return gdfs
+
+
+def plot_closest(gdf_1: gpd.GeoDataFrame,
+                 gdf_2: gpd.GeoDataFrame):
+    def find_closest(gdf_1: gpd.GeoDataFrame,
+                     gdf_2: gpd.GeoDataFrame):
+        sindex_1 = gdf_1.geometry.sindex
+        sindex_2 = gdf_2.geometry.sindex
+
+        nearest = sindex_2.nearest(gdf_1.geometry)
+
+        return nearest
+
+    nearest = find_closest(gdf_1, gdf_2)
+    s = []
+    print(gdf_1.geometry)
+    for i in range(len(gdf_1.geometry)):
+        print(gdf_1.geometry[i], gdf_2.geometry[i])
+        s.append(shapely.LineString(gdf_1.geometry[i], gdf_2.geometry[i]))
+
+    plot_g_series(gpd.GeoSeries(s))
 
 
 def plot_all(datasets, save=False):

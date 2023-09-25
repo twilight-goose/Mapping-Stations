@@ -126,7 +126,7 @@ def find_xy_fields(df: pd.DataFrame) -> [str, str]:
         return field_name if i == "" else "Failed"
 
     x, y = "", ""
-    print(df.dtypes)
+
     for field in df.columns.values:
 
         # Check if the field matches one of the X or Y field names
@@ -220,7 +220,7 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: pd.DataFra
     conn = sqlite3.connect(hydat_path)
 
     # generate a sql query from the bbox bounding box
-    bbox_query = BBox.sql_query(bbox)
+    bbox_query = BBox.sql_query(bbox, "LONGITUDE", "LATITUDE")
     if bbox_query:
         bbox_query = " AND " + bbox_query
 
@@ -232,8 +232,6 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: pd.DataFra
 
     station_df['LONGITUDE'] = station_df['LONGITUDE'].astype('float')
     station_df['LATITUDE'] = station_df['LATITUDE'].astype('float')
-
-    print(station_df.dtypes)
 
     timer.stop()
     conn.close()        # close the sqlite3 connection
@@ -266,9 +264,10 @@ def get_pwqmn_station_data(period=None, bbox=None, var=()) -> {str: list}:
     fields = [field[1] for field in curs.fetchall()]
 
     period_query = Period.sql_query(period, fields)
-    bbox_query = BBox.sql_query(bbox)
+    bbox_query = BBox.sql_query(bbox, "Longitude", "Latitude")
 
     query = ""
+
     if bbox_query or period_query:
         connector = "OR" if (bbox_query and period_query) else ""
         query = " ".join(["WHERE", bbox_query, connector, period_query])

@@ -49,7 +49,7 @@ class BBox:
                 self.bounds['min_lon'] <= cord['lon'] <= self.bounds['max_lon'])
 
     @staticmethod
-    def sql_query(bbox) -> str:
+    def sql_query(bbox, lon_field, lat_field) -> str:
         """
         Translates the bounding box into a SQL query string.
 
@@ -63,8 +63,8 @@ class BBox:
             min_lon, max_lon = bbox.bounds['min_lon'], bbox.bounds['max_lon']
             min_lat, max_lat = bbox.bounds['min_lat'], bbox.bounds['max_lat']
 
-            query = (f"{min_lon} <= 'LONGITUDE' AND {max_lon} >= 'LONGITUDE' AND " +
-                     f"{min_lat} <= 'LATITUDE' AND {max_lat} >= 'LATITUDE'")
+            query = (f"{min_lon} <= {lon_field} AND {max_lon} >= {lon_field} AND " +
+                     f"{min_lat} <= {lat_field} AND {max_lat} >= {lat_field}")
         return query
 
     @staticmethod

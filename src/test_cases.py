@@ -29,15 +29,29 @@ def main():
     # gdf = display_df.gdf_from_pwqmn(data)
     # display_df.map_gdfs(gdf)
 
-    data = load_data.load_all(period=["2008-12-01", "2010-12-12"], bbox=BBox(-80, -75, 40, 43))
-    gdfs = {}
+    #data = load_data.load_all(period=["2008-12-01", "2010-12-12"], bbox=BBox(-80, -75, 40, 43))
+    #gdfs = {}
 
-    for name in data.keys():
-        print(name)
-        gdf = display_df.point_gdf_from_df(data[name])
-        if type(gdf) is not int:
-            gdfs[name] = gdf
-            display_df.plot_gdf(list(gdfs.values())[0])
+    # for name in data.keys():
+    #     print(name)
+    #     gdf = display_df.point_gdf_from_df(data[name])
+    #     if type(gdf) is not int:
+    #         gdfs[name] = gdf
+    #         display_df.plot_gdf(list(gdfs.values())[0])
+
+    hydat = load_data.get_hydat_station_data(period=["2000-12-01", "2010-12-12"], bbox=BBox(-80, -75, 40, 43))
+    pwqmn = load_data.get_pwqmn_station_data(period=["2000-12-01", "2010-12-12"], bbox=BBox(-80, -75, 40, 43))
+
+    print(hydat)
+    print(pwqmn)
+
+    hydat = display_df.point_gdf_from_df(hydat['hydat'])
+    pwqmn = display_df.point_gdf_from_df(pwqmn['pwqmn'])
+
+    display_df.plot_gdf(hydat)
+    display_df.plot_gdf(pwqmn)
+
+    display_df.plot_closest(hydat, pwqmn)
 
     timer.stop()
 
