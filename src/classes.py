@@ -113,6 +113,9 @@ class Period:
         self.start = start
         self.end = end
 
+    def is_empty(self):
+        return self.start is None and self.end is None
+
     @staticmethod
     def check_period(period):
         """
@@ -145,8 +148,17 @@ class Period:
         and identified date fields. Searches for "DATE", "YEAR_FROM",
         and "YEAR_TO".
 
-        :param period:
-        :param fields:
+        :param period: The period to be checked
+
+            Tuple/list of (<start date>, <end date>); dates can be either
+            <str> in format "YYYY-MM-DD" or None; If None, all dates
+            after(before) the start(end) date are retrieved.
+
+                or
+
+            None; No date query. Does not filter data by date.
+
+        :param fields: list of <field name str> to build the query with
 
         :return: <str>
 
@@ -157,42 +169,49 @@ class Period:
             If period (from outer scope) has date bounds, returns a SQL
             query string.
         """
-        query, start_f, end_f = "", "", ""
-
-        if type(period) == list:
+        # if a list or tuple of <str> is passed as the period,
+        # convert it to a period object
+        if type(period) == list or type(period) == tuple:
             Period.check_period(period)
             period = Period(start=period[0], end=period[1])
 
-        if period is not None and (period.start or period.end):
-            for field in fields:
-                if field.upper() == "DATE":
-                    start_f = field
-                elif field.upper() == "YEAR":
-                    start_f = field
-                elif field.upper() == 'YEAR_FROM':
-                    start_f = field
-                elif field.upper() == 'YEAR_TO':
-                    end_f = field
+        # if no date range is declared, return an empty string
+        if period is None or period.is_empty():
+            return ""
 
-            # Construct the SQL query, based on the period bounds and
-            # identified date fields
+        # if the period has at least one valid bound, begin
+        # building the query
+        query, start_f, end_f = "", "", ""
 
-            # period has start_date and end_date
-            if period.start and period.end:
-                query += f"({start_f} BETWEEN '{period.start}' AND '{period.end}')"
-                if end_f:
-                    query += f" OR ({end_f} BETWEEN '{period.start}' AND '{period.end}')"
+        for field in fields:
+            if field.upper() == "DATE":
+                start_f = field
+            elif field.upper() == "YEAR":
+                start_f = field
+            elif field.upper() == 'YEAR_FROM':
+                start_f = field
+            elif field.upper() == 'YEAR_TO':
+                end_f = field
 
-            # period has an end_date but no start_date
-            elif not period.start and period.end:
-                query += f"({start_f} <= '{period.end}')"
-                if end_f:
-                    query += f" OR ({end_f} <= '{period.end}')"
+        # Construct the SQL query, based on the period bounds and
+        # identified date fields
 
-            # period has start_date but no end_date
-            else:
-                query += f"({start_f} >= '{period.start}')"
-                if end_f:
-                    query += f" OR ({end_f} >= '{period.start}')"
+        # period has start_date and end_date
+        if period.start and period.end:
+            query += f"({start_f} BETWEEN '{period.start}' AND '{period.end}')"
+            if end_f:
+                query += f" OR ({end_f} BETWEEN '{period.start}' AND '{period.end}')"
+
+        # period has an end_date but no start_date
+        elif not period.start and period.end:
+            query += f"({start_f} <= '{period.end}')"
+            if end_f:
+                query += f" OR ({end_f} <= '{period.end}')"
+
+        # period has start_date but no end_date
+        else:
+            query += f"({start_f} >= '{period.start}')"
+            if end_f:
+                query += f" OR ({end_f} >= '{period.start}')"
 
         return query
