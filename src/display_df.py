@@ -147,8 +147,9 @@ def plot_g_series(g_series: gpd.GeoSeries, name="", save=False,
     """
 
     if all(g_series.total_bounds):
-        plt.figure(figsize=(8,8))
         if add_bg:
+            plt.figure(figsize=(8, 8))
+
             min_lon, min_lat, max_lon, max_lat = g_series.total_bounds
             lon_buffer = (max_lon - min_lon) * 0.2
             lat_buffer = (max_lat - max_lat) * 0.2
