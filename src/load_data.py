@@ -82,7 +82,9 @@ except FileNotFoundError:
                                       'ResultDetectionCondition',
                                       'ResultDetectionQuantitationLimitMeasure',
                                       'ResultDetectionQuantitationLimitUnit'],
-                             dtype={'ResultSampleFraction': str,
+                             dtype={'MonitoringLocationLongitude': float,
+                                    'MonitoringLocationLatitude': float,
+                                    'ResultSampleFraction': str,
                                     'ResultValue': float,
                                     'ResultUnit': str,
                                     'ResultDetectionCondition': str,
@@ -93,7 +95,10 @@ except FileNotFoundError:
                                'MonitoringLocationID': "Location ID",
                                'MonitoringLocationLongitude': 'Longitude',
                                'MonitoringLocationLatitude': 'Latitude',
+                               'ActivityStartDate': 'DATE',
                                'CharacteristicName': 'Variables'}, inplace=True)
+
+    pwqmn_data['DATE'] = pd.to_datetime(pwqmn_data['DATE'])
 
     pwqmn_data.to_sql("DATA", connection, index=False)
 
@@ -191,7 +196,7 @@ def get_monday_files(bbox=None) -> {str: pd.DataFrame}:
     return load_csvs(monday_path, bbox=bbox)
 
 
-def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: pd.DataFrame}:
+def get_hydat_station_data(period=None, bbox=None, var=None) -> pd.DataFrame:
     """
     Retrieves HYDAT station data in the period and bbox of interest
 
@@ -208,7 +213,7 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: pd.DataFra
     :param bbox: BBox object declaring area of interest or None
     :param var:
 
-    :return: {"hydat": <pandas DataFrame>}
+    :return: <pandas DataFrame>
     """
 
     # check period validity
@@ -237,10 +242,10 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> {str: pd.DataFra
     conn.close()        # close the sqlite3 connection
 
     # return the data
-    return {"hydat": station_df}
+    return station_df
 
 
-def get_pwqmn_station_data(period=None, bbox=None, var=()) -> {str: list}:
+def get_pwqmn_station_data(period=None, bbox=None, var=()) -> pd.DataFrame:
     """
     Reads from the cleaned PWQMN data using pandas
 
@@ -269,19 +274,18 @@ def get_pwqmn_station_data(period=None, bbox=None, var=()) -> {str: list}:
     query = ""
 
     if bbox_query or period_query:
-        connector = "OR" if (bbox_query and period_query) else ""
-        query = " ".join(["WHERE", bbox_query, connector, period_query])
+        connector = "AND" if (bbox_query and period_query) else ""
+        query = " ".join([" WHERE", bbox_query, connector, period_query])
+
+    print(query)
 
     # Load PWQMN data as a DataFrame
     station_df = pd.read_sql_query("SELECT * FROM 'DATA'" + query, conn)
 
-    station_df['Longitude'] = station_df['Longitude'].astype('float')
-    station_df['Latitude'] = station_df['Latitude'].astype('float')
-
     # Usually takes around 80 seconds
     timer.stop()
 
-    return {"pwqmn": station_df}
+    return station_df
 
 
 def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
@@ -291,5 +295,5 @@ def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
     :return: dict of <str dataset name> : <pandas DataFrame>
     """
     return {**get_monday_files(),
-            **get_hydat_station_data(period=period, bbox=bbox),
-            **get_pwqmn_station_data(period=period, bbox=bbox)}
+            'hydat': get_hydat_station_data(period=period, bbox=bbox),
+            'pwqmn': get_pwqmn_station_data(period=period, bbox=bbox)}

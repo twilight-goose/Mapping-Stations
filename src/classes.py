@@ -63,8 +63,8 @@ class BBox:
             min_lon, max_lon = bbox.bounds['min_lon'], bbox.bounds['max_lon']
             min_lat, max_lat = bbox.bounds['min_lat'], bbox.bounds['max_lat']
 
-            query = (f"{min_lon} <= {lon_field} AND {max_lon} >= {lon_field} AND " +
-                     f"{min_lat} <= {lat_field} AND {max_lat} >= {lat_field}")
+            query = (f"({min_lon} <= {lon_field} AND {max_lon} >= {lon_field} AND " +
+                     f"{min_lat} <= {lat_field} AND {max_lat} >= {lat_field})")
         return query
 
     @staticmethod
@@ -164,34 +164,35 @@ class Period:
             period = Period(start=period[0], end=period[1])
 
         if period is not None and (period.start or period.end):
-
-            # Check fields for 1 of 3 potential date fields
-            if "DATE" in fields:
-                start_f = "DATE"
-            elif "YEAR" in fields:
-                start_f = "YEAR"
-            else:
-                start_f, end_f = "YEAR_FROM", "YEAR_TO"
+            for field in fields:
+                if field.upper() == "DATE":
+                    start_f = field
+                elif field.upper() == "YEAR":
+                    start_f = field
+                elif field.upper() == 'YEAR_FROM':
+                    start_f = field
+                elif field.upper() == 'YEAR_TO':
+                    end_f = field
 
             # Construct the SQL query, based on the period bounds and
             # identified date fields
 
             # period has start_date and end_date
             if period.start and period.end:
-                query += f"('{start_f}' BETWEEN '{period.start}' AND '{period.end}')"
+                query += f"({start_f} BETWEEN '{period.start}' AND '{period.end}')"
                 if end_f:
-                    query += f" OR ('{end_f}' BETWEEN '{period.start}' AND '{period.end}')"
+                    query += f" OR ({end_f} BETWEEN '{period.start}' AND '{period.end}')"
 
             # period has an end_date but no start_date
             elif not period.start and period.end:
-                query += f"('{start_f}' <= '{period.end}')"
+                query += f"({start_f} <= '{period.end}')"
                 if end_f:
-                    query += f" OR ('{end_f}' <= '{period.end}')"
+                    query += f" OR ({end_f} <= '{period.end}')"
 
             # period has start_date but no end_date
             else:
-                query += f"('{start_f}' >= '{period.start}')"
+                query += f"({start_f} >= '{period.start}')"
                 if end_f:
-                    query += f" OR ('{end_f}' >= '{period.start}')"
+                    query += f" OR ({end_f} >= '{period.start}')"
 
         return query

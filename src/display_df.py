@@ -6,7 +6,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-import shapely
+from shapely import LineString
 from timer import Timer
 from load_data import proj_path, find_xy_fields
 
@@ -36,7 +36,32 @@ albers = ccrs.AlbersEqualArea(central_longitude=-85, central_latitude=50)
 lambert = ccrs.LambertConformal(central_longitude=-85, central_latitude=50,
                                 standard_parallels=(46, 77),
                                 cutoff=30)
-# lambert = ccrs.epsg(3348)
+
+# WKT string for Canadian lambert conformal conic projection
+# source: https://epsg.io/102002
+Can_LCC_wkt = ('PROJCS["Canada_Lambert_Conformal_Conic",'
+                    'GEOGCS["NAD83",'
+                        'DATUM["North_American_Datum_1983",'
+                            'SPHEROID["GRS 1980",6378137,298.257222101,'
+                                'AUTHORITY["EPSG","7019"]],'
+                            'AUTHORITY["EPSG","6269"]],'
+                        'PRIMEM["Greenwich",0,'
+                            'AUTHORITY["EPSG","8901"]],'
+                        'UNIT["degree",0.0174532925199433,'
+                            'AUTHORITY["EPSG","9122"]],'
+                        'AUTHORITY["EPSG","4269"]],'
+                    'PROJECTION["Lambert_Conformal_Conic_2SP"],'
+                    'PARAMETER["latitude_of_origin",40],'
+                    'PARAMETER["central_meridian",-96]'
+                    'PARAMETER["standard_parallel_1",50],'
+                    'PARAMETER["standard_parallel_2",70],'
+                    'PARAMETER["false_easting",0],'
+                    'PARAMETER["false_northing",0],'
+                    'UNIT["metre",1,'
+                        'AUTHORITY["EPSG","9001"]],'
+                    'AXIS["Easting",EAST],'
+                    'AXIS["Northing",NORTH],'
+                    'AUTHORITY["ESRI","102002"]]')
 
 
 def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="") -> gpd.GeoDataFrame:
@@ -109,20 +134,20 @@ def map_gdfs(gdfs_to_map):
     webbrowser.open(outpath)
 
 
-def plot_g_series(g_series: gpd.GeoSeries, name="", save=False):
+def plot_g_series(g_series: gpd.GeoSeries, name="", save=False,
+                  show=True, add_bg=True, **kwargs):
     """
     Plot a Geopandas GeoSeries.
 
-    :param g_series:
+    :param g_series: A Geopandas GeoSeries or list of GeoSEries
     :param name:
     :param save:
+    :param show:
     :return:
     """
-    if all(g_series.total_bounds):
         min_lon, min_lat, max_lon, max_lat = g_series.total_bounds
 
         lon_buffer = (max_lon - min_lon) * 0.2
-        lat_buffer = (max_lat - max_lat) * 0.2
 
         ax = plt.axes(projection=lambert)
         ax.set_extent([min_lon - lon_buffer, max_lon + lon_buffer,
@@ -131,30 +156,39 @@ def plot_g_series(g_series: gpd.GeoSeries, name="", save=False):
         ax.add_feature(cfeature.COASTLINE)
         ax.add_feature(cfeature.BORDERS)
         ax.add_feature(cfeature.STATES)
+            lat_buffer = (max_lat - max_lat) * 0.2
+
+            ax = plt.axes(projection=lambert)
+            ax.set_extent([min_lon - lon_buffer, max_lon + lon_buffer,
+                           min_lat - lat_buffer, max_lat + lat_buffer])
+            ax.stock_img()
+            ax.add_feature(cfeature.COASTLINE)
+            ax.add_feature(cfeature.BORDERS)
+            ax.add_feature(cfeature.STATES)
 
         if g_series.geom_type[0] == "Point":
-
-            plt.scatter(g_series.x, g_series.y, color='red', transform=geodetic)
+            plt.scatter(g_series.x, g_series.y, transform=geodetic, **kwargs)
 
         elif g_series.geom_type[0] == "LineString":
-
             for line in g_series:
-                plt.plot(*line.xy, color='red', transform=geodetic)
+                plt.plot(*line.xy, color='red', transform=geodetic, **kwargs)
 
-        plt.show()
+        if show:
+            plt.show()
 
 
-def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, **kwargs):
+def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, add_bg=True, **kwargs):
     """
     Plot a geopandas GeoDataFrame on a matplotlib plot
 
     :param gdf: the geopandas GeoDataFrame to be plotted
     :param name: name to save the plot to
     :param save: True or False; whether to save the plot to disk
+    :param add_bg:
     :param kwargs:
     """
     g_series = gdf.geometry
-    plot_g_series(g_series, name, save)
+    plot_g_series(g_series, name=name, save=save, add_bg=add_bg, **kwargs)
 
 
 def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):
@@ -182,47 +216,32 @@ def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):
         print(name + " could not be plotted")
 
 
-def convert_all(datasets: dict) -> dict:
-    """
-
-    :param datasets:
-    :return:
-    """
-    ds_names = datasets.keys()
-    gdf = None
-    gdfs = {}
-
-    for ds_name in ds_names:
-        dataset = datasets[ds_name]
-
-        if type(dataset) is pd.DataFrame:
-            gdf = point_gdf_from_df(dataset)
-
-        # if the conversion was successful, add it to the output dict
-        if type(gdf) is gpd.GeoDataFrame:
-            gdfs[ds_name] = gdf
-
-    return gdfs
-
-
 def plot_closest(gdf_1: gpd.GeoDataFrame, gdf_2: gpd.GeoDataFrame):
-    joined = gdf_1.sjoin_nearest(gdf_2, max_distance=1000, distance_col='Distance')
+    gdf_1.to_crs(crs=Can_LCC_wkt, inplace=True)
+    gdf_2.to_crs(crs=Can_LCC_wkt, inplace=True)
 
+    gdf_1 = gdf_1.drop_duplicates(subset=find_xy_fields(gdf_1))
+    gdf_2 = gdf_2.drop_duplicates(subset=find_xy_fields(gdf_2))
 
-def plot_all(datasets, save=False):
-    """
-    Plots all georeferenced data in data_dict.
+    joined = gdf_1.sjoin_nearest(gdf_2, distance_col='Distance')
 
-    Produces a geodataframe from every dataset in datasets where it is
-    possible and plots them. Does not produce output
+    subset_df = joined[['LONGITUDE', 'LATITUDE', 'Longitude', 'Latitude']]
+    subset_df = subset_df.astype('float')
 
-    :param datasets: dict of <dataset name>: data where
+    print(subset_df)
 
-                data = <pandas DataFrame> or <dict>
+    lines = []
+    for i, series in subset_df.iterrows():
+        lines.append(LineString([
+            [series['LONGITUDE'], series['LATITUDE']],
+            [series['Longitude'], series['Latitude']]
+        ]))
 
-                    if data is a dict, data is expected to have a
-                    specific structure
+    lines = gpd.GeoSeries(lines)
 
-    :param save: bool; whether to save the plotted data
-    """
-    gdfs = convert_all(datasets)
+    plot_gdf(gdf_1.to_crs(crs=4326), show=False, color='purple', zorder=9)
+    plot_gdf(gdf_2.to_crs(crs=4326), show=False, add_bg=False, color='blue', zorder=10)
+    plot_g_series(lines, show=False, add_bg=False, zorder=1)
+
+    plt.show()
+
