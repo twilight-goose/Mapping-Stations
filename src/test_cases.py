@@ -57,21 +57,6 @@ def main():
          LineString([[-75, 43], [-76, 40], [-75, 45]])]
     )
 
-    # points_1 = gpd.GeoSeries(
-    #     [
-    #         Point(-70, 40)
-    #     ]
-    # )
-    #
-    # points_2 = gpd.GeoSeries(
-    #     [
-    #         Point(-71, 40),
-    #         Point(-72, 40),
-    #         Point(-71, 40),
-    #         Point(-69, 40)
-    #     ]
-    # )
-
     timer.stop()
 
 

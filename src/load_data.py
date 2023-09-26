@@ -54,7 +54,9 @@ monday_path = os.path.join(data_path, "MondayFileGallery")
 check_files.check_paths(proj_path, data_path, hydat_path, pwqmn_path, monday_path)
 
 
-# check for need to convert pwqmn data to sqlite3 format
+# check if "PWQMN.sqlite3" already exists. If it doesn't, generate a
+# sqlite3 database from the pwqmn data, to accelerate future data
+# loading and querying
 try:
     # have to do this check again to see if the data needs to be converted
     check_files.check_path(pwqmn_sql_path)
@@ -67,6 +69,9 @@ except FileNotFoundError:
     print("converting PWQMN data to sql format")
 
     connection = sqlite3.connect(pwqmn_sql_path)
+
+    # read only fields of interest, and set dtypes for fields with
+    # mixed types
     pwqmn_data = pd.read_csv(pwqmn_path,
                              usecols=['MonitoringLocationName',
                                       'MonitoringLocationID',
@@ -91,6 +96,7 @@ except FileNotFoundError:
                                     'ResultDetectionQuantitationLimitMeasure': str,
                                     'ResultDetectionQuantitationLimitUnit': str})
 
+    # rename some columns to make working with the PWQMN data easier
     pwqmn_data.rename(columns={'MonitoringLocationName': 'Name',
                                'MonitoringLocationID': "Location ID",
                                'MonitoringLocationLongitude': 'Longitude',
@@ -210,7 +216,7 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> pd.DataFrame:
 
         None; No date query. Does not filter data by date.
 
-    :param bbox: BBox object declaring area of interest or None
+    :param bbox: <BBox> object representing area of interest or None
     :param var:
 
     :return: <pandas DataFrame>
@@ -249,11 +255,20 @@ def get_pwqmn_station_data(period=None, bbox=None, var=()) -> pd.DataFrame:
     """
     Reads from the cleaned PWQMN data using pandas
 
-    :param period: Time period of interest
-    :param bbox: <BBox> representing area of interest
+    :param period: Tuple/list of length 2 or None
+
+        Tuple/list of (<start date>, <end date>); dates can be either
+        <str> in format "YYYY-MM-DD" or None; If None, all dates
+        after(before) the start(end) date are retrieved.
+
+            or
+
+        None; No date query. Does not filter data by date.
+
+    :param bbox: <BBox> representing area of interest or None
     :param var: Variables of interest
 
-    :return: {"pwqmn": <pandas DataFrame>}
+    :return: <pandas DataFrame>
     """
 
     # Check that period is valid
@@ -268,6 +283,7 @@ def get_pwqmn_station_data(period=None, bbox=None, var=()) -> pd.DataFrame:
     curs = conn.execute('PRAGMA table_info(DATA)')
     fields = [field[1] for field in curs.fetchall()]
 
+    # generate a database query from period and bbox
     period_query = Period.sql_query(period, fields)
     bbox_query = BBox.sql_query(bbox, "Longitude", "Latitude")
 
