@@ -237,7 +237,7 @@ def plot_closest(gdf_1: gpd.GeoDataFrame, gdf_2: gpd.GeoDataFrame):
 
     plot_gdf(gdf_1.to_crs(crs=4326), show=False, color='purple', zorder=9)
     plot_gdf(gdf_2.to_crs(crs=4326), show=False, add_bg=False, color='blue', zorder=10)
-    plot_g_series(lines, show=False, add_bg=False, zorder=1)
+    plot_g_series(lines, show=False, add_bg=False, zorder=1, solid_capstyle='round')
 
     plt.show()
 
