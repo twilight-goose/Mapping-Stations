@@ -5,6 +5,11 @@ import check_files
 from classes import BBox, Period
 from timer import Timer
 
+"""
+
+Overview: 
+
+"""
 
 # ========================================================================= ##
 # License ================================================================= ##
@@ -62,10 +67,8 @@ try:
     check_files.check_path(pwqmn_sql_path)
 except FileNotFoundError:
     # If pwqmn has not yet been converted to sqlite3 format, convert it
-    """
-    Converts the PWQMN .csv data to sqlite3 format to improve read
-    and query speeds. Is only run if the pwqmn.sqlite3 is not detected.
-    """
+    # to improve read and query speeds. Is only run if the pwqmn.sqlite3
+    # is not detected.
     print("converting PWQMN data to sql format")
 
     connection = sqlite3.connect(pwqmn_sql_path)

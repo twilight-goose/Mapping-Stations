@@ -6,14 +6,14 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-from shapely import LineString
+from shapely import LineString, Point
 from timer import Timer
 from load_data import proj_path, find_xy_fields
 
 """
-display_df.py
 
-Summary:
+Overview: 
+
 Provides a variety of functions for conversion and display of
 pandas DataFrames with compatible structures
 
@@ -21,6 +21,12 @@ Functions that plot or map DataFrames or Series will never produce
 output; to get the resulting GeoDataFrame and plot it, call the
 correct conversion function to obtain the gdf and plot it separately.
 """
+
+
+# ========================================================================= ##
+# License ================================================================= ##
+# ========================================================================= ##
+
 
 # ========================================================================= ##
 # Script Constants ======================================================== ##
@@ -71,7 +77,7 @@ Can_LCC_wkt = ('PROJCS["Canada_Lambert_Conformal_Conic",'
 
 
 # ========================================================================= ##
-# functions =======================================================+======= ##
+# Functions =======================================================+======= ##
 # ========================================================================= ##
 
 

@@ -37,7 +37,7 @@ geopandas.show_versions()
 ```
 If geopandas and python have been correctly installed, you will see something akin to:
 
-```commandline
+```
 SYSTEM INFO
 -----------
 python     : 3.9.18 | packaged by conda-forge | (main, Aug 30 2023, 03:40:31) [MSC v.1929 64 bit (AMD64)]
@@ -71,13 +71,13 @@ psycopg2   : None
 pyarrow    : None
 rtree      : 1.0.1
 ```
-Verions of geopandas after 0.14.0 should install up-to-date releases of PROG and PYPROJ, but if you have a PROJ version less than 9.2.0 and/or a pyproj version less than 3.5.0, they need to be updated
+Versions of geopandas after 0.14.0 should install up-to-date releases of PROG and PYPROJ, but if you have a PROJ version less than 9.2.0 and/or a pyproj version less than 3.5.0, they need to be updated
 
 ### 3b: Updating proj and pyproj
 To update proj and pyproj, run the following commands in Anaconda Prompt. Pyproj version 3.5.0 works with
 a release of PROJ that implemented a crucial bugfix (reported [here](https://github.com/geopandas/geopandas/issues/2874)).
 
-```commandline
+```
 conda uninstall -n fall2023 pyproj
 conda install -n fall2023 pyproj=3.5.0
 ```
@@ -86,7 +86,7 @@ Once you have pyproj version 3.5.0 installed, you should have all required depen
 Next, you need to configure project structure and data paths.
 
 ### 4. Configuring Project Structure and Data Paths
-```commandline
+```
 <project_folder>
     | data
         | Hydat
@@ -129,9 +129,35 @@ The PWQMN dataset is expected to contain the following fields, and a missing one
 'ResultDetectionQuantitationLimitUnit'
 ```
 The HYDAT and PWQMN data used in this project were pre-processed by [Juliane Mai]https://github.com/julemai).
-[Hydat Data](http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip)
-[PWQMN Data](http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip)
-[MondayFileGallery](https://github.com/twilight-goose/Mapping-Stations/tree/main/data/MondayFileGallery)
+The pre-processed data may be obtainable from the following links:
+
+Hydat Data: http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip
+Original Hydat Data: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/
+PWQMN Data: http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip
+Monday Files: https://github.com/twilight-goose/Mapping-Stations/tree/main/data/MondayFileGallery
+
+
+### Provincial (Stream) Water Quality Monitoring Network (PWQMN) data
+Here are Juliane's steps for pre-processing the PWQMN data (2023-09-10).
+
+The data need to be manually downloaded through:
+https://greatlakesdatastream.ca/explore/#/dataset/f3877597-9114-4ace-ad6f-e8a68435c0ba/
+Then click the download button appearing on that website.
+
+Name: `Provincial_Water_Quality_Monitoring_Network_PWQMN.csv` (data)
+Name: `Provincial_Water_Quality_Monitoring_Network_PWQMN_metadata.csv`
+
+(metadata)
+The datafile is a comma-separated file but several entries contain
+commas themselves. The entry is then in double-quotes, e.g.,
+123,"ABC, DEV 23",345,534.202,"abd,dged,sdg",2,4
+The handling of this in the code takes ages. Hence, we clean the data
+from those double-quotes and commas and replace them by semi-colons,
+e.g.,
+123,ABC;DEV;23,345,534.202,abd;dged;sdg,2,4
+using:
+awk -F'"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", ";", $i) } 1' Provincial_Water_Quality_Monitoring_Network_PWQMN.csv > Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv
+
 
 ## Testing Code
 ```commandline
