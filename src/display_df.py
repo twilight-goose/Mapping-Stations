@@ -294,6 +294,8 @@ def plot_g_series(g_series: gpd.GeoSeries, name="", save=False,
     :param kwargs: keyword arguments to pass when adding g_series
                     data to the plot
     """
+    g_series = g_series.to_crs(crs=Can_LCC_wkt)
+
     if add_bg:
         plt.figure(figsize=(8, 8))
         ax = plt.axes(projection=lambert)
