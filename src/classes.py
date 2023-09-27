@@ -17,11 +17,13 @@ Overview:
 
 class BBox:
     """
-    Class that represents a longitude/latitude bound
+    Class that represents a longitude/latitude bounding box.
+    Technically, can be used to represent any bounding rectangle
+    with a min x, max x, min y, and max y.
 
-    Mainly here to provide a framework for bounding box objects and
-    provide a means of adding additional functionality when desired
-    such as in sql_query.
+    Provides a framework for bounding box objects and a means of
+    adding additional functionality when desired, such as generating
+    sql queries with BBox.sql_query().
 
     Static methods can be called through (1) BBox objects or (2) by
     referencing the class with BBox.<function name> and passing the
@@ -33,8 +35,9 @@ class BBox:
     """
     def __init__(self, min_lon=None, max_lon=None, min_lat=None, max_lat=None, *bounds):
         """
-        Flexible method for instantiating BoundingBox objects. Sets
-        of valid argument sets:
+        Flexible method for instantiating BoundingBox objects.
+        Valid argument sets:
+
         1. None; Creates an empty BBox Object
         2. 4 keyword arguments in any order;
         3. 4 positional arguments in the following order:

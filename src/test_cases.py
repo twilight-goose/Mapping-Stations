@@ -19,7 +19,6 @@ Overview:
 # ========================================================================= ##
 
 
-
 def tests():
     # Test 5 types of period;
     # 1. period = <str> (invalid period)
@@ -54,21 +53,25 @@ def main():
     #         gdfs[name] = gdf
     #         display_df.plot_gdf(list(gdfs.values())[0])
 
-    hydat = load_data.get_hydat_station_data()
-    pwqmn = load_data.get_pwqmn_station_data()
-
+    hydat = load_data.get_hydat_station_data(sample=10)
+    pwqmn = load_data.get_pwqmn_station_data(sample=10)
+    #
     hydat = display_df.point_gdf_from_df(hydat)
     pwqmn = display_df.point_gdf_from_df(pwqmn)
-
+    #
     # display_df.plot_gdf(pwqmn)
+    #
+    # display_df.plot_closest(hydat, pwqmn)
 
-    display_df.plot_closest(hydat, pwqmn)
+    lines = display_df.load_hydro_rivers()
+    points = display_df.snap_points_to_line(hydat, lines)
 
-    my_g = gpd.GeoSeries(
-        [LineString([[-75, 43], [-76, 43.6], [-75, 40]]),
-         LineString([[-75, 43], [-74, 43.6], [-75, 40]]),
-         LineString([[-75, 43], [-76, 40], [-75, 45]])]
-    )
+    # display_df.plot_closest(points, hydat, show=False)
+    display_df.plot_gdf(points, color='red')
+    print("displaying hydat")
+    display_df.plot_gdf(hydat, color='purple', zorder=9)
+    print("displaying lines")
+    display_df.plot_gdf(lines, color='blue', zorder=10)
 
     timer.stop()
 

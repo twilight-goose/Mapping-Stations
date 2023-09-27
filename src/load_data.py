@@ -132,9 +132,14 @@ def find_xy_fields(df: pd.DataFrame) -> [str, str]:
     returned. If no match is found for X or Y, an empty string
     will be returned. Not case-sensitive.
 
-    :param df: the pandas DataFrame to search
+    :param df: <Pandas DataFrame>
+        The DataFrame to search
 
-    :return: [<X field name> or "Failed", <Y field name> or "Failed"]
+    :return: list(<str>, <str>)
+        The result of the search for x and y fields, where each item
+        in the list is either the field name or "Failed"
+        i.e:
+            [<X field name> or "Failed", <Y field name> or "Failed"]
     """
     def _(i, field_name) -> str:
         return field_name if i == "" else "Failed"
@@ -157,11 +162,18 @@ def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
     Loads all .csv files in the provided folder directory as pandas
     DataFrames.
 
-    :param path: path of folder directory to iterate over
-    :param bbox: BBox object declaring area of interest or None
+    :param path: <str>
+        Path of folder directory to iterate over
 
-    :return: dict of length n where n is the number of .csv files in path
-                {<str filename>: <pandas DataFrame>,  ...}
+    :param bbox: <BBox> or None
+        BBox object declaring area of interest or None, indicating
+        not to filter by a bounding box
+
+    :return: dict(<str>, <Pandas DataFrame>, ...)
+        A dictionary of length n, where n is the number of .csv files
+        in the provided folder directory, built of string/DataFrame pairs
+        i.e
+            {<str filename>: <pandas DataFrame>,  ...}
     """
     timer.start()
 
@@ -197,15 +209,17 @@ def get_monday_files(bbox=None) -> {str: pd.DataFrame}:
     Wrapper function that calls load_csvs to load .csv files
     downloaded from the monday.com file gallery
 
-    :return: dict of length n where n is the number of .csv files in
-             the 'monday_path' directory.
-                {<str filename>: <pandas DataFrame>, ...}
+    :return: dict(<str>: <Pandas DataFrame>, ...)
+        Dictionary of length n where n is the number of .csv files in
+        the 'monday_path' directory.
+        i.e
+            {<str filename>: <pandas DataFrame>, ...}
     """
     print("Loading monday.com file gallery")
     return load_csvs(monday_path, bbox=bbox)
 
 
-def get_hydat_station_data(period=None, bbox=None, var=None) -> pd.DataFrame:
+def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd.DataFrame:
     """
     Retrieves HYDAT station data in the period and bbox of interest
 
@@ -219,10 +233,13 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> pd.DataFrame:
 
         None; No date query. Does not filter data by date.
 
-    :param bbox: <BBox> object representing area of interest or None
+    :param bbox: <BBox> or None
+        BBox object representing area of interest or None
+
     :param var:
 
     :return: <pandas DataFrame>
+        Hydat station data.
     """
 
     # check period validity
@@ -237,6 +254,9 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> pd.DataFrame:
     bbox_query = BBox.sql_query(bbox, "LONGITUDE", "LATITUDE")
     if bbox_query:
         bbox_query = " AND " + bbox_query
+
+    if sample > 0:
+        bbox_query += f" ORDER BY RANDOM() LIMIT {sample}"
 
     # read station info from the STATIONS table within the database and
     # load that info into the station data dict
@@ -254,7 +274,7 @@ def get_hydat_station_data(period=None, bbox=None, var=None) -> pd.DataFrame:
     return station_df
 
 
-def get_pwqmn_station_data(period=None, bbox=None, var=()) -> pd.DataFrame:
+def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=False) -> pd.DataFrame:
     """
     Reads from the cleaned PWQMN data using pandas
 
@@ -268,10 +288,13 @@ def get_pwqmn_station_data(period=None, bbox=None, var=()) -> pd.DataFrame:
 
         None; No date query. Does not filter data by date.
 
-    :param bbox: <BBox> representing area of interest or None
-    :param var: Variables of interest
+    :param bbox: <BBox> or None
+        BBox object representing area of interest or None
+
+    :param var:
 
     :return: <pandas DataFrame>
+        PWQMN station data.
     """
 
     # Check that period is valid
@@ -296,6 +319,9 @@ def get_pwqmn_station_data(period=None, bbox=None, var=()) -> pd.DataFrame:
         connector = "AND" if (bbox_query and period_query) else ""
         query = " ".join([" WHERE", bbox_query, connector, period_query])
 
+    if sample > 0:
+        query += f" ORDER BY RANDOM() LIMIT {sample}"
+
     print(query)
 
     # Load PWQMN data as a DataFrame
@@ -311,7 +337,11 @@ def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
     """
     Loads all data from the paths declared at the top of the file
 
-    :return: dict of <str dataset name> : <pandas DataFrame>
+    :return: dict(<str>: <Pandas DataFrame>, ...)
+        Dictionary of length n + 2, where n is the number of files in
+        the 'monday_path' directory.
+        i.e
+            {<str dataset name> : <pandas DataFrame>, ...}
     """
     return {**get_monday_files(),
             'hydat': get_hydat_station_data(period=period, bbox=bbox),
