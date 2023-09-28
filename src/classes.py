@@ -70,7 +70,8 @@ class BBox:
 
         :param bbox:
 
-        :return: SQL query string starting with "WHERE"
+        :return: <str>
+            SQL query string or a blank string
         """
         query = ""
         # For calls from functions where no boundary is declared
@@ -80,6 +81,7 @@ class BBox:
 
             query = (f"({min_lon} <= {lon_field} AND {max_lon} >= {lon_field} AND " +
                      f"{min_lat} <= {lat_field} AND {max_lat} >= {lat_field})")
+
         return query
 
     @staticmethod
@@ -105,6 +107,13 @@ class BBox:
             return BBox.contains_point(bbox, {'lon': series[x_field], 'lat': series[y_field]})
 
         raise ValueError("None or BBox object expected but", type(bbox), "found")
+
+    @staticmethod
+    def to_tuple(bbox):
+        if bbox is None:
+            return None
+        return (bbox.bounds['min_lon'], bbox.bounds['min_lat'],
+                bbox.bounds['max_lon'], bbox.bounds['max_lat'])
 
 
 class Period:

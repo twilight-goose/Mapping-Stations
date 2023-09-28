@@ -53,25 +53,25 @@ def main():
     #         gdfs[name] = gdf
     #         display_df.plot_gdf(list(gdfs.values())[0])
 
-    hydat = load_data.get_hydat_station_data(sample=10)
-    pwqmn = load_data.get_pwqmn_station_data(sample=10)
-    #
+    bbox = BBox(min_lon=-80, max_lon=-77, min_lat=42, max_lat=45)
+
+    hydat = load_data.get_hydat_station_data(bbox=bbox, sample=10)
+    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox, sample=10)
+
     hydat = display_df.point_gdf_from_df(hydat)
     pwqmn = display_df.point_gdf_from_df(pwqmn)
     #
     # display_df.plot_gdf(pwqmn)
     #
-    # display_df.plot_closest(hydat, pwqmn)
+    display_df.plot_closest(hydat, pwqmn)
 
-    lines = display_df.load_hydro_rivers()
+    lines = display_df.load_hydro_rivers(bbox=bbox)
     points = display_df.snap_points_to_line(hydat, lines)
 
     # display_df.plot_closest(points, hydat, show=False)
-    display_df.plot_gdf(points, color='red')
-    print("displaying hydat")
-    display_df.plot_gdf(hydat, color='purple', zorder=9)
-    print("displaying lines")
-    display_df.plot_gdf(lines, color='blue', zorder=10)
+    display_df.plot_gdf(lines, show=False, color='blue', zorder=6)
+    display_df.plot_gdf(points, show=False, add_bg=False, color='red', marker="*")
+    display_df.plot_gdf(hydat, add_bg=False, color='orange', zorder=9)
 
     timer.stop()
 

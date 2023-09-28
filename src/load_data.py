@@ -3,6 +3,7 @@ import sqlite3
 import pandas as pd
 import check_files
 from classes import BBox, Period
+from geopandas import geodataframe as gdf
 from timer import Timer
 
 """
@@ -238,6 +239,8 @@ def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd
 
     :param var:
 
+    :param sample:
+
     :return: <pandas DataFrame>
         Hydat station data.
     """
@@ -274,7 +277,7 @@ def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd
     return station_df
 
 
-def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=False) -> pd.DataFrame:
+def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.DataFrame:
     """
     Reads from the cleaned PWQMN data using pandas
 
@@ -292,6 +295,8 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=False) -> pd.D
         BBox object representing area of interest or None
 
     :param var:
+
+    :param sample: <positive nonzero int> or None
 
     :return: <pandas DataFrame>
         PWQMN station data.
@@ -319,7 +324,7 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=False) -> pd.D
         connector = "AND" if (bbox_query and period_query) else ""
         query = " ".join([" WHERE", bbox_query, connector, period_query])
 
-    if sample > 0:
+    if sample is not None and sample > 0:
         query += f" ORDER BY RANDOM() LIMIT {sample}"
 
     print(query)

@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from shapely import LineString, Point
+from classes import BBox
 import numpy as np
 from timer import Timer
 from load_data import proj_path, find_xy_fields, data_path
@@ -158,15 +159,17 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="", crs=None) -> gpd
 # ========================================================================= ##
 
 
-def load_hydro_rivers(sample=None) -> gpd.GeoDataFrame:
+def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
     """
-    Loads HydroRIVERS as a geopandas GeoDataFrame
+    Loads HydroRIVERS_v10.shp as a geopandas GeoDataFrame
 
     :return: <Geopandas GeoDataFrame>
     """
     hydro_path = os.path.join(
         data_path, os.path.join("Hydro_RIVERS_v10", "HydroRIVERS_v10.shp"))
-    return gpd.read_file(hydro_path, rows=sample)
+
+    data = gpd.read_file(hydro_path, rows=sample, bbox=BBox.to_tuple(bbox))
+    return data.to_crs(crs=Can_LCC_wkt)
 
 
 def pair_points(origins: gpd.GeoDataFrame, cand: gpd.GeoDataFrame):
@@ -195,17 +198,12 @@ def pair_points(origins: gpd.GeoDataFrame, cand: gpd.GeoDataFrame):
         These fields refer to Canada Lambert Conformal Conic
         coordinates of the origin and matched candidate points.
     """
-    origins.to_crs(crs=Can_LCC_wkt, inplace=True)
-    cand.to_crs(crs=Can_LCC_wkt, inplace=True)
-
-    origin_x, origin_y = origins.geometry.x, origins.geometry.y
-    cand_x, cand_y = cand.geometry.x, cand.geometry.y
 
     # Write geometry coordinates to X and Y fields
     # This makes the following operations not dependent on the gdfs
     # containing specific field names
-    origins.assign(orig_x=origin_x, orig_y=origin_y)
-    cand.assign(cand_x=cand_x, orig_y=cand_y)
+    origins = origins.assign(orig_x=origins.geometry.x, orig_y=origins.geometry.y)
+    cand = cand.assign(cand_x=cand.geometry.x, cand_y=cand.geometry.y)
 
     origins.drop_duplicates(subset=['orig_x', 'orig_y'])
     cand.drop_duplicates(subset=['cand_x', 'cand_y'])
@@ -224,19 +222,26 @@ def snap_points_to_line(points: gpd.GeoDataFrame, lines: gpd.GeoDataFrame):
     :param lines:
     :return:
     """
-    points.to_crs(crs=Can_LCC_wkt, inplace=True)
-    lines.to_crs(crs=Can_LCC_wkt, inplace=True)
 
-    joined = lines.sjoin_nearest(points, distance_col='distance')
-    joined['points'] = points.geometry
+    closest = points.sjoin_nearest(lines, max_distance=100, distance_col='distance')
+    lines = lines[['HYRIV_ID', 'geometry']]
 
-    pos = joined.geometry.project(gpd.GeoSeries(joined['points']))
-    joined.geometry.interpolate(pos)
+    # Lines is completely normal up to here
+    closest = closest.merge(lines.rename(columns={'geometry': 'lines'}),
+                            how='left',
+                            on='HYRIV_ID')
+    #
+    print(closest)
+    # print(closest.dtypes)
+    # print(closest['lines'])
 
-    print(joined.dtypes)
-    print(joined.head())
+    shortest_lines = points.geometry.shortest_line(closest['lines'])
 
-    return gpd.GeoDataFrame(joined, geometry='points', crs=Can_LCC_wkt)
+    shortest_lines = shortest_lines.loc[[x is not None for x in shortest_lines]]
+
+    print(shortest_lines)
+
+    return shortest_lines
 
 
 # ========================================================================= ##
@@ -250,6 +255,7 @@ def map_gdfs(gdfs_to_map):
     :param gdfs_to_map
 
     :return:
+    :return: < gem
     """
     def check_gdfs_iter(gdfs):
         if type(gdfs) == dict:
@@ -396,8 +402,8 @@ def plot_closest(gdf_1: gpd.GeoDataFrame, gdf_2: gpd.GeoDataFrame, show=True):
     lines = []
     for i, series in latlon_pairs.iterrows():
         lines.append(LineString([
-            [series['LONGITUDE'], series['LATITUDE']],
-            [series['Longitude'], series['Latitude']]
+            [series['orig_x'], series['orig_y']],
+            [series['cand_x'], series['cand_y']]
         ]))
 
     lines = gpd.GeoSeries(lines)
