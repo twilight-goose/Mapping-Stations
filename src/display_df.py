@@ -215,12 +215,16 @@ def pair_points(origins: gpd.GeoDataFrame, cand: gpd.GeoDataFrame):
 
 def snap_points_to_line(points: gpd.GeoDataFrame, lines: gpd.GeoDataFrame):
     """
-    Code source and explanation can be found here:
-    https://medium.com/@brendan_ward/how-to-leverage-geopandas-for-faster-snapping-of-points-to-lines-6113c94e59aa
 
-    :param points:
-    :param lines:
-    :return:
+    :param points: GeoPandas GeoDataFrame
+        The points to snap to the lines
+
+    :param lines: GeoPandas GeoDataFrame
+        The lines to snap the points to
+
+    :return: GeoPandas GeoSeries
+        (For now) A GeoSeries containing LineStrings connecting
+        points to the location (on lines) they would be snapped to.
     """
     points = points.to_crs(crs=4326)
     lines = lines.to_crs(crs=4326)
@@ -233,27 +237,7 @@ def snap_points_to_line(points: gpd.GeoDataFrame, lines: gpd.GeoDataFrame):
                             how='left',
                             on='HYRIV_ID')
 
-    # points = closest['lines'].interpolate(closest['lines'].length / 2)
-    # points.name = 'points'
-    # closest = closest.join(points)
-    #
-    # connect_lines = []
-    # for i, series in closest.iterrows():
-    #     connect_lines.append(LineString(
-    #         [series.geometry, series['points']]
-    #     ))
-    #
-    # return gpd.GeoSeries(connect_lines, crs=lines.crs)
-
-    print(closest)
-    # print(closest.dtypes)
-    # print(closest['lines'])
-
     shortest_lines = closest.geometry.shortest_line(closest['lines'])
-
-    # shortest_lines = shortest_lines.loc[[x is not None for x in shortest_lines]]
-
-    # print(shortest_lines)
 
     return shortest_lines
 
