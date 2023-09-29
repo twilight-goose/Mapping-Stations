@@ -17,9 +17,10 @@ as well, but full functionality is not guaranteed.
 conda create -n env-conda-3.9.18 python=3.9.18
 conda activate env-conda-3.9.18
 
+conda install -n env-conda-3.9.18 -c conda-forge pandas
 conda install -n env-conda-3.9.18 -c conda-forge geopandas
 conda install -n env-conda-3.9.18 -c conda-forge matplotlib
-conda install -n env-conda-3.9.19 -c conda-forge cartopy
+conda install -n env-conda-3.9.18 -c conda-forge cartopy
 ```
 
 A number of other dependencies will come with geopandas. You can check the version of each of these dependencies
@@ -71,15 +72,14 @@ psycopg2   : None
 pyarrow    : None
 rtree      : 1.0.1
 ```
-Versions of geopandas after 0.14.0 should install up-to-date releases of PROG and PYPROJ, but if you have a PROJ version less than 9.2.0 and/or a pyproj version less than 3.5.0, they need to be updated
+Versions of geopandas after 0.14.0 should install up-to-date releases of PROG and PYPROJ, but if you have a PROJ version less than 9.2.0 and/or a pyproj version less than 3.5.0, they need to be updated.
 
 ### 3b: Updating proj and pyproj
 To update proj and pyproj, run the following commands in Anaconda Prompt. Pyproj version 3.5.0 works with
-a release of PROJ that implemented a crucial bugfix (reported [here](https://github.com/geopandas/geopandas/issues/2874)).
+releases of PROJ that implemented a crucial bugfix (reported [here](https://github.com/geopandas/geopandas/issues/2874)).
 
 ```
-conda uninstall -n fall2023 pyproj
-conda install -n fall2023 pyproj=3.5.0
+conda update -n env-conda-3.9.18 -c conda-forge pyproj
 ```
 
 Once you have pyproj version 3.5.0 installed, you should have all required dependencies.
@@ -89,6 +89,13 @@ Next, you need to configure project structure and data paths.
 ```
 <project_folder>
     | data
+        | Hydro_RIVERS_v10
+            |--HydroRIVERS_v10_na.dbf
+            |--HydroRIVERS_v10_na.prj
+            |--HydroRIVERS_v10_na.sbn
+            |--HydroRIVERS_v10_na.sbx
+            |--HydroRIVERS_v10_na.shp
+            |--HydroRIVERS_v10_na.shx
         | Hydat
             |--hydat.sqlite3
         | MondayFileGallery
@@ -128,14 +135,14 @@ The PWQMN dataset is expected to contain the following fields, and a missing one
 'ResultDetectionQuantitationLimitMeasure',
 'ResultDetectionQuantitationLimitUnit'
 ```
-The HYDAT and PWQMN data used in this project were pre-processed by [Juliane Mai]https://github.com/julemai).
+The HYDAT and PWQMN data used in this project were pre-processed by [Juliane Mai](https://github.com/julemai).
 The pre-processed data may be obtainable from the following links:
 
-Hydat Data: http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip
-Original Hydat Data: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/
-PWQMN Data: http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip
-Monday Files: https://github.com/twilight-goose/Mapping-Stations/tree/main/data/MondayFileGallery
-
+Hydat Data: http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip \
+Original Hydat Data: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/ \
+PWQMN Data: http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip \
+Monday Files: https://github.com/twilight-goose/Mapping-Stations/tree/main/data/MondayFileGallery \
+HydroRIVERS: https://www.hydrosheds.org/products/hydrorivers
 
 ### Provincial (Stream) Water Quality Monitoring Network (PWQMN) data
 Here are Juliane's steps for pre-processing the PWQMN data (2023-09-10).

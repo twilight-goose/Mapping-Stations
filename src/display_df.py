@@ -166,7 +166,7 @@ def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
     :return: <Geopandas GeoDataFrame>
     """
     hydro_path = os.path.join(
-        data_path, os.path.join("Hydro_RIVERS_v10", "HydroRIVERS_v10.shp"))
+        data_path, os.path.join("Hydro_RIVERS_v10", "HydroRIVERS_v10_na.shp"))
 
     data = gpd.read_file(hydro_path, rows=sample, bbox=BBox.to_tuple(bbox))
     return data.to_crs(crs=Can_LCC_wkt)
@@ -222,24 +222,38 @@ def snap_points_to_line(points: gpd.GeoDataFrame, lines: gpd.GeoDataFrame):
     :param lines:
     :return:
     """
+    points = points.to_crs(crs=4326)
+    lines = lines.to_crs(crs=4326)
 
-    closest = points.sjoin_nearest(lines, max_distance=100, distance_col='distance')
+    closest = points.sjoin_nearest(lines, distance_col='distance')
     lines = lines[['HYRIV_ID', 'geometry']]
 
     # Lines is completely normal up to here
     closest = closest.merge(lines.rename(columns={'geometry': 'lines'}),
                             how='left',
                             on='HYRIV_ID')
+
+    # points = closest['lines'].interpolate(closest['lines'].length / 2)
+    # points.name = 'points'
+    # closest = closest.join(points)
     #
+    # connect_lines = []
+    # for i, series in closest.iterrows():
+    #     connect_lines.append(LineString(
+    #         [series.geometry, series['points']]
+    #     ))
+    #
+    # return gpd.GeoSeries(connect_lines, crs=lines.crs)
+
     print(closest)
     # print(closest.dtypes)
     # print(closest['lines'])
 
-    shortest_lines = points.geometry.shortest_line(closest['lines'])
+    shortest_lines = closest.geometry.shortest_line(closest['lines'])
 
-    shortest_lines = shortest_lines.loc[[x is not None for x in shortest_lines]]
+    # shortest_lines = shortest_lines.loc[[x is not None for x in shortest_lines]]
 
-    print(shortest_lines)
+    # print(shortest_lines)
 
     return shortest_lines
 
