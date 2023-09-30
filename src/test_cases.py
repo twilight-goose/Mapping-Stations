@@ -66,6 +66,9 @@ def main():
     # display_df.plot_closest(hydat, pwqmn)
 
     lines = display_df.load_hydro_rivers(bbox=bbox)
+
+    display_df.network_from_lines(lines)
+
     connectors = display_df.snap_points_to_line(hydat, lines)
 
     # display_df.plot_closest(points, hydat, show=False)

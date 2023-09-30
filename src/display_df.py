@@ -12,6 +12,9 @@ import numpy as np
 from timer import Timer
 from load_data import proj_path, find_xy_fields, data_path
 
+import momepy
+import networkx as nx
+
 """
 
 Overview: 
@@ -240,6 +243,20 @@ def snap_points_to_line(points: gpd.GeoDataFrame, lines: gpd.GeoDataFrame):
     shortest_lines = closest.geometry.shortest_line(closest['lines'])
 
     return shortest_lines
+
+
+def network_from_lines(lines):
+    p_graph = momepy.gdf_to_nx(lines, approach='primal', directed=True)
+
+    positions =  {n: [n[0], n[1]] for n in list(p_graph.nodes)}
+
+    # Plot
+    f, ax = plt.subplots(1, 2, figsize=(12, 6), sharex=True, sharey=True)
+    lines.plot(color="k", ax=ax[0])
+    for i, facet in enumerate(ax):
+        facet.set_title(("Rivers", "Graph")[i])
+        facet.axis("off")
+    nx.draw(p_graph, positions, ax=ax[1], node_size=5)
 
 
 # ========================================================================= ##
