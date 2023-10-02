@@ -94,34 +94,8 @@ Can_LCC_wkt = ('PROJCS["Canada_Lambert_Conformal_Conic",'
 # Data Processing ========================================================= ##
 # ========================================================================= ##
 
-# HydroRIVERS ============================================================= ##
 
-def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
-    """
-    Loads HydroRIVERS_v10.shp as a geopandas GeoDataFrame
-
-    Note: As BBox grows larger, spatial distortion increases.
-    Attempting to place geometry features outside the projection's
-    supported bounds may result in undesirable behaviour. Refer
-    to https://epsg.io/102002 (which describes features of projection
-    defined by Can_LCC_wkt) for the projected and WGS84 bounds.
-
-    :param sample:
-
-    :param bbox: <BBox> or None
-        BBox object declaring area of interest or None, indicating
-        not to filter by a bounding box
-
-    :return: <Geopandas GeoDataFrame>
-    """
-    hydro_path = os.path.join(
-        data_path, os.path.join("Hydro_RIVERS_v10", "HydroRIVERS_v10_na.shp"))
-
-    data = gpd.read_file(hydro_path, rows=sample, bbox=BBox.to_tuple(bbox))
-    return data.to_crs(crs=Can_LCC_wkt)
-
-
-def snap_points(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame) -> dict:
+def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame) -> dict:
     """
     For each point in points, finds and returns the location on other
     closest to that point.
@@ -159,6 +133,51 @@ def snap_points(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame) -> dict:
     return data
 
 
+def snap_points(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
+    """
+    Wrapper function for connect_points_to_feature() that returns only
+    the points and not the connecting lines.
+    :return:
+    """
+    return connect_points_to_feature(points, other)['new_points']
+
+
+def connectors(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
+    """
+    Wrapper function for connect_points_to_feature() that returns only
+    the connecting lines and not the new points.
+    :return:
+    """
+    return connect_points_to_feature(points, other)['lines']
+
+# HydroRIVERS ============================================================= ##
+
+
+def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
+    """
+    Loads HydroRIVERS_v10.shp as a geopandas GeoDataFrame
+
+    Note: As BBox grows larger, spatial distortion increases.
+    Attempting to place geometry features outside the projection's
+    supported bounds may result in undesirable behaviour. Refer
+    to https://epsg.io/102002 (which describes features of projection
+    defined by Can_LCC_wkt) for the projected and WGS84 bounds.
+
+    :param sample:
+
+    :param bbox: <BBox> or None
+        BBox object declaring area of interest or None, indicating
+        not to filter by a bounding box
+
+    :return: <Geopandas GeoDataFrame>
+    """
+    hydro_path = os.path.join(
+        data_path, os.path.join("Hydro_RIVERS_v10", "HydroRIVERS_v10_na.shp"))
+
+    data = gpd.read_file(hydro_path, rows=sample, bbox=BBox.to_tuple(bbox))
+    return data.to_crs(crs=Can_LCC_wkt)
+
+
 def snap_to_hyriv(points: gpd.GeoDataFrame, hyriv: gpd.GeoDataFrame) -> pd.DataFrame:
     """
     Wrapper function for snapping points to hyriv lines
@@ -167,7 +186,7 @@ def snap_to_hyriv(points: gpd.GeoDataFrame, hyriv: gpd.GeoDataFrame) -> pd.DataF
     :param hyriv:
     :return:
     """
-    return snap_points(points, hyriv)
+    return connect_points_to_feature(points, hyriv)
 
 
 def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=False) -> nx.DiGraph:
@@ -360,15 +379,23 @@ def plot_g_series(g_series: gpd.GeoSeries, name="", save=False,
     """
     Plot a Geopandas GeoSeries.
 
-    :param g_series:
-        A Geopandas GeoSeries
-    :param name: name to save the plot to
-    :param save: True or False; whether to save the plot to disk
-    :param show: True of False; whether to display the plot
-    :param add_bg: True or False; whether to add a background to
-                    the plot
-    :param kwargs: keyword arguments to pass when adding g_series
-                    data to the plot
+    :param g_series: Geopandas GeoSeries
+        GeoSeries to plot
+
+    :param name: string
+        Name to save the plot to
+
+    :param save: bool
+        If True, save the plot to disk. If False, do nothing.
+
+    :param show: bool
+        If True, display the plot. If False, do nothing
+
+    :param add_bg: bool
+        If True, add a background to the plot. If False, do nothing
+
+    :param kwargs:
+        keyword arguments to pass when adding g_series data to the plot
     """
     g_series = g_series.to_crs(crs=Can_LCC_wkt)
 
@@ -422,14 +449,22 @@ def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, add_bg=True,
     """
     Plot a geopandas GeoDataFrame on a matplotlib plot
 
-    :param gdf: the geopandas GeoDataFrame to be plotted
-    :param name: name to save the plot to
-    :param save: True or False; whether to save the plot to disk
-    :param add_bg: True or False; whether to add a background to
-                    the plot
-    :param show: True or False; whether to display the plot or not
-    :param kwargs: keyword arguments to pass when adding the
-                    data to the plot
+    :param gdf: Geopandas GeoDataFrame
+
+    ::param name: string
+        Name to save the plot to
+
+    :param save: bool
+        If True, save the plot to disk. If False, do nothing.
+
+    :param show: bool
+        If True, display the plot. If False, do nothing
+
+    :param add_bg: bool
+        If True, add a background to the plot. If False, do nothing
+
+    :param kwargs:
+        keyword arguments to pass when adding g_series data to the plot
     """
     plot_g_series(gdf.geometry, name=name, save=save, add_bg=add_bg,
                   show=show, **kwargs)
@@ -466,15 +501,24 @@ def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):
         print(name + " could not be plotted")
 
 
-def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, show=True):
-    snapped_dict = snap_points(points, other)
+def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
+    """
+    For each point in points, finds the closest feature in other, then
+    plots both GeoDataFrames and draws lines between them.
+
+    :param points: Geopandas GeoDataFrame
+        Origin points.
+
+    :param other: Geopandas GeoDataFrame
+        Candidate geometry.
+    """
+    snapped_dict = connect_points_to_feature(points, other)
 
     new_points = snapped_dict['new_points']
     lines = snapped_dict['lines']
 
     plot_g_series(lines, show=False, zorder=1, color='purple', label='connector')
-    plot_gdf(new_points, show=False, add_bg=False, color='red', zorder=9, label='new')
+    plot_gdf(other, show=False, add_bg=False, color='red', zorder=9, label='new')
     plot_gdf(points, show=False, add_bg=False, color='blue', zorder=10, label='original')
 
-    if show:
-        plt.show()
+    plt.show()

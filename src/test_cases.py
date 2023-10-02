@@ -63,7 +63,8 @@ def main():
     # gdf_lib.plot_closest(hydat, pwqmn)
 
     lines = gdf_lib.load_hydro_rivers(bbox=bbox)
-    gdf_lib.snap_to_hyriv(hydat, lines)
+    gdf_lib.plot_closest(hydat, lines)
+
     network = gdf_lib.hyriv_gdf_to_network(lines)
     gdf_lib.check_hyriv_network(network)
 
