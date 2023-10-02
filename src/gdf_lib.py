@@ -1,22 +1,19 @@
 import os
 import webbrowser
 import random
+from classes import BBox, Timer
+from load_data import proj_path, find_xy_fields, data_path
+
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from shapely import LineString, Point
-from classes import BBox
-import numpy as np
-from timer import Timer
-from load_data import proj_path, find_xy_fields, data_path
-
 import momepy
 import networkx as nx
 
 """
-
 Overview: 
 
 Provides a variety of functions for conversion and display of
@@ -60,6 +57,13 @@ lambert = ccrs.LambertConformal(central_longitude=-85, central_latitude=50,
                                 cutoff=30)
 
 # WKT string for Canadian lambert conformal conic projection
+# refer to the source for projected and WGS84 bounds
+# As of 2023-10-02:
+#   Center coordinates: 261638.61 2500407.04
+#   Projected bounds: -3827665.83  -207619.51
+#                      4510310.33  5481591.53
+#   WGS84 bounds: -141.01  38.21
+#                  -40.73  86.46
 # source: https://epsg.io/102002
 Can_LCC_wkt = ('PROJCS["Canada_Lambert_Conformal_Conic",'
                     'GEOGCS["NAD83",'
@@ -84,6 +88,159 @@ Can_LCC_wkt = ('PROJCS["Canada_Lambert_Conformal_Conic",'
                     'AXIS["Easting",EAST],'
                     'AXIS["Northing",NORTH],'
                     'AUTHORITY["ESRI","102002"]]')
+
+
+# ========================================================================= ##
+# Data Processing ========================================================= ##
+# ========================================================================= ##
+
+# HydroRIVERS ============================================================= ##
+
+def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
+    """
+    Loads HydroRIVERS_v10.shp as a geopandas GeoDataFrame
+
+    Note: As BBox grows larger, spatial distortion increases.
+    Attempting to place geometry features outside the projection's
+    supported bounds may result in undesirable behaviour. Refer
+    to https://epsg.io/102002 (which describes features of projection
+    defined by Can_LCC_wkt) for the projected and WGS84 bounds.
+
+    :param sample:
+
+    :param bbox: <BBox> or None
+        BBox object declaring area of interest or None, indicating
+        not to filter by a bounding box
+
+    :return: <Geopandas GeoDataFrame>
+    """
+    hydro_path = os.path.join(
+        data_path, os.path.join("Hydro_RIVERS_v10", "HydroRIVERS_v10_na.shp"))
+
+    data = gpd.read_file(hydro_path, rows=sample, bbox=BBox.to_tuple(bbox))
+    return data.to_crs(crs=Can_LCC_wkt)
+
+
+def snap_points(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame) -> dict:
+    """
+    For each point in points, finds and returns the location on other
+    closest to that point.
+
+    :param points: GeoPandas GeoDataFrame
+        The points to snap to other.
+
+    :param other: GeoPandas GeoDataFrame
+        GeoDataFrame to snap the points to. May be points, lines,
+        or polygons.
+
+    :return: dict
+        Contains the new points on other and the lines connecting the
+        original points to the new points (used for checking quality
+        of point snapping. Has 2 keys: 'new_points' & 'lines'. Maintains
+        the same order as points.
+    """
+    points = points.to_crs(crs=Can_LCC_wkt)
+    other = other.to_crs(crs=Can_LCC_wkt)
+
+    other = other.assign(unique_ind=other.index)
+    closest = points.sjoin_nearest(other, how='left', distance_col='distance')
+
+    # Lines is completely normal up to here
+    closest = closest.merge(other.rename(columns={'geometry': 'other'}),
+                            how='left',
+                            on='unique_ind')
+
+    shortest_lines = closest.geometry.shortest_line(closest['other'])
+    new_points = shortest_lines.apply(lambda line: Point(line.coords[1]))
+
+    data = {'new_points': gpd.GeoSeries(new_points),
+            'lines': gpd.GeoSeries(shortest_lines)}
+
+    return data
+
+
+def snap_to_hyriv(points: gpd.GeoDataFrame, hyriv: gpd.GeoDataFrame) -> pd.DataFrame:
+    """
+    Wrapper function for snapping points to hyriv lines
+
+    :param points:
+    :param hyriv:
+    :return:
+    """
+    return snap_points(points, hyriv)
+
+
+def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=False) -> nx.DiGraph:
+
+    p_graph = momepy.gdf_to_nx(hyriv_gdf, approach='primal', directed=True)
+
+    if plot:
+        positions = {n: [n[0], n[1]] for n in list(p_graph.nodes)}
+
+        # Plot
+        f, ax = plt.subplots(1, 2, figsize=(12, 6), sharex=True, sharey=True)
+        hyriv_gdf.plot(color="k", ax=ax[0])
+        for i, facet in enumerate(ax):
+            facet.set_title(("Rivers", "Graph")[i])
+            facet.axis("off")
+        nx.draw(p_graph, positions, ax=ax[1], node_size=5)
+
+        plt.show()
+
+    return p_graph
+
+
+def check_hyriv_network(digraph: nx.DiGraph) -> float:
+    """
+    Checks a NetworkX DiGraph (directed graph) created from a
+    HydroRIVERS shapefile for correct connectivity and directionality.
+
+    :return: float
+        A decimal value representing the percentage of edges with
+        correct connectivity. Between 0.0 and 1.0.
+    """
+    correct_edges, total_edges = 0, 0
+
+    # edges is an iterable of (u, v, key)
+    # where u is starting node, v is ending node, and key is the key used to
+
+    # 3: traverse the edges, and ensure that one of the edges leading away from
+    #    v node has a hydri_id = next_down
+
+    # edge_dfs is in the form (u, v, key)
+
+    # referencing edge values
+    for u, v, data in digraph.edges(data="NEXT_DOWN"):
+        print(f"next down: {data}")
+        total_edges += 1
+
+        out_edges = digraph.out_edges(nbunch=v, data='HYRIV_ID')
+        if len(out_edges) == 0:
+            correct_edges += 1
+        for out_edge in out_edges:
+            if out_edge[2] == data or out_edge[2] == 0:
+                correct_edges += 1
+                break
+
+    ratio = correct_edges / total_edges
+
+    print(f"{correct_edges}/{total_edges} ({ratio * 100}%) correct.")
+
+    return ratio
+
+
+def get_hyriv_network(bbox=None, sample=None) -> nx.DiGraph:
+    """
+    Wrapper function for generating the HydroRIVERS directed graph.
+    :return: NetworkX DiGraph
+    """
+    hyriv = load_hydro_rivers(sample=sample, bbox=bbox)
+    return hyriv_gdf_to_network(hyriv)
+
+
+# ========================================================================= ##
+# Other =================================================================== ##
+# ========================================================================= ##
 
 
 # ========================================================================= ##
@@ -155,108 +312,6 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="", crs=None) -> gpd
 
     timer.stop()
     return gdf
-
-
-# ========================================================================= ##
-# Data Processing ========================================================= ##
-# ========================================================================= ##
-
-
-def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
-    """
-    Loads HydroRIVERS_v10.shp as a geopandas GeoDataFrame
-
-    :return: <Geopandas GeoDataFrame>
-    """
-    hydro_path = os.path.join(
-        data_path, os.path.join("Hydro_RIVERS_v10", "HydroRIVERS_v10_na.shp"))
-
-    data = gpd.read_file(hydro_path, rows=sample, bbox=BBox.to_tuple(bbox))
-    return data.to_crs(crs=Can_LCC_wkt)
-
-
-def pair_points(origins: gpd.GeoDataFrame, cand: gpd.GeoDataFrame):
-    """
-    For each point in origin, finds the point in to_pair spatially
-    closest to it. Origins and cand must be spatially referenced and
-    have assigned coordinate reference systems.
-
-    Produces geometry and coordinates in the Canadian Lambert Conformal
-    Conic coordinate reference system. WKT string at top of file.
-
-    :param origins:
-        The points for whom to pair to points in to_pair.
-
-    :param cand:
-        The candidate points to be matched to points in origin.
-
-    :return: <Geopandas GeoDataFrame>
-        The result of spatially joining cand to origins with an inner
-        join. The geometry of the returned GeoDataFrame is that of the
-        origin point in Canada Lambert Conformal Conic. The produced
-        GeoDataFrame is guaranteed to have the following fields:
-
-            orig_x, orig_y, cand_x, cand_y
-
-        These fields refer to Canada Lambert Conformal Conic
-        coordinates of the origin and matched candidate points.
-    """
-
-    # Write geometry coordinates to X and Y fields
-    # This makes the following operations not dependent on the gdfs
-    # containing specific field names
-    origins = origins.assign(orig_x=origins.geometry.x, orig_y=origins.geometry.y)
-    cand = cand.assign(cand_x=cand.geometry.x, cand_y=cand.geometry.y)
-
-    origins.drop_duplicates(subset=['orig_x', 'orig_y'])
-    cand.drop_duplicates(subset=['cand_x', 'cand_y'])
-
-    joined = origins.sjoin_nearest(cand, distance_col='Distance')
-
-    return joined
-
-
-def snap_points_to_line(points: gpd.GeoDataFrame, lines: gpd.GeoDataFrame):
-    """
-
-    :param points: GeoPandas GeoDataFrame
-        The points to snap to the lines
-
-    :param lines: GeoPandas GeoDataFrame
-        The lines to snap the points to
-
-    :return: GeoPandas GeoSeries
-        (For now) A GeoSeries containing LineStrings connecting
-        points to the location (on lines) they would be snapped to.
-    """
-    points = points.to_crs(crs=4326)
-    lines = lines.to_crs(crs=4326)
-
-    closest = points.sjoin_nearest(lines, distance_col='distance')
-    lines = lines[['HYRIV_ID', 'geometry']]
-
-    # Lines is completely normal up to here
-    closest = closest.merge(lines.rename(columns={'geometry': 'lines'}),
-                            how='left',
-                            on='HYRIV_ID')
-
-    shortest_lines = closest.geometry.shortest_line(closest['lines'])
-
-    return shortest_lines
-
-
-def network_from_lines(lines):
-    p_graph = momepy.gdf_to_nx(lines, approach='primal', directed=True)
-
-    positions =  {n: [n[0], n[1]] for n in list(p_graph.nodes)}
-
-    # Plot
-    f, ax = plt.subplots(1, 2, figsize=(12, 6), sharex=True, sharey=True)
-    lines.plot(color="k", ax=ax[0])
-    for i, facet in enumerate(ax):
-        facet.set_title(("Rivers", "Graph")[i])
-        facet.axis("off")
-    nx.draw(p_graph, positions, ax=ax[1], node_size=5)
 
 
 # ========================================================================= ##
@@ -411,21 +466,15 @@ def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):
         print(name + " could not be plotted")
 
 
-def plot_closest(gdf_1: gpd.GeoDataFrame, gdf_2: gpd.GeoDataFrame, show=True):
-    latlon_pairs = pair_points(gdf_1, gdf_2)
+def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, show=True):
+    snapped_dict = snap_points(points, other)
 
-    lines = []
-    for i, series in latlon_pairs.iterrows():
-        lines.append(LineString([
-            [series['orig_x'], series['orig_y']],
-            [series['cand_x'], series['cand_y']]
-        ]))
+    new_points = snapped_dict['new_points']
+    lines = snapped_dict['lines']
 
-    lines = gpd.GeoSeries(lines)
-
-    plot_g_series(lines, show=False, zorder=1, solid_capstyle='round')
-    plot_gdf(gdf_1, show=False, add_bg=False, color='purple', zorder=9)
-    plot_gdf(gdf_2, show=False, add_bg=False, color='blue', zorder=10)
+    plot_g_series(lines, show=False, zorder=1, color='purple', label='connector')
+    plot_gdf(new_points, show=False, add_bg=False, color='red', zorder=9, label='new')
+    plot_gdf(points, show=False, add_bg=False, color='blue', zorder=10, label='original')
 
     if show:
         plt.show()

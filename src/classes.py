@@ -1,3 +1,4 @@
+from datetime import datetime
 """
 
 Overview:
@@ -239,3 +240,18 @@ class Period:
                 query += f" OR ({end_f} >= '{period.start}')"
 
         return query
+
+
+class Timer:
+    """
+    Just for timing operations to compare temporal efficiency
+    """
+    def __init__(self):
+        self.s_time = datetime.now()
+
+    def start(self):
+        self.s_time = datetime.now()
+
+    def stop(self):
+        d = datetime.now() - self.s_time
+        print("That took {0} seconds and {1} microseconds\n".format(d.seconds, d.microseconds))

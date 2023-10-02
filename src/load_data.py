@@ -1,10 +1,9 @@
 import os.path
 import sqlite3
-import pandas as pd
 import check_files
-from classes import BBox, Period
-from geopandas import geodataframe as gdf
-from timer import Timer
+from classes import BBox, Period, Timer
+
+import pandas as pd
 
 """
 
@@ -60,21 +59,18 @@ monday_path = os.path.join(data_path, "MondayFileGallery")
 check_files.check_paths(proj_path, data_path, hydat_path, pwqmn_path, monday_path)
 
 
-# check if "PWQMN.sqlite3" already exists. If it doesn't, generate a
+# Check if "PWQMN.sqlite3" already exists. If it doesn't, generate a
 # sqlite3 database from the pwqmn data, to accelerate future data
 # loading and querying
 try:
-    # have to do this check again to see if the data needs to be converted
     check_files.check_path(pwqmn_sql_path)
 except FileNotFoundError:
-    # If pwqmn has not yet been converted to sqlite3 format, convert it
-    # to improve read and query speeds. Is only run if the pwqmn.sqlite3
-    # is not detected.
-    print("converting PWQMN data to sql format")
+    # If a PWQMN sqlite3 database hasn't been generated, generate one.
+    print("Generating PWQMN sqlite3 database")
 
     connection = sqlite3.connect(pwqmn_sql_path)
 
-    # read only fields of interest, and set dtypes for fields with
+    # read fields of interest, and set data types for fields with
     # mixed types
     pwqmn_data = pd.read_csv(pwqmn_path,
                              usecols=['MonitoringLocationName',
@@ -109,7 +105,6 @@ except FileNotFoundError:
                                'CharacteristicName': 'Variables'}, inplace=True)
 
     pwqmn_data['DATE'] = pd.to_datetime(pwqmn_data['DATE'])
-
     pwqmn_data.to_sql("DATA", connection, index=False)
 
     connection.close()
@@ -142,13 +137,16 @@ def find_xy_fields(df: pd.DataFrame) -> [str, str]:
         i.e:
             [<X field name> or "Failed", <Y field name> or "Failed"]
     """
+
+    # simple helper function
     def _(i, field_name) -> str:
         return field_name if i == "" else "Failed"
 
+    # initiate x and y
     x, y = "", ""
 
+    # Iterate through dataframe field names
     for field in df.columns.values:
-
         # Check if the field matches one of the X or Y field names
         if field.upper() in ["LON", "LONG", "LONGITUDE", "X"]:
             x = _(x, field)
@@ -239,7 +237,9 @@ def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd
 
     :param var:
 
-    :param sample:
+    :param sample: <positive nonzero int> or None
+        Number of (random) stations to read from HYDAT database. If
+        None, do not sample and retrieve entire database.
 
     :return: <pandas DataFrame>
         Hydat station data.
@@ -297,6 +297,8 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
     :param var:
 
     :param sample: <positive nonzero int> or None
+        Number of (random) stations to read from PWQMN database. If
+        None, do not sample and retrieve entire database.
 
     :return: <pandas DataFrame>
         PWQMN station data.
