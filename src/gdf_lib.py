@@ -100,6 +100,9 @@ def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame)
     For each point in points, finds and returns the location on other
     closest to that point.
 
+    Shoutout to Brendan Ward for their Medium article:
+    https://medium.com/@brendan_ward/how-to-leverage-geopandas-for-faster-snapping-of-points-to-lines-6113c94e59aa
+
     :param points: GeoPandas GeoDataFrame
         The points to snap to other.
 
@@ -119,12 +122,18 @@ def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame)
     other = other.assign(unique_ind=other.index)
     closest = points.sjoin_nearest(other, how='left', distance_col='distance')
 
-    # Lines is completely normal up to here
     closest = closest.merge(other.rename(columns={'geometry': 'other'}),
                             how='left',
                             on='unique_ind')
 
+    ## project then interpolate appears to be slower for all sizes of
+    ## data
+    # pos = closest['other'].project(closest.geometry)
+    # data = closest['other'].interpolate(pos)
+
     shortest_lines = closest.geometry.shortest_line(closest['other'])
+
+    # Potentially find a more efficient solution that doesn't use apply
     new_points = shortest_lines.apply(lambda line: Point(line.coords[1]))
 
     data = {'new_points': gpd.GeoSeries(new_points),
@@ -149,6 +158,7 @@ def connectors(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
     :return:
     """
     return connect_points_to_feature(points, other)['lines']
+
 
 # HydroRIVERS ============================================================= ##
 
@@ -178,15 +188,43 @@ def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
     return data.to_crs(crs=Can_LCC_wkt)
 
 
-def snap_to_hyriv(points: gpd.GeoDataFrame, hyriv: gpd.GeoDataFrame) -> pd.DataFrame:
+def assign_stations(edges, stations):
     """
-    Wrapper function for snapping points to hyriv lines
+    Assigns stations to hyriv segments. Uses a similar solution to
+    connect_points_to_features()
 
-    :param points:
     :param hyriv:
+    :param stations:
     :return:
     """
-    return connect_points_to_feature(points, hyriv)
+    stations = stations.to_crs(crs=Can_LCC_wkt)
+    other = edges.to_crs(crs=Can_LCC_wkt)
+
+    other = other.assign(unique_ind=other.index)
+    stations = stations.sjoin_nearest(other, how='left')
+
+    stations = stations.merge(other.rename(columns={'geometry': 'other'}),
+                                how='left',
+                                on='unique_ind')
+
+    stations = stations.assign(dist=stations['other'].project(stations.geometry))
+    stations = stations[['STATION_NUMBER', 'unique_ind', 'dist']]
+
+    grouped = stations.groupby(by='unique_ind')
+
+    temp_data = {'unique_ind': [], 'data': []}
+
+    for ind, data in grouped:
+        temp_data['unique_ind'].append(ind)
+        temp_data['data'].append(data[['STATION_NUMBER', 'dist']])
+
+    temp = pd.DataFrame(data=temp_data)
+    other = other.merge(temp, on='unique_ind')
+
+    for data in other['data'][0:5]:
+        print(data.to_string())
+
+    return other
 
 
 def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=False) -> nx.DiGraph:
@@ -258,9 +296,14 @@ def get_hyriv_network(bbox=None, sample=None) -> nx.DiGraph:
 
 
 # ========================================================================= ##
-# Other =================================================================== ##
-# ========================================================================= ##
 
+
+# has_hydat, has_pwqmn
+# dist from U (starting node of directed edge)
+# hydat_dist = []
+# pwqmn_dist = []
+
+# when hydat and pwqmn on same edge, just need to do dist - dist
 
 # ========================================================================= ##
 # Data Conversion ========================================================= ##
@@ -447,7 +490,7 @@ def plot_g_series(g_series: gpd.GeoSeries, name="", save=False,
 def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, add_bg=True,
              show=True, **kwargs):
     """
-    Plot a geopandas GeoDataFrame on a matplotlib plot
+    Plot a geopandas GeoDataFrame on a matplotlib plot.
 
     :param gdf: Geopandas GeoDataFrame
 
@@ -487,7 +530,7 @@ def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):
         File name to save the plot to if save == True
 
     :raises TypeError:
-        Ff df is not a Pandas DataFrame
+        If df is not a Pandas DataFrame
     """
     if type(df) != pd.DataFrame:
         raise TypeError("Parameter passed as 'df' is not a DataFrame'")

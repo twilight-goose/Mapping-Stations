@@ -50,29 +50,28 @@ def main():
     #         gdfs[name] = gdf
     #         gdf_lib.plot_gdf(list(gdfs.values())[0])
 
-    bbox = BBox(min_lon=-80, max_lon=-79, min_lat=44, max_lat=45)
+    bbox = BBox(min_lon=-80, max_lon=-75, min_lat=40, max_lat=45)
 
-    hydat = load_data.get_hydat_station_data(bbox=bbox, sample=10)
-    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox, sample=10)
+    hydat = load_data.get_hydat_station_data(bbox=bbox)
+    # pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
 
     hydat = gdf_lib.point_gdf_from_df(hydat)
-    pwqmn = gdf_lib.point_gdf_from_df(pwqmn)
+    # pwqmn = gdf_lib.point_gdf_from_df(pwqmn)
     #
     # gdf_lib.plot_gdf(pwqmn)
     #
     # gdf_lib.plot_closest(hydat, pwqmn)
 
     lines = gdf_lib.load_hydro_rivers(bbox=bbox)
-    gdf_lib.plot_closest(hydat, lines)
+    gdf_lib.assign_stations(lines, hydat)
 
-    network = gdf_lib.hyriv_gdf_to_network(lines)
-    gdf_lib.check_hyriv_network(network)
+    # gdf_lib.connect_points_to_feature(hydat, lines)
 
-    gdf_lib.plot_closest(pwqmn, hydat)
+    # gdf_lib.plot_closest(hydat, lines)
+    # gdf_lib.plot_closest(pwqmn, lines)
 
-    # gdf_lib.plot_gdf(connectors, show=False, color='red', marker="*")
-    # gdf_lib.plot_gdf(lines, show=False, add_bg=False, color='blue', zorder=6)
-    # gdf_lib.plot_gdf(hydat, add_bg=False, color='orange', zorder=9)
+    # network = gdf_lib.hyriv_gdf_to_network(lines)
+    # gdf_lib.check_hyriv_network(network)
 
     timer.stop()
 
