@@ -398,7 +398,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="", crs=None) -> gpd
         print("Conversion Failed")
 
     timer.stop()
-    return gdf
+    return gdf.to_crs(crs=Can_LCC_wkt)
 
 
 # ========================================================================= ##
@@ -412,7 +412,7 @@ def map_gdfs(gdfs_to_map):
     :param gdfs_to_map
 
     :return:
-    :return: < gem
+    :return:
     """
     def check_gdfs_iter(gdfs):
         if type(gdfs) == dict:
@@ -442,117 +442,135 @@ def map_gdfs(gdfs_to_map):
 # ========================================================================= ##
 
 
-def plot_g_series(g_series: gpd.GeoSeries, name="", save=False,
-                  show=True, add_bg=True, **kwargs):
+def add_map_to_plot(total_bounds=None, ax=None, projection=lambert, features=None,
+                    **kwargs):
+    """
+    Adds an axes to the current figure, makes it the current Axes, and
+    draws a map onto said axes using cartopy.
+
+    :param total_bounds: tuple or list
+        The bounding coordinates to set the extent of the map to, in
+        the same units as the projection.
+        i.e
+            (min_x, min_y, max_x, max_y)
+
+    :param ax: plt.Axes object or plt (default)
+        The Axes to plot g_series onto. If plt, plots g_series on
+        matplotlib.pyplot (without clearing it).
+
+    :param projection: Cartopy CRS object
+        Projection to use to display the map.
+
+    :param features: list of cartopy.feature attributes or none
+        Cartopy features to add to the map. If None, adds a default
+        set of features.
+
+    :param kwargs:
+        Additional keyword arguments to instantiate the matplotlib
+        Axes with.
+
+    :return: matplotlib Axes
+        The created Axes object that the map was draw onto.
+    """
+    if ax is None:
+        ax = plt.axes(projection=projection, **kwargs)
+
+    print(total_bounds)
+
+    # check if the GeoSeries has a valid bounding information
+    if all(total_bounds):
+        min_x, min_y, max_x, max_y = total_bounds
+
+        width = max_x - min_x
+        height = max_y - min_y
+
+        x_buffer = width * 0.2
+        y_buffer = width * 0.2
+
+        center = width / 2 + min_x, height / 2 + min_y
+
+        x0 = center[0] - max(width, height) / 2 - x_buffer
+        x1 = center[0] + max(width, height) / 2 + x_buffer
+        y0 = center[1] - max(width, height) / 2 + y_buffer
+        y1 = center[1] + max(width, height) / 2 + y_buffer
+
+        ax.set_extent([x0, x1, y0, y1], crs=projection)
+
+    else:
+        print("Invalid boundary information. Extent will not be set.")
+
+    ax.stock_img()
+
+    if features is None:
+        features = [cfeature.COASTLINE,
+                    cfeature.LAND,
+                    cfeature.BORDERS,
+                    cfeature.STATES]
+
+    for feature in features:
+        ax.add_feature(feature)
+
+    return ax
+
+
+def plot_g_series(g_series: gpd.GeoSeries, ax=plt, **kwargs):
     """
     Plot a Geopandas GeoSeries.
 
     :param g_series: Geopandas GeoSeries
-        GeoSeries to plot
+        Data to plot. May consist of points or lines, but not polygons.
 
-    :param name: string
-        Name to save the plot to
-
-    :param save: bool
-        If True, save the plot to disk. If False, do nothing.
-
-    :param show: bool
-        If True, display the plot. If False, do nothing
-
-    :param add_bg: bool
-        If True, add a background to the plot. If False, do nothing
+    :param ax: plt.Axes object or plt (default)
+        The Axes to plot g_series onto. If plt, plots g_series on
+        matplotlib.pyplot (without clearing it).
 
     :param kwargs:
-        keyword arguments to pass when adding g_series data to the plot
+        Keyword arguments to pass when plotting g_series. Kwargs are
+        Line2D properties.
     """
+    if ax is None:
+        ax = plt
+
     g_series = g_series.to_crs(crs=Can_LCC_wkt)
 
-    if add_bg:
-        plt.figure(figsize=(8, 8))
-        ax = plt.axes(projection=lambert)
-
-        print(g_series.total_bounds)
-
-        # check if the GeoSeries has a valid bounding information
-        if all(g_series.total_bounds):
-
-            min_lon, min_lat, max_lon, max_lat = g_series.total_bounds
-
-            width = max_lon - min_lon
-            height = max_lat - min_lat
-
-            lon_buffer = width * 0.2
-            lat_buffer = width * 0.2
-
-            center = width / 2 + min_lon, height / 2 + min_lat
-
-            x0 = center[0] - max(width, height) / 2 - lon_buffer
-            x1 = center[0] + max(width, height) / 2 + lon_buffer
-            y0 = center[1] - max(width, height) / 2 + lat_buffer
-            y1 = center[1] + max(width, height) / 2 + lat_buffer
-
-            ax.set_extent([x0, x1, y0, y1], crs=lambert)
-
-            ax.stock_img()
-            ax.add_feature(cfeature.COASTLINE)
-            ax.add_feature(cfeature.BORDERS)
-            ax.add_feature(cfeature.STATES)
-        else:
-            print("GeoSeries has invalid boundary information. No background will"
-                  "be added. Proceeding with plotting.")
-
     if g_series.geom_type[0] == "Point":
-        plt.scatter(g_series.x, g_series.y, **kwargs)
+        ax.scatter(g_series.x, g_series.y, **kwargs)
 
     elif g_series.geom_type[0] == "LineString":
         for line in g_series:
-            plt.plot(*line.xy, **kwargs)
-
-    if show:
-        plt.show()
+            ax.plot(*line.xy, **kwargs)
 
 
-def plot_gdf(gdf: gpd.GeoDataFrame, name="", save=False, add_bg=True,
-             show=True, **kwargs):
+def plot_gdf(gdf: gpd.GeoDataFrame, ax=plt, **kwargs):
     """
-    Plot a geopandas GeoDataFrame on a matplotlib plot.
+    Plot a Geopandas GeoDataFrame.
 
     :param gdf: Geopandas GeoDataFrame
+        Data to plot. May consist of points or lines, but not polygons.
 
-    ::param name: string
-        Name to save the plot to
-
-    :param save: bool
-        If True, save the plot to disk. If False, do nothing.
-
-    :param show: bool
-        If True, display the plot. If False, do nothing
-
-    :param add_bg: bool
-        If True, add a background to the plot. If False, do nothing
+    :param ax: plt.Axes object or None (default)
+        The Axes to plot g_series onto. If None, clears pyplot, plots
+        g_series, and displays the result.
 
     :param kwargs:
-        keyword arguments to pass when adding g_series data to the plot
+        Keyword arguments to pass when plotting the gdf. Kwargs are
+        Line2D properties.
     """
-    plot_g_series(gdf.geometry, name=name, save=save, add_bg=add_bg,
-                  show=show, **kwargs)
+    plot_g_series(gdf.geometry, ax=ax, **kwargs)
 
 
-def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):
+def plot_df(df: pd.DataFrame, ax=None, **kwargs):
     """
-    Plot a pandas DataFrame as point data, if possible. Does not
-    return the resulting GeoDataFrame; to get the resulting
-    GeoDataFrame, use point_gdf_from_df(), then plot the result with
-    plot_gdf().
+    Plot a pandas DataFrame as points, if possible. Does
+    not return the resulting GeoDataFrame; to get the resulting
+    GeoDataFrame, use point_gdf_from_df().
 
     :param df: <Pandas DataFrame>
-        DataFrame to be plotted
+        DataFrame to be plotted.
 
-    :param save: bool
-        Whether to save the plot to disk
-
-    :param name: string
-        File name to save the plot to if save == True
+    :param ax: plt.Axes object or None (default)
+        The Axes to plot g_series onto. If None, clears pyplot, plots
+        g_series, and displays the result.
 
     :raises TypeError:
         If df is not a Pandas DataFrame
@@ -564,9 +582,9 @@ def plot_df(df: pd.DataFrame, save=False, name="", **kwargs):
 
     # Only try to plot the output if the conversion was successful
     if type(output) is gpd.GeoDataFrame:
-        plot_gdf(output, save=save, name=name, **kwargs)
+        plot_gdf(output, ax=ax, **kwargs)
     else:
-        print(name + " could not be plotted")
+        print("Could not be plotted")
 
 
 def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
@@ -590,3 +608,7 @@ def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
     plot_gdf(points, show=False, add_bg=False, color='blue', zorder=10, label='original')
 
     plt.show()
+
+
+def browser():
+    fig, (ax1, ax2) = plt.subplots(2, 1)

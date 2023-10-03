@@ -58,11 +58,15 @@ def main():
     hydat = gdf_lib.point_gdf_from_df(hydat)
     # pwqmn = gdf_lib.point_gdf_from_df(pwqmn)
     #
-    # gdf_lib.plot_gdf(pwqmn)
+    ax = gdf_lib.add_map_to_plot(total_bounds=hydat.total_bounds)
+    gdf_lib.plot_gdf(hydat, ax=ax)
+    gdf_lib.plt.show()
+    ax.cla()
+    gdf_lib.plt.show()
     #
     # gdf_lib.plot_closest(hydat, pwqmn)
 
-    lines = gdf_lib.load_hydro_rivers(bbox=bbox)
+    # lines = gdf_lib.load_hydro_rivers(bbox=bbox)
     # gdf_lib.assign_stations(lines, hydat)
 
     # gdf_lib.connect_points_to_feature(hydat, lines)
@@ -70,8 +74,8 @@ def main():
     # gdf_lib.plot_closest(hydat, lines)
     # gdf_lib.plot_closest(pwqmn, lines)
 
-    network = gdf_lib.hyriv_gdf_to_network(lines)
-    gdf_lib.check_hyriv_network(network)
+    # network = gdf_lib.hyriv_gdf_to_network(lines)
+    # gdf_lib.check_hyriv_network(network)
 
     timer.stop()
 
