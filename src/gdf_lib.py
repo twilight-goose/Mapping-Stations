@@ -120,11 +120,8 @@ def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame)
     other = other.to_crs(crs=Can_LCC_wkt)
 
     other = other.assign(unique_ind=other.index)
+    other = other.assign(other=other.geometry)
     closest = points.sjoin_nearest(other, how='left', distance_col='distance')
-
-    closest = closest.merge(other.rename(columns={'geometry': 'other'}),
-                            how='left',
-                            on='unique_ind')
 
     ## project then interpolate appears to be slower for all sizes of
     ## data
@@ -173,9 +170,10 @@ def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
     to https://epsg.io/102002 (which describes features of projection
     defined by Can_LCC_wkt) for the projected and WGS84 bounds.
 
-    :param sample:
+    :param sample: int or None (default)
+        The number of river segments to load. If None, load all.
 
-    :param bbox: <BBox> or None
+    :param bbox: <BBox> or None (default)
         BBox object declaring area of interest or None, indicating
         not to filter by a bounding box
 
@@ -188,47 +186,67 @@ def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
     return data.to_crs(crs=Can_LCC_wkt)
 
 
-def assign_stations(edges, stations):
+def assign_stations(edges, stations, stat_id_f, prefix="", max_distance=None):
     """
-    Assigns stations to hyriv segments. Uses a similar solution to
-    connect_points_to_features()
+    Snaps stations to the closest features in edges and assigns
+    descriptors to line segments. Uses a solution similar
+    to connect_points_to_features().
 
-    :param hyriv:
-    :param stations:
-    :return:
+    For each station, finds the closest line in edge and assigns
+    to the selected feature the following values:
+        - station id
+        - dist(ance) of the closest point to the station from the
+          start of the line
+
+    To deal with situations of multiple stations being assigned to
+    the same edge feature, station id and distance are stored in a
+    field named 'data', which consists of Pandas DataFrames .
+
+    :param edges: Geopandas GeoDataFrame
+        The lines/features to assign stations to.
+
+    :param stations: Geopandas GeoDataFrame
+        The station points to assign to edges.
+
+    :param stat_id_f: string
+        The name of the unique identifier field in stations.
+
+    :param prefix: string
+        Prefix to apply to added 'data' column. If left blank, may
+        cause overlapping columns in output GeoDataFrame.
+
+    :param max_distance: int or None (default)
+        The maximum distance (in CRS units) within which to assign a
+        station to edges. If int, must be greater than 0.
+
+    :return: Geopandas GeoDataFrame
+        A copy of edges merged that includes selected station related data.
     """
     stations = stations.to_crs(crs=Can_LCC_wkt)
     other = edges.to_crs(crs=Can_LCC_wkt)
 
     other = other.assign(unique_ind=other.index)
-    stations = stations.sjoin_nearest(other, how='left')
-
-    stations = stations.merge(other.rename(columns={'geometry': 'other'}),
-                                how='left',
-                                on='unique_ind')
+    other = other.assign(other=other.geometry)
+    stations = stations.sjoin_nearest(other, how='left', max_distance=None)
 
     stations = stations.assign(dist=stations['other'].project(stations.geometry))
-    stations = stations[['STATION_NUMBER', 'unique_ind', 'dist']]
+    stations = stations[[stat_id_f, 'unique_ind', 'dist']]
 
-    grouped = stations.groupby(by='unique_ind')
+    grouped = stations.groupby(by='unique_ind', sort=False)
 
-    temp_data = {'unique_ind': [], 'data': []}
+    temp_data = {'unique_ind': [], prefix + 'data': []}
 
     for ind, data in grouped:
         temp_data['unique_ind'].append(ind)
-        temp_data['data'].append(data[['STATION_NUMBER', 'dist']])
+        temp_data[prefix + 'data'].append(data[[stat_id_f, 'dist']])
 
     temp = pd.DataFrame(data=temp_data)
     other = other.merge(temp, on='unique_ind')
-
-    for data in other['data'][0:5]:
-        print(data.to_string())
 
     return other
 
 
 def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=False) -> nx.DiGraph:
-
     p_graph = momepy.gdf_to_nx(hyriv_gdf, approach='primal', directed=True)
 
     if plot:
@@ -268,14 +286,21 @@ def check_hyriv_network(digraph: nx.DiGraph) -> float:
 
     # referencing edge values
     for u, v, data in digraph.edges(data="NEXT_DOWN"):
-        print(f"next down: {data}")
         total_edges += 1
 
         out_edges = digraph.out_edges(nbunch=v, data='HYRIV_ID')
-        if len(out_edges) == 0:
+
+        if data == 0 and len(out_edges) != 0:
+            # A 'NEXT_DOWN' value of 0 indicates there is no directly
+            # connected segment downstream
+            break
+        elif len(out_edges) == 0:
+            # If there are no edges leading away from the node, the
+            # node is at the edge of the selected BBox
             correct_edges += 1
+
         for out_edge in out_edges:
-            if out_edge[2] == data or out_edge[2] == 0:
+            if out_edge[2] == data:
                 correct_edges += 1
                 break
 
