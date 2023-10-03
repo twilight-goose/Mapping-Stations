@@ -1,4 +1,6 @@
 from datetime import datetime
+from cartopy import crs as ccrs
+
 """
 
 Overview:
@@ -20,7 +22,8 @@ class BBox:
     """
     Class that represents a longitude/latitude bounding box.
     Technically, can be used to represent any bounding rectangle
-    with a min x, max x, min y, and max y.
+    with a min x, max x, min y, and max y. Does not possess
+    geometry attributes.
 
     Provides a framework for bounding box objects and a means of
     adding additional functionality when desired, such as generating
@@ -30,11 +33,16 @@ class BBox:
     referencing the class with BBox.<function name> and passing the
     bounding box as a parameter.
 
+    For spatial data purposes, the CRS of BBox objects is assumed to
+    be Geodetic (lat/lon), to simplify instantiation and avoid dealing
+    with CRS format compatibility within this class declaration. To
+    change the CRS, refer to set_ccrs() docstrings.
+
     examples:
         1: BBox.<function name>(bbox)
         2: <BBox obj>.<function name>()
     """
-    def __init__(self, min_lon=None, max_lon=None, min_lat=None, max_lat=None, *bounds):
+    def __init__(self, min_x=None, max_x=None, min_y=None, max_y=None, *bounds):
         """
         Flexible method for instantiating BoundingBox objects.
         Valid argument sets:
@@ -42,46 +50,92 @@ class BBox:
         1. None; Creates an empty BBox Object
         2. 4 keyword arguments in any order;
         3. 4 positional arguments in the following order:
-            min_lon, max_lon, min_lat, max_lat
+            min_x, max_x, min_y, max_y
         """
         if len(bounds) == 4:
-            min_lon, max_lon, min_lat, max_lat = bounds
-        self.bounds = {'min_lon': min_lon, 'max_lon': max_lon,
-                       'min_lat': min_lat, 'max_lat': max_lat}
+            min_x, min_y, max_x, max_y = bounds
+        self.bounds = {'min_x': min_x, 'max_x': max_x,
+                       'min_y': min_y, 'max_y': max_y}
+        self.crs = ccrs.Geodetic()
 
     def contains_point(self, cord: dict) -> bool:
         """
         Determines if the bounding box of self contains cord
 
         :param self: BBox object or None
-        :param cord: {'lon': <float>, 'lat': <float>}
-                     Longitude/Latitude coordinate of the point.
 
-        :return: True if cord lies within or on the BBox or BBox is
-                 None; False otherwise
+        :param cord: dict of string:float
+            Longitude/Latitude coordinate of the point.
+            i.e
+                {'lon': <float>, 'lat': <float>}
+
+        :return: bool
+            True if cord lies within or on the BBox or BBox is None;
+            False otherwise
         """
         return self is None or \
-            (self.bounds['min_lat'] <= cord['lat'] <= self.bounds['max_lat'] and
-                self.bounds['min_lon'] <= cord['lon'] <= self.bounds['max_lon'])
+            (self.bounds['min_y'] <= cord['lat'] <= self.bounds['max_y'] and
+                self.bounds['min_x'] <= cord['lon'] <= self.bounds['max_x'])
+
+    def set_ccrs(self, crs):
+        """
+        Set the CRS. Does not change the coordinates.
+
+        :param crs: Cartopy CRS object
+            The CRS to set the BBox to. Must be a Cartopy.crs.CRS
+            object. Refer to the Cartopy documentation for more
+            information.
+        """
+        self.crs = crs
+
+    def to_ccrs(self, crs):
+        """
+        Generates a tuple of the BBox's bounds in the given CRS. Does
+        not change the coordinates of the original BBox.
+
+        Using the provided Cartopy CRS object, transforms bounds to the
+        coordinate system defined by the CRS object. Before using this
+        function, ensure that self.crs is set to the coordinate system
+        of your bounds with set_ccrs().
+
+        :param crs: Cartopy CRS object
+            The CRS to transform the BBox to. Must be a Cartopy.crs.CRS
+            object.
+
+        :return: tuple
+            Transformed min_x, min_y, max_x, max_y coordinates of the
+            BBox.
+        """
+        return (crs.transform_point(self.bounds['min_x'], self.bounds['min_y'],
+                                    self.crs) +
+                crs.transform_point(self.bounds['max_x'], self.bounds['max_y'],
+                                    self.crs))
 
     @staticmethod
-    def sql_query(bbox, lon_field, lat_field) -> str:
+    def sql_query(bbox, x_field, y_field) -> str:
         """
         Translates the bounding box into a SQL query string.
 
-        :param bbox:
+        :param bbox: BBox object or None
+            The bounding box to generate an SQL query from.
+
+        :param x_field: string
+            The name of the field holding coordinate X data.
+
+        :param y_field: string
+            The name of the field holding coordinate Y data.
 
         :return: <str>
-            SQL query string or a blank string
+            SQL query string or a blank string.
         """
         query = ""
         # For calls from functions where no boundary is declared
         if bbox is not None:
-            min_lon, max_lon = bbox.bounds['min_lon'], bbox.bounds['max_lon']
-            min_lat, max_lat = bbox.bounds['min_lat'], bbox.bounds['max_lat']
+            min_x, max_x = bbox.bounds['min_x'], bbox.bounds['max_x']
+            min_y, max_y = bbox.bounds['min_y'], bbox.bounds['max_y']
 
-            query = (f"({min_lon} <= {lon_field} AND {max_lon} >= {lon_field} AND " +
-                     f"{min_lat} <= {lat_field} AND {max_lat} >= {lat_field})")
+            query = (f"({min_x} <= {x_field} AND {max_x} >= {x_field} AND " +
+                     f"{min_y} <= {y_field} AND {max_y} >= {y_field})")
 
         return query
 
@@ -93,7 +147,7 @@ class BBox:
         DataFrame. Not to be used outside the .apply() function
 
         Works with both pandas DataFrames and Series, without needing
-        to import the pandas library.
+        to import the Pandas library.
 
         :param series: The pandas DataFrame to be scanned
         :param bbox: The bounding box object (or None)
@@ -109,12 +163,11 @@ class BBox:
 
         raise ValueError("None or BBox object expected but", type(bbox), "found")
 
-    @staticmethod
-    def to_tuple(bbox):
-        if bbox is None:
+    def to_tuple(self):
+        if self is None:
             return None
-        return (bbox.bounds['min_lon'], bbox.bounds['min_lat'],
-                bbox.bounds['max_lon'], bbox.bounds['max_lat'])
+        return (self.bounds['min_x'], self.bounds['min_y'],
+                self.bounds['max_x'], self.bounds['max_y'])
 
 
 class Period:

@@ -50,7 +50,7 @@ def main():
     #         gdfs[name] = gdf
     #         gdf_lib.plot_gdf(list(gdfs.values())[0])
 
-    bbox = BBox(min_lon=-80, max_lon=-75, min_lat=40, max_lat=45)
+    bbox = BBox(min_x=-90, max_x=-74, min_y=40, max_y=50)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     # pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
@@ -58,11 +58,11 @@ def main():
     hydat = gdf_lib.point_gdf_from_df(hydat)
     # pwqmn = gdf_lib.point_gdf_from_df(pwqmn)
     #
-    ax = gdf_lib.add_map_to_plot(total_bounds=hydat.total_bounds)
+    ax = gdf_lib.add_map_to_plot(
+        total_bounds=bbox.to_ccrs(gdf_lib.lambert)
+    )
     gdf_lib.plot_gdf(hydat, ax=ax)
-    gdf_lib.plt.show()
-    ax.cla()
-    gdf_lib.plt.show()
+    gdf_lib.show()
     #
     # gdf_lib.plot_closest(hydat, pwqmn)
 

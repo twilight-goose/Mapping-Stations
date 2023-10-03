@@ -9,6 +9,7 @@ import pandas as pd
 
 Overview: 
 
+No spatial manipulation is done in this file.
 """
 
 # ========================================================================= ##

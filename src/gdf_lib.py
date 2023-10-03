@@ -6,6 +6,7 @@ from load_data import proj_path, find_xy_fields, data_path
 
 import pandas as pd
 import geopandas as gpd
+import numpy as np
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -46,15 +47,19 @@ map_save_dir = os.path.join(proj_path, "maps")
 
 timer = Timer()
 
-
 # Coordinate Reference System Constants
 geodetic = ccrs.Geodetic()
-albers = ccrs.AlbersEqualArea(central_longitude=-85, central_latitude=50)
 
 # standard parallels were taken from stats canada
-lambert = ccrs.LambertConformal(central_longitude=-85, central_latitude=50,
-                                standard_parallels=(46, 77),
-                                cutoff=30)
+central_lon = -85
+central_lat = 40
+stand_parallel_1 = 50
+stand_parallel_2 = 70
+
+lambert = ccrs.LambertConformal(central_longitude=central_lon,
+                                central_latitude=central_lat,
+                                standard_parallels=(stand_parallel_1,
+                                                    stand_parallel_2))
 
 # WKT string for Canadian lambert conformal conic projection
 # refer to the source for projected and WGS84 bounds
@@ -77,10 +82,10 @@ Can_LCC_wkt = ('PROJCS["Canada_Lambert_Conformal_Conic",'
                             'AUTHORITY["EPSG","9122"]],'
                         'AUTHORITY["EPSG","4269"]],'
                     'PROJECTION["Lambert_Conformal_Conic_2SP"],'
-                    'PARAMETER["latitude_of_origin",40],'
-                    'PARAMETER["central_meridian",-96]'
-                    'PARAMETER["standard_parallel_1",50],'
-                    'PARAMETER["standard_parallel_2",70],'
+                    f'PARAMETER["latitude_of_origin",{central_lat}],'
+                    f'PARAMETER["central_meridian",{central_lon}]'
+                    f'PARAMETER["standard_parallel_1",{stand_parallel_1}],'
+                    f'PARAMETER["standard_parallel_2",{stand_parallel_2}],'
                     'PARAMETER["false_easting",0],'
                     'PARAMETER["false_northing",0],'
                     'UNIT["metre",1,'
@@ -116,15 +121,18 @@ def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame)
         of point snapping. Has 2 keys: 'new_points' & 'lines'. Maintains
         the same order as points.
     """
-    points = points.to_crs(crs=Can_LCC_wkt)
-    other = other.to_crs(crs=Can_LCC_wkt)
+    # Spatial manipulation is performed in Lambert conformal conic
+    # but the geometry of the original datasets are not changed.
+    if points.crs != Can_LCC_wkt:
+        points = points.to_crs(crs=Can_LCC_wkt)
+    if other.crs != Can_LCC_wkt:
+        other = other.to_crs(crs=Can_LCC_wkt)
 
     other = other.assign(unique_ind=other.index)
     other = other.assign(other=other.geometry)
     closest = points.sjoin_nearest(other, how='left', distance_col='distance')
 
-    ## project then interpolate appears to be slower for all sizes of
-    ## data
+    # project then interpolate appears to be slower for all sizes of data
     # pos = closest['other'].project(closest.geometry)
     # data = closest['other'].interpolate(pos)
 
@@ -222,12 +230,14 @@ def assign_stations(edges, stations, stat_id_f, prefix="", max_distance=None):
     :return: Geopandas GeoDataFrame
         A copy of edges merged that includes selected station related data.
     """
-    stations = stations.to_crs(crs=Can_LCC_wkt)
-    other = edges.to_crs(crs=Can_LCC_wkt)
+    if stations.crs != Can_LCC_wkt:
+        stations = stations.to_crs(crs=Can_LCC_wkt)
+    if edges.crs != Can_LCC_wkt:
+        edges = edges.to_crs(crs=Can_LCC_wkt)
 
-    other = other.assign(unique_ind=other.index)
-    other = other.assign(other=other.geometry)
-    stations = stations.sjoin_nearest(other, how='left', max_distance=None)
+    edges = edges.assign(unique_ind=edges.index)
+    edges = edges.assign(other=edges.geometry)
+    stations = stations.sjoin_nearest(edges, how='left', max_distance=max_distance)
 
     stations = stations.assign(dist=stations['other'].project(stations.geometry))
     stations = stations[[stat_id_f, 'unique_ind', 'dist']]
@@ -241,12 +251,24 @@ def assign_stations(edges, stations, stat_id_f, prefix="", max_distance=None):
         temp_data[prefix + 'data'].append(data[[stat_id_f, 'dist']])
 
     temp = pd.DataFrame(data=temp_data)
-    other = other.merge(temp, on='unique_ind')
+    edges = edges.merge(temp, on='unique_ind')
 
-    return other
+    return edges
 
 
 def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=False) -> nx.DiGraph:
+    """
+    Creates a directed network from a hydroRIVER line GeoDataFrame.
+
+    :param hyriv_gdf: Geopandas GeoDataFrame
+        The GeoDataFrame to turn into a directed network
+
+    :param plot: bool
+        If True, plot and display the network. If False, do nothing.
+
+    :return: networkX DiGraph
+        The resultant networkx directed graph.
+    """
     p_graph = momepy.gdf_to_nx(hyriv_gdf, approach='primal', directed=True)
 
     if plot:
@@ -313,7 +335,8 @@ def check_hyriv_network(digraph: nx.DiGraph) -> float:
 
 def get_hyriv_network(bbox=None, sample=None) -> nx.DiGraph:
     """
-    Wrapper function for generating the HydroRIVERS directed graph.
+    Wrapper function for getting the HydroRIVERS directed graph.
+
     :return: NetworkX DiGraph
     """
     hyriv = load_hydro_rivers(sample=sample, bbox=bbox)
@@ -384,7 +407,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="", crs=None) -> gpd
             print("Operation Failed. Check your fields")
         else:
             # Lat/lon fields successfully located
-            crs = "EPSG:4326"
+            crs = 4326
     else:
         x, y = x_field, y_field
 
@@ -392,13 +415,14 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="", crs=None) -> gpd
     try:
         gdf = gpd.GeoDataFrame(
             df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=crs)
+        gdf.to_crs(Can_LCC_wkt)
         print("Dataframe successfully converted to geopandas point array")
     except KeyError:
         gdf = -1
         print("Conversion Failed")
 
     timer.stop()
-    return gdf.to_crs(crs=Can_LCC_wkt)
+    return gdf
 
 
 # ========================================================================= ##
@@ -442,7 +466,8 @@ def map_gdfs(gdfs_to_map):
 # ========================================================================= ##
 
 
-def add_map_to_plot(total_bounds=None, ax=None, projection=lambert, features=None,
+def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
+                    features=(cfeature.COASTLINE, cfeature.STATES),
                     **kwargs):
     """
     Adds an axes to the current figure, makes it the current Axes, and
@@ -454,14 +479,14 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert, features=Non
         i.e
             (min_x, min_y, max_x, max_y)
 
-    :param ax: plt.Axes object or plt (default)
-        The Axes to plot g_series onto. If plt, plots g_series on
-        matplotlib.pyplot (without clearing it).
+    :param ax: plt.Axes object or None (default)
+        The Axes to plot g_series onto. If None, draws the map on the
+        matplotlib.pyplot default axes (without clearing it).
 
     :param projection: Cartopy CRS object
         Projection to use to display the map.
 
-    :param features: list of cartopy.feature attributes or none
+    :param features: list or tuple of cartopy.feature attributes
         Cartopy features to add to the map. If None, adds a default
         set of features.
 
@@ -481,18 +506,13 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert, features=Non
     if all(total_bounds):
         min_x, min_y, max_x, max_y = total_bounds
 
-        width = max_x - min_x
-        height = max_y - min_y
+        x_buffer = (max_x - min_x) * 0.2
+        y_buffer = (max_y - min_y) * 0.2
 
-        x_buffer = width * 0.2
-        y_buffer = width * 0.2
-
-        center = width / 2 + min_x, height / 2 + min_y
-
-        x0 = center[0] - max(width, height) / 2 - x_buffer
-        x1 = center[0] + max(width, height) / 2 + x_buffer
-        y0 = center[1] - max(width, height) / 2 + y_buffer
-        y1 = center[1] + max(width, height) / 2 + y_buffer
+        x0 = min_x - x_buffer
+        x1 = max_x + x_buffer
+        y0 = min_y - y_buffer
+        y1 = max_y + y_buffer
 
         ax.set_extent([x0, x1, y0, y1], crs=projection)
 
@@ -501,26 +521,26 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert, features=Non
 
     ax.stock_img()
 
-    if features is None:
-        features = [cfeature.COASTLINE,
-                    cfeature.LAND,
-                    cfeature.BORDERS,
-                    cfeature.STATES]
-
     for feature in features:
         ax.add_feature(feature)
 
     return ax
 
 
-def plot_g_series(g_series: gpd.GeoSeries, ax=plt, **kwargs):
+def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
+                  **kwargs):
     """
-    Plot a Geopandas GeoSeries.
+    Plot a Geopandas GeoSeries. Does not change the original GeoSeries
+    geometry.
 
     :param g_series: Geopandas GeoSeries
         Data to plot. May consist of points or lines, but not polygons.
 
-    :param ax: plt.Axes object or plt (default)
+    :param crs: pyproj.CRS
+        The value can be anything accepted by pyproj.CRS.from_user_input(),
+        such as an authority string (eg “EPSG:4326”) or a WKT string.
+
+    :param ax: plt.Axes object
         The Axes to plot g_series onto. If plt, plots g_series on
         matplotlib.pyplot (without clearing it).
 
@@ -528,25 +548,27 @@ def plot_g_series(g_series: gpd.GeoSeries, ax=plt, **kwargs):
         Keyword arguments to pass when plotting g_series. Kwargs are
         Line2D properties.
     """
-    if ax is None:
-        ax = plt
-
-    g_series = g_series.to_crs(crs=Can_LCC_wkt)
+    g_series = g_series.to_crs(crs=crs)
 
     if g_series.geom_type[0] == "Point":
         ax.scatter(g_series.x, g_series.y, **kwargs)
 
     elif g_series.geom_type[0] == "LineString":
-        for line in g_series:
-            ax.plot(*line.xy, **kwargs)
+        for geom in g_series:
+            ax.plot(geom[0], geom[1], **kwargs)
 
 
-def plot_gdf(gdf: gpd.GeoDataFrame, ax=plt, **kwargs):
+def plot_gdf(gdf: gpd.GeoDataFrame, crs=Can_LCC_wkt, ax=plt, **kwargs):
     """
-    Plot a Geopandas GeoDataFrame.
+    Plot a Geopandas GeoDataFrame. Does not change the original
+    GeoDataFrame geometry.
 
     :param gdf: Geopandas GeoDataFrame
         Data to plot. May consist of points or lines, but not polygons.
+
+    :param crs: pyproj.CRS
+        The value can be anything accepted by pyproj.CRS.from_user_input(),
+        such as an authority string (eg “EPSG:4326”) or a WKT string.
 
     :param ax: plt.Axes object or None (default)
         The Axes to plot g_series onto. If None, clears pyplot, plots
@@ -556,10 +578,10 @@ def plot_gdf(gdf: gpd.GeoDataFrame, ax=plt, **kwargs):
         Keyword arguments to pass when plotting the gdf. Kwargs are
         Line2D properties.
     """
-    plot_g_series(gdf.geometry, ax=ax, **kwargs)
+    plot_g_series(gdf.geometry, ax=ax, crs=crs, **kwargs)
 
 
-def plot_df(df: pd.DataFrame, ax=None, **kwargs):
+def plot_df(df: pd.DataFrame, ax=None, crs=Can_LCC_wkt, **kwargs):
     """
     Plot a pandas DataFrame as points, if possible. Does
     not return the resulting GeoDataFrame; to get the resulting
@@ -567,6 +589,10 @@ def plot_df(df: pd.DataFrame, ax=None, **kwargs):
 
     :param df: <Pandas DataFrame>
         DataFrame to be plotted.
+
+    :param crs: pyproj.CRS
+        The value can be anything accepted by pyproj.CRS.from_user_input(),
+        such as an authority string (eg “EPSG:4326”) or a WKT string.
 
     :param ax: plt.Axes object or None (default)
         The Axes to plot g_series onto. If None, clears pyplot, plots
@@ -582,7 +608,7 @@ def plot_df(df: pd.DataFrame, ax=None, **kwargs):
 
     # Only try to plot the output if the conversion was successful
     if type(output) is gpd.GeoDataFrame:
-        plot_gdf(output, ax=ax, **kwargs)
+        plot_gdf(output, ax=ax, crs=crs, **kwargs)
     else:
         print("Could not be plotted")
 
@@ -612,3 +638,7 @@ def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
 
 def browser():
     fig, (ax1, ax2) = plt.subplots(2, 1)
+
+
+def show():
+    plt.show()
