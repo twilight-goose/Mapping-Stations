@@ -7,7 +7,13 @@ from load_data import proj_path, find_xy_fields, data_path
 import pandas as pd
 import geopandas as gpd
 import numpy as np
+from numpy.random import rand
 import matplotlib.pyplot as plt
+from matplotlib.image import AxesImage
+from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle
+from matplotlib.text import Text
+
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from shapely import LineString, Point
@@ -141,10 +147,7 @@ def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame)
     # Potentially find a more efficient solution that doesn't use apply
     new_points = shortest_lines.apply(lambda line: Point(line.coords[1]))
 
-    data = {'new_points': gpd.GeoSeries(new_points),
-            'lines': gpd.GeoSeries(shortest_lines)}
-
-    return data
+    return {'new_points': new_points, 'lines': shortest_lines}
 
 
 def snap_points(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
@@ -467,15 +470,14 @@ def map_gdfs(gdfs_to_map):
 
 
 def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
-                    features=(cfeature.COASTLINE, cfeature.STATES),
+                    features=(cfeature.COASTLINE, cfeature.STATES, cfeature.LAKES),
                     **kwargs):
     """
     Adds an axes to the current figure, makes it the current Axes, and
     draws a map onto said axes using cartopy.
 
     :param total_bounds: tuple or list
-        The bounding coordinates to set the extent of the map to, in
-        the same units as the projection.
+        The bounding coordinates to set the extent of the map to.
         i.e
             (min_x, min_y, max_x, max_y)
 
@@ -497,13 +499,15 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
     :return: matplotlib Axes
         The created Axes object that the map was draw onto.
     """
+
     if ax is None:
-        ax = plt.axes(projection=projection, **kwargs)
+        figure = plt.figure(figsize=(8,8))
+        ax = plt.axes(figure, projection=projection, **kwargs)
 
     print(total_bounds)
 
     # check if the GeoSeries has a valid bounding information
-    if all(total_bounds):
+    try:
         min_x, min_y, max_x, max_y = total_bounds
 
         x_buffer = (max_x - min_x) * 0.2
@@ -516,7 +520,7 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
 
         ax.set_extent([x0, x1, y0, y1], crs=projection)
 
-    else:
+    except ValueError:
         print("Invalid boundary information. Extent will not be set.")
 
     ax.stock_img()
@@ -548,14 +552,16 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
         Keyword arguments to pass when plotting g_series. Kwargs are
         Line2D properties.
     """
+    assert type(g_series) == gpd.GeoSeries, f"GeoSeries expected, {type(g_series)} found."
+
     g_series = g_series.to_crs(crs=crs)
 
-    if g_series.geom_type[0] == "Point":
+    if g_series.geom_type.iat[0] == "Point":
         ax.scatter(g_series.x, g_series.y, **kwargs)
 
-    elif g_series.geom_type[0] == "LineString":
+    elif g_series.geom_type.iat[0] == "LineString":
         for geom in g_series:
-            ax.plot(geom[0], geom[1], **kwargs)
+            ax.plot(*geom.xy, **kwargs)
 
 
 def plot_gdf(gdf: gpd.GeoDataFrame, crs=Can_LCC_wkt, ax=plt, **kwargs):
@@ -613,7 +619,7 @@ def plot_df(df: pd.DataFrame, ax=None, crs=Can_LCC_wkt, **kwargs):
         print("Could not be plotted")
 
 
-def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
+def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, ax=plt):
     """
     For each point in points, finds the closest feature in other, then
     plots both GeoDataFrames and draws lines between them.
@@ -629,16 +635,116 @@ def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
     new_points = snapped_dict['new_points']
     lines = snapped_dict['lines']
 
-    plot_g_series(lines, show=False, zorder=1, color='purple', label='connector')
-    plot_gdf(other, show=False, add_bg=False, color='red', zorder=9, label='new')
-    plot_gdf(points, show=False, add_bg=False, color='blue', zorder=10, label='original')
+    print("plotting connecting lines")
+    plot_g_series(lines, ax=ax, zorder=1, color='purple', label='connector')
+    print("plotting snapped points")
+    plot_g_series(new_points, ax=ax, color='red', zorder=9, label='new')
+    print("plotting features that were snapped to")
+    plot_gdf(other, ax=ax, color='red', zorder=9, label='new')
+    print("plotting original points")
+    plot_gdf(points, ax=ax, color='blue', zorder=10, label='original')
+
+
+def browser(data):
+    class PointBrowser:
+        """
+        Click on a point to select and highlight it -- the data that
+        generated the point will be shown in the lower axes.  Use the 'n'
+        and 'p' keys to browse through the next and previous points
+        """
+
+        def __init__(self):
+            self.lastind = 0
+
+            self.text = ax.text(0.05, 0.95, 'selected: none',
+                                transform=ax.transAxes, va='top')
+            self.selected, = ax.plot([xs[0]], [ys[0]], 'o', ms=12, alpha=0.4,
+                                     color='yellow', visible=False)
+
+        def on_press(self, event):
+            if self.lastind is None:
+                return
+            if event.key not in ('n', 'p'):
+                return
+            if event.key == 'n':
+                inc = 1
+            else:
+                inc = -1
+
+            self.lastind += inc
+            self.lastind = np.clip(self.lastind, 0, len(xs) - 1)
+            self.update()
+
+        def on_pick(self, event):
+
+            if event.artist != line:
+                return True
+
+            N = len(event.ind)
+            if not N:
+                return True
+
+            # the click locations
+            x = event.mouseevent.xdata
+            y = event.mouseevent.ydata
+
+            distances = np.hypot(x - xs[event.ind], y - ys[event.ind])
+            indmin = distances.argmin()
+            dataind = event.ind[indmin]
+
+            self.lastind = dataind
+            self.update()
+
+        def update(self):
+            if self.lastind is None:
+                return
+
+            dataind = self.lastind
+
+            ax2.clear()
+            ax2.plot(X[dataind])
+
+            ax2.text(0.05, 0.9, f'mu={xs[dataind]:1.3f}\nsigma={ys[dataind]:1.3f}',
+                     transform=ax2.transAxes, va='top')
+            ax2.set_ylim(-0.5, 1.5)
+            self.selected.set_visible(True)
+            self.selected.set_data(xs[dataind], ys[dataind])
+
+            self.text.set_text('selected: %d' % dataind)
+            fig.canvas.draw()
+
+    # Fixing random state for reproducibility
+    np.random.seed(19680801)
+
+    X = np.random.rand(100, 200)
+    xs = np.mean(X, axis=1)
+    ys = np.std(X, axis=1)
+
+    fig, (ax, ax2) = plt.subplots(1, 2, gridspec_kw=dict(width_ratios=[2, 1]),
+                                  figsize=(9, 7))
+
+    ax.set_box_aspect(1)
+    ax.set_title('click on point to plot time series')
+
+    line, = ax.plot(xs, ys, 'o', picker=True, pickradius=5)
+
+    ax2 = plt.axes()
+    ax2.table(cellText=[['1', '2'], ['2', '3']],
+              loc=8)
+
+    browser = PointBrowser()
+
+    fig.canvas.mpl_connect('pick_event', browser.on_pick)
+    fig.canvas.mpl_connect('key_press_event', browser.on_press)
 
     plt.show()
 
 
-def browser():
-    fig, (ax1, ax2) = plt.subplots(2, 1)
-
-
 def show():
+    """
+    Wrapper function for calling plt.show() from functions that don't
+    import matplotlib.
+
+    :return:
+    """
     plt.show()
