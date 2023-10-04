@@ -42,18 +42,19 @@ class BBox:
         1: BBox.<function name>(bbox)
         2: <BBox obj>.<function name>()
     """
-    def __init__(self, min_x=None, max_x=None, min_y=None, max_y=None, *bounds):
+    def __init__(self, min_x=None, max_x=None, min_y=None, max_y=None, ):
         """
         Flexible method for instantiating BoundingBox objects.
         Valid argument sets:
 
         1. None; Creates an empty BBox Object
         2. 4 keyword arguments in any order;
-        3. 4 positional arguments in the following order:
-            min_x, max_x, min_y, max_y
+        3. 4 optional positional arguments in the following order:
+            min_x, min_y, max_x, max_y
         """
-        if len(bounds) == 4:
-            min_x, min_y, max_x, max_y = bounds
+        if hasattr(min_x, '__iter__'):
+            min_x, min_y, max_x, max_y = min_x
+            print()
         self.bounds = {'min_x': min_x, 'max_x': max_x,
                        'min_y': min_y, 'max_y': max_y}
         self.crs = ccrs.Geodetic()

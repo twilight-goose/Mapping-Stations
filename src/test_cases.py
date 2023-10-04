@@ -55,8 +55,15 @@ def network_assign_test(lines, stations, field):
     gdf_lib.browser(lines)
 
 
+def browser_test():
+    bbox = BBox(min_x=-85, max_x=-70, min_y=40, max_y=55)
+    hydat = load_data.get_hydat_station_data(bbox=bbox)
+    hydat = gdf_lib.point_gdf_from_df(hydat)
+    gdf_lib.browser(hydat, bbox)
+
+
 def run_tests():
-    bbox = BBox(min_x=-75, max_x=-70, min_y=45, max_y=50)
+    bbox = BBox(min_x=-80, max_x=-70, min_y=45, max_y=55)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
@@ -79,7 +86,7 @@ def run_tests():
 def main():
     timer = Timer()
 
-    run_tests()
+    browser_test()
 
     timer.stop()
 

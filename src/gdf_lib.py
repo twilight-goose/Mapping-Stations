@@ -8,6 +8,7 @@ import pandas as pd
 import geopandas as gpd
 import numpy as np
 from numpy.random import rand
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.image import AxesImage
 from matplotlib.lines import Line2D
@@ -645,7 +646,7 @@ def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, ax=plt):
     plot_gdf(points, ax=ax, color='blue', zorder=10, label='original')
 
 
-def browser(data):
+def browser(data, bbox):
     class PointBrowser:
         """
         Click on a point to select and highlight it -- the data that
@@ -676,15 +677,6 @@ def browser(data):
             self.update()
 
         def on_pick(self, event):
-
-            if event.artist != line:
-                return True
-
-            N = len(event.ind)
-            if not N:
-                return True
-
-            # the click locations
             x = event.mouseevent.xdata
             y = event.mouseevent.ydata
 
@@ -702,13 +694,21 @@ def browser(data):
             dataind = self.lastind
 
             ax2.clear()
-            ax2.plot(X[dataind])
+            data = X.iloc[dataind].to_dict()
+            display_data = []
 
-            ax2.text(0.05, 0.9, f'mu={xs[dataind]:1.3f}\nsigma={ys[dataind]:1.3f}',
-                     transform=ax2.transAxes, va='top')
-            ax2.set_ylim(-0.5, 1.5)
+            for key in list(data.keys())[:-1]:
+                display_data.append((key, str(data[key])))
+
+            table = mpl.table.table(ax2, cellText=display_data, loc='upper center')
+            table.auto_set_font_size(False)
+            table.set_fontsize(9)
+            table.scale(1, 2)
+
             self.selected.set_visible(True)
-            self.selected.set_data(xs[dataind], ys[dataind])
+            self.selected.set_data(
+                lambert.transform_point(xs[dataind], ys[dataind], geodetic)
+            )
 
             self.text.set_text('selected: %d' % dataind)
             fig.canvas.draw()
@@ -716,21 +716,23 @@ def browser(data):
     # Fixing random state for reproducibility
     np.random.seed(19680801)
 
-    X = np.random.rand(100, 200)
-    xs = np.mean(X, axis=1)
-    ys = np.std(X, axis=1)
+    X = data
+    xs = X.geometry.x
+    ys = X.geometry.y
 
-    fig, (ax, ax2) = plt.subplots(1, 2, gridspec_kw=dict(width_ratios=[2, 1]),
-                                  figsize=(9, 7))
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(14, 7))
+    fig.delaxes(ax)
+
+    ax = fig.add_axes([0.02, 0.04, 0.46, 0.92], projection=lambert)
+
+    add_map_to_plot(ax=ax, total_bounds=bbox.to_ccrs(lambert))
 
     ax.set_box_aspect(1)
+    ax2.set_box_aspect(1)
+
     ax.set_title('click on point to plot time series')
 
-    line, = ax.plot(xs, ys, 'o', picker=True, pickradius=5)
-
-    ax2 = plt.axes()
-    ax2.table(cellText=[['1', '2'], ['2', '3']],
-              loc=8)
+    plot_gdf(data, ax=ax, marker='o', picker=True, pickradius=5)
 
     browser = PointBrowser()
 
