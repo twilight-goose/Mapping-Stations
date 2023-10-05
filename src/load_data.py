@@ -165,9 +165,9 @@ def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
     :param path: <str>
         Path of folder directory to iterate over
 
-    :param bbox: <BBox> or None
-        BBox object declaring area of interest or None, indicating
-        not to filter by a bounding box
+    :param bbox: BBox or None (default)
+        BBox object defining area of interest or None, indicating
+        not to filter by a bounding box.
 
     :return: dict(<str>, <Pandas DataFrame>, ...)
         A dictionary of length n, where n is the number of .csv files
@@ -233,8 +233,9 @@ def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd
 
         None; No date query. Does not filter data by date.
 
-    :param bbox: <BBox> or None
-        BBox object representing area of interest or None
+    :param bbox: BBox or None (default)
+        BBox object defining area of interest or None, indicating
+        not to filter by a bounding box.
 
     :param var:
 
@@ -295,8 +296,9 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
 
         None; No date query. Does not filter data by date.
 
-    :param bbox: <BBox> or None
-        BBox object representing area of interest or None
+    :param bbox: BBox or None (default)
+        BBox object defining area of interest or None, indicating
+        not to filter by a bounding box.
 
     :param var:
 

@@ -134,7 +134,10 @@ def snap_points(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
     """
     Wrapper function for connect_points_to_feature() that returns only
     the points and not the connecting lines.
-    :return:
+
+    :return: GeoPandas GeoDataFrame
+        Point GeoDataFrame. Consult connect_points_to_feature for more
+        information.
     """
     return connect_points_to_feature(points, other)['new_points']
 
@@ -143,7 +146,10 @@ def connectors(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
     """
     Wrapper function for connect_points_to_feature() that returns only
     the connecting lines and not the new points.
-    :return:
+
+    :return: GeoPandas GeoDataFrame
+        LineString GeoDataFrame. Consult connect_points_to_feature for
+        more information.
     """
     return connect_points_to_feature(points, other)['lines']
 
@@ -153,29 +159,36 @@ def connectors(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
 # ========================================================================= ##
 
 
-def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="", crs=None) -> gpd.GeoDataFrame:
+def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) -> gpd.GeoDataFrame:
     """
     Convert a pandas DataFrame to a geopandas GeoDataFrame with point
     geometry, if possible.
 
-    If x and y fields are not provided, the function will search the
-    DataFrame for fields to use with find_xy_fields(). If you provide
-    x and y fields, you MUST provide a crs as well.
+    If neither x nor y fields are not provided, the function will
+    search the DataFrame for fields to use with find_xy_fields().
+    Conversion will fail if only 1 of x_field or y_field is provided.
 
-    :param df: pandas DataFrame to convert
+    If x and y fields are not provided, the crs will be assumed to be
+    EPSG:4326. If you provide x and y fields, you MUST provide a crs
+    as well.
 
-    :param x_field: <str> (optional)
-        field to use as longitude/x value
+    :param df: pandas DataFrame
+        DataFrame to convert to a GeoDataFrame
 
-    :param y_field: <str> (optional)
-        field to use as latitude/y value
+    :param x_field: str or None (default)
+        Field to use as longitude/x value. If None, searches df
+        for X and Y fields to use. Required if y_field is provided.
+
+    :param y_field: str or None (default)
+        Field to use as latitude/y value. If None, searches df
+        for X and Y fields to use. Required if y_field is provided.
 
     :param crs: value (optional)
         Coordinate reference system of the geometry objects. Can be
         anything accepted by pyproj.CRS.from_user_input().
         i.e.
-            WKT String (such as Can_LCC_wkt)
-            authority string ("EPSG:4326")
+        - WKT String (such as Can_LCC_wkt)
+        - authority string ("EPSG:4326")
 
     :return: <Geopandas GeoDataFrame> or <int>
         The resulting GeoDataFrame, or -1 if the conversion failed. If
@@ -189,23 +202,25 @@ def point_gdf_from_df(df: pd.DataFrame, x_field="", y_field="", crs=None) -> gpd
     """
     timer.start()
 
+    # Do checks on passed parameters
     if type(df) != pd.DataFrame:
         raise TypeError("Pandas DataFrame expected but", type(df), "found")
     elif (x_field or y_field) and crs is None:
         raise TypeError("CRS keyword argument missing")
 
+    # Search for X and Y fields, if not provided
     if not x_field and not y_field:
         x, y = find_xy_fields(df)
         print(f"Searching for fields...\nX field: {x}   Y field: {y}\n")
 
-        if x == "Failed" or y == "Failed" or x == "" or y == "":
+        if x == "Failed" or y == "Failed" or x is None or y is None:
             print("Operation Failed. Check your fields")
         else:
             # Lat/lon fields successfully located
             crs = 4326
     else:
         x, y = x_field, y_field
-
+    
     print(f"Attempting conversion with the following CRS parameter:\n{crs}")
     try:
         gdf = gpd.GeoDataFrame(
@@ -238,9 +253,9 @@ def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
     :param sample: int or None (default)
         The number of river segments to load. If None, load all.
 
-    :param bbox: <BBox> or None (default)
-        BBox object declaring area of interest or None, indicating
-        not to filter by a bounding box
+    :param bbox: BBox or None (default)
+        BBox object defining area of interest or None, indicating
+        not to filter by a bounding box.
 
     :return: <Geopandas GeoDataFrame>
     """
@@ -251,7 +266,8 @@ def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
     return data.to_crs(crs=Can_LCC_wkt)
 
 
-def assign_stations(edges, stations, stat_id_f, prefix="", max_distance=None):
+def assign_stations(edges: gpd.GeoDataFrame, stations:gpd.GeoDataFrame,
+                    stat_id_f:str, prefix="", max_distance=None):
     """
     Snaps stations to the closest features in edges and assigns
     descriptors to line segments. Uses a solution similar
@@ -316,11 +332,23 @@ def assign_stations(edges, stations, stat_id_f, prefix="", max_distance=None):
     return edges
 
 
-def edge_search(network, prefix1='pwqmn_', prefix2='hydat_'):
+def edge_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
+    """
+    For each station assigned to the network denoted by prefix1,
+    locates the upstream and downstream station denoted by prefix2
+    that is the least number of edges away using breadth-first
+    searches, if one exists. Stations located on the same edge are
+    marked, but not counted towards the 1 upstream and 1 downstream
+    stations.
+
+    :param network:
+    :param prefix1:
+    :param prefix2:
+    :return:
+    """
     def reverse_bfs(source, prefix):
         edges = network.in_edges(nbunch=source, data=True)
         for u, v, data in edges:
-
             if (prefix + '_data') in data.keys():
                 series = data[prefix + 'data'].sort_values(by='dist', index=1).iloc[0]
 
@@ -332,7 +360,6 @@ def edge_search(network, prefix1='pwqmn_', prefix2='hydat_'):
     def bfs(source, prefix):
         edges = network.out_edges(nbunch=source, data=True)
         for u, v, data in edges:
-
             if (prefix + '_data') in data.keys():
                 series = data[prefix + 'data'].sort_values(by='dist', index=1).iloc[0]
 
@@ -341,24 +368,21 @@ def edge_search(network, prefix1='pwqmn_', prefix2='hydat_'):
                 return (*bfs(v, prefix2), (u, v))
         return -1, -1
 
-    edges = network.out_edges(data=True)
     pairs = []
 
-    for edge in edges:
+    for edge in network.out_edges(data=True):
         u, v, data = edge
 
         if type(data[prefix1 + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
             if type(data[prefix2 + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
-
                 series = data[prefix2 + 'data'].iloc[0]
-                point_list = series['ID'], (u, v)
-            else:
-                point_list = bfs(v, prefix2)
+                pairs.append((series['ID'], (u, v)))
+
+            point_list = bfs(v, prefix2)
+            point_list2 = reverse_bfs(u, prefix2)
 
             if point_list[0] != -1:
                 pairs.append(point_list)
-
-            point_list2 = reverse_bfs(u, prefix2)
             if point_list2[0] != -1:
                 pairs.append(point_list2)
 
@@ -411,21 +435,29 @@ def check_hyriv_network(digraph: nx.DiGraph) -> float:
     Checks a NetworkX DiGraph (directed graph) created from a
     HydroRIVERS shapefile for correct connectivity and directionality.
 
+    Note: Reliability not guaranteed. See assumption below.
+
+    Assumptions: If there are no edges leading away from a node,
+        the node is assumed to be at the edge of the loaded bounds
+        of the dataset. This means 2 edges that should share a common
+        node but are disconnected will be assumed to be correct. This
+        assumption is made to support connectivity checks with cropped
+        HydroRIVER data.
+
+    :param digraph: NetworkX DiGraph
+        The directed graph object whose connectivity will be checked.
+        Edges MUST contain the following attributes:
+            - 'NEXT_DOWN'
+            - 'HYRIV_ID'
+
     :return: float
         A decimal value representing the percentage of edges with
         correct connectivity. Between 0.0 and 1.0.
     """
     correct_edges, total_edges = 0, 0
 
-    # edges is an iterable of (u, v, key)
-    # where u is starting node, v is ending node, and key is the key used to
-
-    # 3: traverse the edges, and ensure that one of the edges leading away from
-    #    v node has a hydri_id = next_down
-
-    # edge_dfs is in the form (u, v, key)
-
-    # referencing edge values
+    # Obtain from the directed graph every single edge and the ID
+    # of the edge that lies directly downstream from it
     for u, v, data in digraph.edges(data="NEXT_DOWN"):
         total_edges += 1
 
@@ -433,22 +465,25 @@ def check_hyriv_network(digraph: nx.DiGraph) -> float:
 
         if data == 0 and len(out_edges) != 0:
             # A 'NEXT_DOWN' value of 0 indicates there is no directly
-            # connected segment downstream
+            # connected segment downstream. The presence of outgoing
+            # edges indicates incorrect connectivity.
             break
         elif len(out_edges) == 0:
             # If there are no edges leading away from the node, the
-            # node is at the edge of the selected BBox
+            # node is assumed to be at the edge of the selected BBox
+            # and connectivity assumed to be correct. This however may
+            # not always be the case.
             correct_edges += 1
 
         for out_edge in out_edges:
+            # check every edge leading away from v. If any of them
+            # match the ID of NEXT_DOWN, connectivity should be correct
             if out_edge[2] == data:
                 correct_edges += 1
                 break
 
     ratio = correct_edges / total_edges
-
     print(f"{correct_edges}/{total_edges} ({ratio * 100}%) correct.")
-
     return ratio
 
 
@@ -457,12 +492,23 @@ def get_hyriv_network(bbox=None, sample=None) -> nx.DiGraph:
     Wrapper function for getting the HydroRIVERS directed graph.
 
     :return: NetworkX DiGraph
+        A directed graph representing the HydroRIVERS dataset.
     """
     hyriv = load_hydro_rivers(sample=sample, bbox=bbox)
     return hyriv_gdf_to_network(hyriv)
 
 
 def __draw_network__(p_graph, ax=None):
+    """
+    Draws a NetworkX Graph object onto an axes.
+
+    :param p_graph: NetworkX Graph
+        The graph object to draw.
+
+    :param ax: plt.Axes object or None (default)
+        The Axes to plot g_series onto. If None, creates a new Axes,
+        adds it to the current figure, and uses that Axes.
+    """
     if ax is None:
         ax = plt.axes()
     positions = {n: [n[0], n[1]] for n in list(p_graph.nodes)}
