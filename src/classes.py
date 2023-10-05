@@ -215,9 +215,10 @@ class Period:
                     None
         """
         if period is not None:
-            if len(period) != 2:
+            if hasattr(period, '__iter__') and len(period) != 2:
                 raise TypeError("Period expected 2 values, found", len(period))
-            elif type(period) is not list and type(period) is not tuple:
+            elif type(period) is not list and type(period) is not tuple and \
+                type(period) != Period:
                 raise TypeError("Period of wrong type,", type(period), "found")
 
     @staticmethod

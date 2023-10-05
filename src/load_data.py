@@ -274,6 +274,9 @@ def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd
     timer.stop()
     conn.close()        # close the sqlite3 connection
 
+    if station_df.empty:
+        print("Chosen query resulted in empty GeoDataFrame.")
+
     # return the data
     return station_df
 
@@ -330,13 +333,15 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
     if sample is not None and sample > 0:
         query += f" ORDER BY RANDOM() LIMIT {sample}"
 
-    print(query)
-
     # Load PWQMN data as a DataFrame
     station_df = pd.read_sql_query("SELECT * FROM 'DATA'" + query, conn)
 
     # Usually takes around 80 seconds
     timer.stop()
+    conn.close()
+
+    if station_df.empty:
+        print("Chosen query resulted in empty GeoDataFrame.")
 
     return station_df
 
