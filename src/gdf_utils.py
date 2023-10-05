@@ -190,7 +190,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
         - WKT String (such as Can_LCC_wkt)
         - authority string ("EPSG:4326")
 
-    :return: <Geopandas GeoDataFrame> or <int>
+    :return: Geopandas GeoDataFrame or int
         The resulting GeoDataFrame, or -1 if the conversion failed. If
         a crs is passed, the GDF will be in that crs. If lat/lon fields
         are found by find_xy_fields(), crs will be set to EPSG:4326.
@@ -220,7 +220,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
             crs = 4326
     else:
         x, y = x_field, y_field
-    
+
     print(f"Attempting conversion with the following CRS parameter:\n{crs}")
     try:
         gdf = gpd.GeoDataFrame(
@@ -257,7 +257,8 @@ def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
         BBox object defining area of interest or None, indicating
         not to filter by a bounding box.
 
-    :return: <Geopandas GeoDataFrame>
+    :return: Geopandas GeoDataFrame
+        HydroRIVERS data as a LineString GeoDataFrame.
     """
     hydro_path = os.path.join(
         data_path, os.path.join("Hydro_RIVERS_v10", "HydroRIVERS_v10_na.shp"))
@@ -267,7 +268,7 @@ def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
 
 
 def assign_stations(edges: gpd.GeoDataFrame, stations:gpd.GeoDataFrame,
-                    stat_id_f:str, prefix="", max_distance=None):
+                    stat_id_f: str, prefix="", max_distance=None):
     """
     Snaps stations to the closest features in edges and assigns
     descriptors to line segments. Uses a solution similar
