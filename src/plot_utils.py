@@ -1,6 +1,6 @@
 import os
-from classes import BBox, Timer
-from load_data import proj_path, find_xy_fields, data_path
+from classes import Timer
+from load_data import proj_path
 import gdf_utils
 
 import pandas as pd
@@ -85,7 +85,7 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
     """
 
     if ax is None:
-        plt.figure(figsize=(8,8))
+        plt.figure(figsize=(8, 8))
         ax = plt.axes(projection=projection, **kwargs)
 
     print(total_bounds)
@@ -149,6 +149,10 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
                 ax.plot(*geom.xy, **kwargs)
     except IndexError:
         print("Plotting failed. The GeoSeries has no geometry.")
+
+
+def draw_network(p_graph):
+    gdf_utils.__draw_network__(p_graph)
 
 
 def plot_gdf(gdf: gpd.GeoDataFrame, crs=Can_LCC_wkt, ax=plt, **kwargs):

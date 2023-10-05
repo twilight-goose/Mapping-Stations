@@ -1,6 +1,4 @@
 import os
-import webbrowser
-import random
 from classes import BBox, Timer
 from load_data import find_xy_fields, data_path
 
@@ -15,17 +13,17 @@ import networkx as nx
 """
 Overview: 
 
-Provides a variety of functions for conversion and display of
-pandas DataFrames with compatible structures
+Provides a variety of functions for conversion and manipulation of
+data; primarily that which is related to GeoPandas GeoDataFrames.
+This includes data structures provided by Pandas, Shapely, and
+NetworkX.
 
-Functions that plot or map DataFrames or Series will never produce
-output; to get the resulting GeoDataFrame and plot it, call the
-correct conversion function to obtain the gdf and plot it separately.
+GeoDataFrame and GeoSeries parameters are expected to have assigned
+CRSs. Operations affected by coordinate system distortions will attempt 
+to convert input geometries to Canada Lambert Conformal Conic, which is
+defined by Can_LCC_wkt, and will produce output referenced in this CRS.
 
-GeoDataFrame geometries are expected to have assigned CRS, as most
-operations will attempt to convert input GeoDataFrames to Canada
-Lambert Conformal Conic (abbreviated to LCC within this file), and most
-operations will produce output referenced in Canada LCC.
+
 """
 
 
@@ -319,24 +317,21 @@ def assign_stations(edges, stations, stat_id_f, prefix="", max_distance=None):
 
 
 def edge_search(network, prefix1='pwqmn_', prefix2='hydat_'):
-
     def reverse_bfs(source, prefix):
         edges = network.in_edges(nbunch=source, data=True)
-        for edge in edges:
-            u, v, data = edge
+        for u, v, data in edges:
 
             if (prefix + '_data') in data.keys():
                 series = data[prefix + 'data'].sort_values(by='dist', index=1).iloc[0]
 
                 return series['ID'], (u, v)
             else:
-                return (*bfs(v, prefix2), (u, v))
+                return (*reverse_bfs(u, prefix2), (u, v))
         return -1, -1
 
     def bfs(source, prefix):
         edges = network.out_edges(nbunch=source, data=True)
-        for edge in edges:
-            u, v, data = edge
+        for u, v, data in edges:
 
             if (prefix + '_data') in data.keys():
                 series = data[prefix + 'data'].sort_values(by='dist', index=1).iloc[0]
@@ -363,9 +358,9 @@ def edge_search(network, prefix1='pwqmn_', prefix2='hydat_'):
             if point_list[0] != -1:
                 pairs.append(point_list)
 
-            point_list = reverse_bfs(u, prefix2)
-            if point_list[0] != -1:
-                pairs.append(point_list)
+            point_list2 = reverse_bfs(u, prefix2)
+            if point_list2[0] != -1:
+                pairs.append(point_list2)
 
     return gpd.GeoSeries([LineString(pair[1]) for pair in pairs], crs=Can_LCC_wkt)
 
@@ -393,15 +388,13 @@ def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=True, show=True) -> n
     p_graph = momepy.gdf_to_nx(hyriv_gdf, approach='primal', directed=True)
 
     if plot:
-        positions = {n: [n[0], n[1]] for n in list(p_graph.nodes)}
-
         # Plot
         f, ax = plt.subplots(1, 2, figsize=(12, 6), sharex=True, sharey=True)
         hyriv_gdf.plot(color="k", ax=ax[0])
         for i, facet in enumerate(ax):
             facet.set_title(("Rivers", "Graph")[i])
             facet.axis("off")
-        nx.draw(p_graph, positions, ax=ax[1], node_size=5)
+        __draw_network__(p_graph, ax=ax[1])
 
     if show:
         plt.show()
@@ -467,3 +460,10 @@ def get_hyriv_network(bbox=None, sample=None) -> nx.DiGraph:
     """
     hyriv = load_hydro_rivers(sample=sample, bbox=bbox)
     return hyriv_gdf_to_network(hyriv)
+
+
+def __draw_network__(p_graph, ax=None):
+    if ax is None:
+        ax = plt.axes()
+    positions = {n: [n[0], n[1]] for n in list(p_graph.nodes)}
+    nx.draw(p_graph, positions, ax=ax, node_size=3)

@@ -30,7 +30,7 @@ def map_gdfs(gdfs_to_map):
         m = None
         if n < len(gdf_list) - 1:
             m = explore_recursive(gdf_list, n + 1)
-        return gdf_list[n].explore(m=m, style_kwds={'color': color_list[random.randint(0,5)]},
+        return gdf_list[n].explore(m=m, style_kwds={'color': color_list[0]},
                                    marker_kwds={'radius': 4})
 
     gdfs_to_map = check_gdfs_iter(gdfs_to_map)

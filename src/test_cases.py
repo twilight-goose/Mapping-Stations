@@ -163,19 +163,16 @@ def main():
     lines = gdf_utils.assign_stations(lines, hydat, 'STATION_NUMBER', prefix='hydat_')
     lines = gdf_utils.assign_stations(lines, pwqmn, 'Location ID', prefix='pwqmn_')
 
-    network = gdf_utils.hyriv_gdf_to_network(lines, show=False, plot=True)
-    network_gdf = gdf_utils.hyriv_network_to_gdf(network, show=False, plot=False)
+    network = gdf_utils.hyriv_gdf_to_network(lines, show=False, plot=False)
 
     g_series = gdf_utils.edge_search(network)
 
+    plot_utils.draw_network(network)
     plot_utils.plot_g_series(g_series, zorder=6, color='purple')
-    plot_utils.plot_gdf(lines, color='orange')
-    # plot_utils.plot_gdf(network_gdf[0], color='grey', zorder=3.5)
-    # plot_utils.plot_gdf(network_gdf[1], color='grey', zorder=3.5)
     plot_utils.plot_gdf(hydat, color='blue', zorder=4)
     plot_utils.plot_gdf(pwqmn, color='red', zorder=5)
 
-    timed_display()
+    plot_utils.show()
 
     # browser_test_1()
     # browser_test_2()
