@@ -161,14 +161,15 @@ def main():
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
     lines = gdf_utils.assign_stations(lines, hydat, 'STATION_NUMBER', prefix='hydat_')
+
     lines = gdf_utils.assign_stations(lines, pwqmn, 'Location ID', prefix='pwqmn_')
 
     network = gdf_utils.hyriv_gdf_to_network(lines, show=False, plot=False)
 
-    g_series = gdf_utils.edge_search(network)
+    edge_df = gdf_utils.edge_search(network)
 
     plot_utils.draw_network(network)
-    plot_utils.plot_g_series(g_series, zorder=6, color='purple')
+    plot_utils.plot_paths(edge_df)
 
     lines = gdf_utils.straighten(lines)
     hydat.geometry = gdf_utils.snap_points(hydat, lines)
@@ -176,7 +177,6 @@ def main():
 
     plot_utils.plot_gdf(hydat, color='blue', zorder=4)
     plot_utils.plot_gdf(pwqmn, color='red', zorder=5)
-
 
     plot_utils.show()
 

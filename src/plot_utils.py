@@ -236,6 +236,18 @@ def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, ax=plt):
     plot_gdf(points, ax=ax, color='blue', zorder=10, label='original')
 
 
+def plot_paths(edge_df):
+    for row in edge_df['Downstream']:
+        for key in row.keys():
+            plot_g_series(gpd.GeoSeries(row[key], crs=Can_LCC_wkt), color='orange')
+    for row in edge_df['Upstream']:
+        for key in row.keys():
+            plot_g_series(gpd.GeoSeries(row[key], crs=Can_LCC_wkt), color='purple')
+    for row in edge_df['On_Segment']:
+        for key in row.keys():
+            plot_g_series(gpd.GeoSeries(row[key], crs=Can_LCC_wkt), color='pink')
+
+
 def line_browser(lines, bbox):
     class PointBrowser:
         """

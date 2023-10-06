@@ -266,8 +266,8 @@ def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
     return data.to_crs(crs=Can_LCC_wkt)
 
 
-def assign_stations(edges: gpd.GeoDataFrame, stations:gpd.GeoDataFrame,
-                    stat_id_f: str, prefix="", max_distance=None):
+def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
+                    stat_id_f: str, prefix="", max_distance=None) -> gpd.GeoDataFrame:
     """
     Snaps stations to the closest features in edges and assigns
     descriptors to line segments. Uses a solution similar
@@ -318,6 +318,8 @@ def assign_stations(edges: gpd.GeoDataFrame, stations:gpd.GeoDataFrame,
 
     edges = edges.assign(unique_ind=edges.index)
     edges = edges.assign(other=edges.geometry)
+
+    stations = stations.drop_duplicates(stat_id_f)
 
     stations = stations.sjoin_nearest(edges, how='left', max_distance=max_distance)
 
@@ -393,14 +395,13 @@ def edge_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
 
     for u, v, data in network.out_edges(data=True):
         pref_1_data = data[prefix1 + 'data']
-        print(pref_1_data)
         pref_2_data = data[prefix2 + 'data']
 
         if type(pref_1_data) in [pd.DataFrame, gpd.GeoDataFrame]:
             on_dict, down_dict, up_dict = {}, {}, {}
 
             if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-                on_dict = {pref_2_data.iloc[0]['ID']: (u, v)}
+                on_dict = {pref_2_data.iloc[0]['ID']: LineString([u, v])}
 
             down_id, *point_list = dfs(v, prefix2)
             up_id, *point_list2 = reverse_dfs(u, prefix2)
