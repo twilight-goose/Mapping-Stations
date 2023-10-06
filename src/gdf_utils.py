@@ -334,9 +334,7 @@ def assign_stations(edges: gpd.GeoDataFrame, stations:gpd.GeoDataFrame,
         temp_data[prefix + 'data'].append(data[['ID', 'dist']])
 
     temp = pd.DataFrame(data=temp_data)
-
     edges = edges.merge(temp, on='unique_ind', how='left')
-
     return edges
 
 
@@ -393,18 +391,16 @@ def edge_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
     matches = {prefix1 + 'id': [], 'On_Segment': [],
                'Downstream': [], 'Upstream': []}
 
-    for edge in network.out_edges(data=True):
-        u, v, data = edge
-
+    for u, v, data in network.out_edges(data=True):
         pref_1_data = data[prefix1 + 'data']
+        print(pref_1_data)
         pref_2_data = data[prefix2 + 'data']
 
         if type(pref_1_data) in [pd.DataFrame, gpd.GeoDataFrame]:
             on_dict, down_dict, up_dict = {}, {}, {}
 
             if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-                series = data[prefix2 + 'data'].iloc[0]
-                on_dict = {series['ID']: (u, v)}
+                on_dict = {pref_2_data.iloc[0]['ID']: (u, v)}
 
             down_id, *point_list = dfs(v, prefix2)
             up_id, *point_list2 = reverse_dfs(u, prefix2)
@@ -424,7 +420,6 @@ def edge_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
                 matches['Upstream'].append(up_dict)
 
     df = pd.DataFrame(data=matches)
-    print(df)
     return df
 
 
