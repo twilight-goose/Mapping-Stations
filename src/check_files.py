@@ -6,6 +6,8 @@ monday_url = "https://github.com/twilight-goose/Mapping-Stations/tree/main/data/
 hydat_url = "http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip"
 pwqmn_url = ("http://juliane-mai.com/resources/data_nandita/"
              "Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip")
+hydroRIVERS_url = "https://data.hydrosheds.org/file/HydroRIVERS/HydroRIVERS_v10_na_shp.zip"
+
 
 
 def check_path(path: str, name="Unnamed", url="<data source not found>", ):
@@ -27,7 +29,7 @@ def check_path(path: str, name="Unnamed", url="<data source not found>", ):
 
 
 def check_paths(proj_path: str, data_path: str, hydat_path: str,
-                pwqmn_path: str, monday_path: str):
+                pwqmn_path: str, monday_path: str, hydroRIVERS_path: str):
     """
         Checks if the passed paths exist, and provides data download
         links for missing data. Assumes that 5 paths are passed in a
@@ -40,27 +42,41 @@ def check_paths(proj_path: str, data_path: str, hydat_path: str,
                 | data_path
                     | Hydate
                         | --Hydate.sqlite3
+                    |Hydro_RIVERS_v10
+                        | --HydroRIVERS_v10.na.shp
+                        | + (5 shapefile dependency files)
                     | PWQMN_cleaned
                         | -- Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv
                     | MondayFileGallery
 
-        :param proj_path: Path to the project directory
-        :param data_path: Path to the data directory within the project
-                          directory
-        :param hydat_path: Path to hydat data
-        :param pwqmn_path: Path to Provincial Water Quality Monitoring Network
-                           Data
-        :param monday_path: Path to data downloaded from Monday.com
+        :param proj_path: string
+            Full project directory path.
 
-        :raises FileNotFoundError: If any of the 5 passed paths are not found,
-                                   raises a FileNotFoundError and provides a
-                                   potential solution.
+        :param data_path: string
+            Full path of project data directory.
+
+        :param hydat_path: string
+            Full path to HYDAT data.
+
+        :param pwqmn_path: string
+            Full path to Provincial Water Quality Monitoring Network data
+
+        :param monday_path: string
+            Full path to data downloaded from Monday.com
+
+        :param hydroRIVERS_path: string
+            Full path to the HydroRIVERS data.
+
+        :raises FileNotFoundError:
+            If any of the 5 passed paths are not found, raises a
+            FileNotFoundError and suggests a potential solution.
     """
 
     if os.path.exists(proj_path) and os.path.exists(data_path):
         check_path(hydat_path, 'Hydat', hydat_url)
         check_path(pwqmn_path, 'PWQMN', pwqmn_url)
         check_path(monday_path, 'Monday', monday_url)
+        check_path(hydroRIVERS_path, 'HydroRivers', hydroRIVERS_path)
     else:
         raise FileNotFoundError(f"{data_path} could not be found. Check "
                                 f"project file structure.")

@@ -239,33 +239,6 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
 # ========================================================================= ##
 
 
-def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
-    """
-    Loads HydroRIVERS_v10.shp as a geopandas GeoDataFrame
-
-    Note: As BBox grows larger, spatial distortion increases.
-    Attempting to place geometry features outside the projection's
-    supported bounds may result in undesirable behaviour. Refer
-    to https://epsg.io/102002 (which describes features of projection
-    defined by Can_LCC_wkt) for the projected and WGS84 bounds.
-
-    :param sample: int or None (default)
-        The number of river segments to load. If None, load all.
-
-    :param bbox: BBox or None (default)
-        BBox object defining area of interest or None, indicating
-        not to filter by a bounding box.
-
-    :return: Geopandas GeoDataFrame
-        HydroRIVERS data as a LineString GeoDataFrame.
-    """
-    hydro_path = os.path.join(
-        data_path, os.path.join("Hydro_RIVERS_v10", "HydroRIVERS_v10_na.shp"))
-
-    data = gpd.read_file(hydro_path, rows=sample, bbox=BBox.to_tuple(bbox))
-    return data.to_crs(crs=Can_LCC_wkt)
-
-
 def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
                     stat_id_f: str, prefix="", max_distance=None) -> gpd.GeoDataFrame:
     """

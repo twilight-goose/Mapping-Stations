@@ -4,6 +4,8 @@ import check_files
 from classes import BBox, Period, Timer
 
 import pandas as pd
+from geopandas import read_files
+
 
 """
 
@@ -54,10 +56,12 @@ hydat_path = os.path.join(data_path, "Hydat", "Hydat.sqlite3")
 pwqmn_path = os.path.join(data_path, "PWQMN_cleaned", "Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
 pwqmn_sql_path = os.path.join(data_path, "PWQMN_cleaned", "PWQMN.sqlite3")
 monday_path = os.path.join(data_path, "MondayFileGallery")
+hydroRIVERS_path = os.path.join(data_path, os.path.join("Hydro_RIVERS_v10", "HydroRIVERS_v10_na.shp"))
 
 
 # Before loading anything, check if the data paths exist
-check_files.check_paths(proj_path, data_path, hydat_path, pwqmn_path, monday_path)
+check_files.check_paths(proj_path, data_path, hydat_path, pwqmn_path, monday_path,
+                        hydroRIVERS_path)
 
 
 # Check if "PWQMN.sqlite3" already exists. If it doesn't, generate a
@@ -346,6 +350,28 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
         print("Chosen query resulted in empty GeoDataFrame.")
 
     return station_df
+
+
+def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
+    """
+    Loads HydroRIVERS_v10.shp as a geopandas GeoDataFrame.
+
+    Note: As BBox grows larger, spatial distortion at the edge increases.
+    Attempting to place geometry features outside the projection's
+    supported bounds may result in undesirable behaviour. Refer
+    to https://epsg.io/102002 (which describes features of projection
+    defined by Can_LCC_wkt) for the projected and WGS84 bounds.
+
+    :param sample: int or None (default)
+        The number of river segments to load. If None, load all.
+
+    :param bbox: BBox or None (default)
+        BBox object defining area of interest. If None, do not filter.
+
+    :return: Geopandas GeoDataFrame
+        HydroRIVERS data as a LineString GeoDataFrame.
+    """
+    return gpd.read_file(hydro_path, rows=sample, bbox=BBox.to_tuple(bbox))
 
 
 def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:

@@ -155,7 +155,7 @@ def main():
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
 
-    lines = gdf_utils.load_hydro_rivers(bbox=bbox)
+    lines = load_data.load_hydro_rivers(bbox=bbox)
 
     hydat = gdf_utils.point_gdf_from_df(hydat)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)

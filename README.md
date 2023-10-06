@@ -141,13 +141,17 @@ The HYDAT and PWQMN data used in this project were pre-processed by [Juliane Mai
 The pre-processed data may be obtainable from the following links:
 
 Hydat Data: http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip \
-Original Hydat Data: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/ \
 PWQMN Data: http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip \
 Monday Files: https://github.com/twilight-goose/Mapping-Stations/tree/main/data/MondayFileGallery \
+
+Raw data is available from these links:
+
+Hydat Data: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/
 HydroRIVERS: https://www.hydrosheds.org/products/hydrorivers
+PWQMN Data: https://greatlakesdatastream.ca/explore/#/dataset/f3877597-9114-4ace-ad6f-e8a68435c0ba/
 
 ### Provincial (Stream) Water Quality Monitoring Network (PWQMN) data
-Here are Juliane's steps for pre-processing the PWQMN data (2023-09-10).
+The following are Juliane's steps for pre-processing the PWQMN data (2023-09-10).
 
 The data need to be manually downloaded through:
 https://greatlakesdatastream.ca/explore/#/dataset/f3877597-9114-4ace-ad6f-e8a68435c0ba/
