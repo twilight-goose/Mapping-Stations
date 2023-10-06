@@ -397,7 +397,6 @@ def edge_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
         u, v, data = edge
 
         pref_1_data = data[prefix1 + 'data']
-        print(pref_1_data)
         pref_2_data = data[prefix2 + 'data']
 
         if type(pref_1_data) in [pd.DataFrame, gpd.GeoDataFrame]:
@@ -418,9 +417,11 @@ def edge_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
                 line = LineString(point_list2)
                 up_dict = {up_id: line}
 
-            matches['On_Segment'].append(on_dict)
-            matches['Downstream'].append(down_dict)
-            matches['Upstream'].append(up_dict)
+            for start_id in pref_1_data['ID']:
+                matches[prefix1 + 'id'].append(start_id)
+                matches['On_Segment'].append(on_dict)
+                matches['Downstream'].append(down_dict)
+                matches['Upstream'].append(up_dict)
 
     df = pd.DataFrame(data=matches)
     print(df)
