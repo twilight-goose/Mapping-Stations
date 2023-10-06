@@ -114,6 +114,7 @@ def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame)
     if other.crs != Can_LCC_wkt:
         other = other.to_crs(crs=Can_LCC_wkt)
 
+    # create a unique identifier and a copy of the geometry of other
     other = other.assign(unique_ind=other.index)
     other = other.assign(other=other.geometry)
     closest = points.sjoin_nearest(other, how='left', distance_col='distance')
@@ -197,7 +198,6 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
 
     :raises TypeError:
         If x and y fields are provided, but a CRS is not.
-
         If df is not a DataFrame.
     """
     timer.start()
@@ -211,10 +211,9 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
     # Search for X and Y fields, if not provided
     if not x_field and not y_field:
         x, y = find_xy_fields(df)
-        print(f"Searching for fields...\nX field: {x}   Y field: {y}\n")
 
         if x == "Failed" or y == "Failed" or x is None or y is None:
-            print("Operation Failed. Check your fields")
+            print("Couldn't find fields. Check your fields")
         else:
             # Lat/lon fields successfully located
             crs = 4326
@@ -226,7 +225,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
         gdf = gpd.GeoDataFrame(
             df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=crs)
         gdf.to_crs(Can_LCC_wkt)
-        print("Dataframe successfully converted to geopandas point array")
+        print("Dataframe successfully converted to geopandas point geodataframe")
     except KeyError:
         gdf = -1
         print("Conversion Failed")
@@ -278,11 +277,12 @@ def assign_stations(edges: gpd.GeoDataFrame, stations:gpd.GeoDataFrame,
     to the selected feature the following values:
         - station id
         - dist(ance) of the closest point to the station from the
-          start of the line
+          start of the edge (u). Has been confirmed to correctly
+          measure distance along bent lines.
 
     To deal with situations of multiple stations being assigned to
-    the same edge feature, station id and distance are stored in a
-    field named 'data', which consists of Pandas DataFrames .
+    the same edge feature, station ids and distances are stored in
+    DataFrames.
 
     :param edges: Geopandas GeoDataFrame
         The lines/features to assign stations to.
@@ -294,7 +294,8 @@ def assign_stations(edges: gpd.GeoDataFrame, stations:gpd.GeoDataFrame,
         The name of the unique identifier field in stations.
 
     :param prefix: string
-        Prefix to apply to added 'data' column. If left blank, may
+        Prefix to apply to added 'data' column. Useful if you need to
+        assign more than 1 set of stations to edges. If left blank, may
         cause overlapping columns in output GeoDataFrame.
 
     :param max_distance: int or None (default)
@@ -302,7 +303,13 @@ def assign_stations(edges: gpd.GeoDataFrame, stations:gpd.GeoDataFrame,
         station to edges. If int, must be greater than 0.
 
     :return: Geopandas GeoDataFrame
-        A copy of edges merged that includes selected station related data.
+        A copy of edges merged that includes selected station related
+        data. Has the following additional fields:
+            - <prefix>_data (DataFrame)
+                Contains the following columns:
+                    - ID (int) of the station
+                    - dist (float) from the start of the line
+            - unique_ind    (int)
     """
     if stations.crs != Can_LCC_wkt:
         stations = stations.to_crs(crs=Can_LCC_wkt)
@@ -336,58 +343,88 @@ def assign_stations(edges: gpd.GeoDataFrame, stations:gpd.GeoDataFrame,
 def edge_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
     """
     For each station assigned to the network denoted by prefix1,
-    locates the upstream and downstream station denoted by prefix2
-    that is the least number of edges away using breadth-first
-    searches, if one exists. Stations located on the same edge are
+    locates 1 upstream and 1 downstream station denoted by prefix2
+    using depth-first search. Stations located on the same edge are
     marked, but not counted towards the 1 upstream and 1 downstream
-    stations.
+    stations. The located stations may not be the closest stations.
 
     :param network:
     :param prefix1:
     :param prefix2:
     :return:
     """
-    def reverse_bfs(source, prefix):
-        edges = network.in_edges(nbunch=source, data=True)
-        for u, v, data in edges:
-            if (prefix + '_data') in data.keys():
-                series = data[prefix + 'data'].sort_values(by='dist', index=1).iloc[0]
+    def reverse_dfs(source, prefix):
+        """
+        Traverses edges depth first search moving in the opposite
+        direction of the network.
 
-                return series['ID'], (u, v)
+        :param source:
+        :param prefix:
+        :return:
+        """
+        edges = network.in_edges(nbunch=source, data=prefix+'data')
+        for u, v, data in edges:
+            if type(data) in [pd.DataFrame, gpd.GeoDataFrame]:
+                series = data.sort_values(by='dist').iloc[0]
+                return series['ID'], u, v
             else:
-                return (*reverse_bfs(u, prefix2), (u, v))
+                return (*reverse_dfs(u, prefix2), v)
         return -1, -1
 
-    def bfs(source, prefix):
-        edges = network.out_edges(nbunch=source, data=True)
-        for u, v, data in edges:
-            if (prefix + '_data') in data.keys():
-                series = data[prefix + 'data'].sort_values(by='dist', index=1).iloc[0]
+    def dfs(source, prefix):
+        """
+        Traverses edges depth first search moving along the network
 
-                return series['ID'], (u, v)
+        :param source:
+        :param prefix:
+        :return:
+        """
+        edges = network.out_edges(nbunch=source, data=prefix+'data')
+        for u, v, data in edges:
+            if type(data) in [pd.DataFrame, gpd.GeoDataFrame]:
+                series = data.sort_values(by='dist').iloc[0]
+                return series['ID'], v, u
             else:
-                return (*bfs(v, prefix2), (u, v))
+                return (*dfs(v, prefix2), u)
+        # This is only run if there are no edges and the function has
+        # reached the end of the line
         return -1, -1
 
-    pairs = []
+    matches = {prefix1 + 'id': [], 'On_Segment': [],
+               'Downstream': [], 'Upstream': []}
 
     for edge in network.out_edges(data=True):
         u, v, data = edge
 
-        if type(data[prefix1 + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
-            if type(data[prefix2 + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
+        pref_1_data = data[prefix1 + 'data']
+        print(pref_1_data)
+        pref_2_data = data[prefix2 + 'data']
+
+        if type(pref_1_data) in [pd.DataFrame, gpd.GeoDataFrame]:
+            on_dict, down_dict, up_dict = {}, {}, {}
+
+            if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
                 series = data[prefix2 + 'data'].iloc[0]
-                pairs.append((series['ID'], (u, v)))
+                on_dict = {series['ID']: (u, v)}
 
-            point_list = bfs(v, prefix2)
-            point_list2 = reverse_bfs(u, prefix2)
+            down_id, *point_list = dfs(v, prefix2)
+            up_id, *point_list2 = reverse_dfs(u, prefix2)
 
-            if point_list[0] != -1:
-                pairs.append(point_list)
-            if point_list2[0] != -1:
-                pairs.append(point_list2)
+            if down_id != -1:
+                line = LineString(point_list)
+                down_dict = {down_id: line}
 
-    return gpd.GeoSeries([LineString(pair[1]) for pair in pairs], crs=Can_LCC_wkt)
+            if up_id != -1:
+                line = LineString(point_list2)
+                up_dict = {up_id: line}
+
+            matches['On_Segment'].append(on_dict)
+            matches['Downstream'].append(down_dict)
+            matches['Upstream'].append(up_dict)
+
+    df = pd.DataFrame(data=matches)
+    print(df)
+    return df
 
 
 def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=True, show=True) -> nx.DiGraph:
@@ -428,7 +465,14 @@ def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=True, show=True) -> n
 
 
 def hyriv_network_to_gdf(network, show=True, plot=True):
-    return momepy.nx_to_gdf(network)
+    nodes, edges, sw = momepy.nx_to_gdf(network)
+
+
+def straighten(lines):
+    pairs = []
+    for line in lines.geometry:
+        pairs.append(LineString(line.boundary.geoms))
+    return gpd.GeoDataFrame(geometry=pairs, crs=lines.crs)
 
 
 def check_hyriv_network(digraph: nx.DiGraph) -> float:

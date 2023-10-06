@@ -150,7 +150,7 @@ def run_tests():
 def main():
     timer = Timer()
 
-    bbox = BBox(min_x=-80, max_x=-75, min_y=45, max_y=50)
+    bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
@@ -169,8 +169,14 @@ def main():
 
     plot_utils.draw_network(network)
     plot_utils.plot_g_series(g_series, zorder=6, color='purple')
+
+    lines = gdf_utils.straighten(lines)
+    hydat.geometry = gdf_utils.snap_points(hydat, lines)
+    pwqmn.geometry = gdf_utils.snap_points(pwqmn, lines)
+
     plot_utils.plot_gdf(hydat, color='blue', zorder=4)
     plot_utils.plot_gdf(pwqmn, color='red', zorder=5)
+
 
     plot_utils.show()
 
