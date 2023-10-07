@@ -4,7 +4,7 @@ import check_files
 from classes import BBox, Period, Timer
 
 import pandas as pd
-from geopandas import read_files
+from geopandas import read_file
 
 
 """
@@ -59,10 +59,9 @@ monday_path = os.path.join(data_path, "MondayFileGallery")
 hydroRIVERS_path = os.path.join(data_path, os.path.join("Hydro_RIVERS_v10", "HydroRIVERS_v10_na.shp"))
 
 
-# Before loading anything, check if the data paths exist
+# Before loading anything, check that the data paths exist
 check_files.check_paths(proj_path, data_path, hydat_path, pwqmn_path, monday_path,
                         hydroRIVERS_path)
-
 
 # Check if "PWQMN.sqlite3" already exists. If it doesn't, generate a
 # sqlite3 database from the pwqmn data, to accelerate future data
@@ -70,57 +69,14 @@ check_files.check_paths(proj_path, data_path, hydat_path, pwqmn_path, monday_pat
 try:
     check_files.check_path(pwqmn_sql_path)
 except FileNotFoundError:
-    # If a PWQMN sqlite3 database hasn't been generated, generate one.
-    print("Generating PWQMN sqlite3 database")
-
-    connection = sqlite3.connect(pwqmn_sql_path)
-
-    # read fields of interest, and set data types for fields with
-    # mixed types
-    pwqmn_data = pd.read_csv(pwqmn_path,
-                             usecols=['MonitoringLocationName',
-                                      'MonitoringLocationID',
-                                      'MonitoringLocationLongitude',
-                                      'MonitoringLocationLatitude',
-                                      'ActivityStartDate',
-                                      'CharacteristicName',
-                                      'SampleCollectionEquipmentName',
-                                      'ResultSampleFraction',
-                                      'ResultValue',
-                                      'ResultUnit',
-                                      'ResultValueType',
-                                      'ResultDetectionCondition',
-                                      'ResultDetectionQuantitationLimitMeasure',
-                                      'ResultDetectionQuantitationLimitUnit'],
-                             dtype={'MonitoringLocationLongitude': float,
-                                    'MonitoringLocationLatitude': float,
-                                    'ResultSampleFraction': str,
-                                    'ResultValue': float,
-                                    'ResultUnit': str,
-                                    'ResultDetectionCondition': str,
-                                    'ResultDetectionQuantitationLimitMeasure': str,
-                                    'ResultDetectionQuantitationLimitUnit': str})
-
-    # rename some columns to make working with the PWQMN data easier
-    pwqmn_data.rename(columns={'MonitoringLocationName': 'Name',
-                               'MonitoringLocationID': "Location ID",
-                               'MonitoringLocationLongitude': 'Longitude',
-                               'MonitoringLocationLatitude': 'Latitude',
-                               'ActivityStartDate': 'DATE',
-                               'CharacteristicName': 'Variables'}, inplace=True)
-
-    pwqmn_data['DATE'] = pd.to_datetime(pwqmn_data['DATE'])
-    pwqmn_data.to_sql("DATA", connection, index=False)
-
-    connection.close()
-
+    generate_pwqmn_sql()
 
 hydat_join_f = "STATION_NUMBER"
 timer = Timer()
 
 
 # ========================================================================= ##
-# Functions =============================================================== ##
+# Utilities =============================================================== ##
 # ========================================================================= ##
 
 
@@ -161,21 +117,83 @@ def find_xy_fields(df: pd.DataFrame) -> [str, str]:
     return x, y
 
 
+# ========================================================================= ##
+# Generator =============================================================== ##
+# ========================================================================= ##
+
+def generate_pwqmn_sql():
+    """
+    Creates a sqlite3 database from PWQMN data.
+
+    Creates a connection to the sql database (if it doesn't exist it
+    is created), reads a specified set of columns from the PWQMN data,
+    then writes it to the sql database as the 'DATA' table. If a 'DATA'
+    table exists already, that table is overwritten by the new data.
+
+    :return: None
+    """
+    print("Generating PWQMN sqlite3 database")
+    connection = sqlite3.connect(pwqmn_sql_path)
+
+    # read fields of interest, and set data types for mixed type fields
+    pwqmn_data = pd.read_csv(pwqmn_path,
+                             usecols=['MonitoringLocationName',
+                                      'MonitoringLocationID',
+                                      'MonitoringLocationLongitude',
+                                      'MonitoringLocationLatitude',
+                                      'ActivityStartDate',
+                                      'CharacteristicName',
+                                      'SampleCollectionEquipmentName',
+                                      'ResultSampleFraction',
+                                      'ResultValue',
+                                      'ResultUnit',
+                                      'ResultValueType',
+                                      'ResultDetectionCondition',
+                                      'ResultDetectionQuantitationLimitMeasure',
+                                      'ResultDetectionQuantitationLimitUnit'],
+                             dtype={'MonitoringLocationLongitude': float,
+                                    'MonitoringLocationLatitude': float,
+                                    'ResultSampleFraction': str,
+                                    'ResultValue': float,
+                                    'ResultUnit': str,
+                                    'ResultDetectionCondition': str,
+                                    'ResultDetectionQuantitationLimitMeasure': str,
+                                    'ResultDetectionQuantitationLimitUnit': str})
+
+    # rename some columns to make working with the PWQMN data easier
+    pwqmn_data.rename(columns={'MonitoringLocationName': 'Name',
+                               'MonitoringLocationID': "Location ID",
+                               'MonitoringLocationLongitude': 'Longitude',
+                               'MonitoringLocationLatitude': 'Latitude',
+                               'ActivityStartDate': 'DATE',
+                               'CharacteristicName': 'Variables'}, inplace=True)
+
+    # fill the sql database and close the connection
+    pwqmn_data['DATE'] = pd.to_datetime(pwqmn_data['DATE'])
+    pwqmn_data.to_sql("DATA", connection, index=False, if_exists='replace')
+    connection.close()
+
+# ========================================================================= ##
+# Loaders ================================================================= ##
+# ========================================================================= ##
+
+
 def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
     """
     Loads all .csv files in the provided folder directory as pandas
     DataFrames.
 
-    :param path: <str>
-        Path of folder directory to iterate over
+    :param path: string
+        Path of directory to iterate over.
 
     :param bbox: BBox or None (default)
-        BBox object defining area of interest or None, indicating
-        not to filter by a bounding box.
+        BBox object defining area of interest. If None, doesn't filter
+        by bounding box.
 
-    :return: dict(<str>, <Pandas DataFrame>, ...)
+    :return: dict of string: <Pandas DataFrame>
         A dictionary of length n, where n is the number of .csv files
-        in the provided folder directory, built of string/DataFrame pairs
+        in the provided folder directory, built of string: DataFrame
+        pairs.
         i.e
             {<str filename>: <pandas DataFrame>,  ...}
     """
@@ -204,7 +222,6 @@ def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
             data_dict[file] = df
 
     timer.stop()
-
     return data_dict
 
 
@@ -352,7 +369,7 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
     return station_df
 
 
-def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
+def load_hydro_rivers(sample=None, bbox=None):
     """
     Loads HydroRIVERS_v10.shp as a geopandas GeoDataFrame.
 
@@ -371,7 +388,7 @@ def load_hydro_rivers(sample=None, bbox=None) -> gpd.GeoDataFrame:
     :return: Geopandas GeoDataFrame
         HydroRIVERS data as a LineString GeoDataFrame.
     """
-    return gpd.read_file(hydro_path, rows=sample, bbox=BBox.to_tuple(bbox))
+    return read_file(hydroRIVERS_path, rows=sample, bbox=BBox.to_tuple(bbox))
 
 
 def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
@@ -386,4 +403,5 @@ def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
     """
     return {**get_monday_files(),
             'hydat': get_hydat_station_data(period=period, bbox=bbox),
-            'pwqmn': get_pwqmn_station_data(period=period, bbox=bbox)}
+            'pwqmn': get_pwqmn_station_data(period=period, bbox=bbox),
+            'hydroRIVERS': load_hydro_rivers(bbox=bbox)}
