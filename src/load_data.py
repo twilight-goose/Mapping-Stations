@@ -187,8 +187,8 @@ def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
         Path of directory to iterate over.
 
     :param bbox: BBox or None (default)
-        BBox object defining area of interest. If None, doesn't filter
-        by bounding box.
+        BBox object defining area of interest. If None, doesn't
+        filter by a bounding box.
 
     :return: dict of string: <Pandas DataFrame>
         A dictionary of length n, where n is the number of .csv files
@@ -255,8 +255,8 @@ def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd
         None; No date query. Does not filter data by date.
 
     :param bbox: BBox or None (default)
-        BBox object defining area of interest or None, indicating
-        not to filter by a bounding box.
+        BBox object defining area of interest. If None, doesn't
+        filter by a bounding box.
 
     :param var:
 
@@ -305,7 +305,8 @@ def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd
 
 def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.DataFrame:
     """
-    Reads from the cleaned PWQMN data using pandas
+    Loads the PWQMN data based on selected bbox, period, and variables
+    of interest.
 
     :param period: Tuple/list of length 2 or None
 
@@ -318,8 +319,8 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
         None; No date query. Does not filter data by date.
 
     :param bbox: BBox or None (default)
-        BBox object defining area of interest or None, indicating
-        not to filter by a bounding box.
+        BBox object defining area of interest. If None, doesn't
+        filter by a bounding box.
 
     :param var:
 
@@ -383,7 +384,8 @@ def load_hydro_rivers(sample=None, bbox=None):
         The number of river segments to load. If None, load all.
 
     :param bbox: BBox or None (default)
-        BBox object defining area of interest. If None, do not filter.
+        BBox object defining area of interest. If None, doesn't
+        filter by a bounding box.
 
     :return: Geopandas GeoDataFrame
         HydroRIVERS data as a LineString GeoDataFrame.

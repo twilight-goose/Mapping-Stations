@@ -166,7 +166,7 @@ def main():
 
     network = gdf_utils.hyriv_gdf_to_network(lines, show=False, plot=False)
 
-    edge_df = gdf_utils.edge_search(network)
+    edge_df = gdf_utils.dfs_search(network)
 
     plot_utils.draw_network(network)
     plot_utils.plot_paths(edge_df)

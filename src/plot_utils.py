@@ -70,7 +70,8 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
         matplotlib.pyplot default axes (without clearing it).
 
     :param projection: Cartopy CRS object
-        Projection to use to display the map.
+        Projection to use to display the map. Defaults to Lambert
+        Conformal Conic.
 
     :param features: list or tuple of cartopy.feature attributes
         Cartopy features to add to the map. If None, adds a default
@@ -319,12 +320,8 @@ def line_browser(lines, bbox):
             self.selected.set_data(
                 lambert.transform_point(xs[dataind], ys[dataind], geodetic)
             )
-
             self.text.set_text('selected: %d' % dataind)
             fig.canvas.draw()
-
-    # Fixing random state for reproducibility
-    np.random.seed(19680801)
 
     X = lines
     coordinates = X.geometry.get_coordinates()

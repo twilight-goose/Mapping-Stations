@@ -313,7 +313,17 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     return edges
 
 
-def edge_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
+def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
+    """
+
+    :param network:
+    :param prefix1:
+    :param prefix2:
+    :return:
+    """
+
+
+def dfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
     """
     For each station assigned to the network denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -324,47 +334,57 @@ def edge_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
     :param network:
     :param prefix1:
     :param prefix2:
-    :return:
+    :return: Pandas DataFrame
+        DataFrame with the following columns:
+            - prefix1_id (string)
+            - On_segment (dict)
+            - Downstream (dict)
+            - Upstream   (dict)
+        Where all dict are built of string:LineString key/value pairs,
+        string is the ID of the prefix2 closest station, and LineString
+        is the sequence of nodes that were traversed to reach that
+        station. The output LineStrings represent paths along the Graph
+        but it's shape is not accurate to that of the real world path
+        representative along the river system.
     """
-    def reverse_dfs(source, prefix):
+    def get_out(nbunch, data):
         """
-        Traverses edges depth first search moving in the opposite
-        direction of the network.
+        Wrapper to allow network.out_edges to be passed as a parameter
+        because out_edges is both a network function and an attribute.
+        """
+        return network.out_edges(nbunch=nbunch, data=data)
 
+    def get_in(nbunch, data):
+        """
+        Wrapper to allow network.in_edges to be passed as a parameter
+        because in_edges is both a network function and an attribute.
+        """
+        return network.in_edges(nbunch=nbunch, data=data)
+
+    def dfs(search_func, source, prefix, direction):
+        """
+        Traverses edges depth first search moving along the network.
+
+        :param search_func:
         :param source:
         :param prefix:
+        :param direction:
         :return:
         """
-        edges = network.in_edges(nbunch=source, data=prefix+'data')
+        edges = search_func(nbunch=source, data=prefix+'data')
+
         for u, v, data in edges:
             if type(data) in [pd.DataFrame, gpd.GeoDataFrame]:
                 series = data.sort_values(by='dist').iloc[0]
-                return series['ID'], u, v
+                return series['ID'], (u, v)[direction], (u, v)[not direction]
             else:
-                return (*reverse_dfs(u, prefix2), v)
-        return -1, -1
-
-    def dfs(source, prefix):
-        """
-        Traverses edges depth first search moving along the network
-
-        :param source:
-        :param prefix:
-        :return:
-        """
-        edges = network.out_edges(nbunch=source, data=prefix+'data')
-        for u, v, data in edges:
-            if type(data) in [pd.DataFrame, gpd.GeoDataFrame]:
-                series = data.sort_values(by='dist').iloc[0]
-                return series['ID'], v, u
-            else:
-                return (*dfs(v, prefix2), u)
+                return (*dfs(search_func, (u, v)[not direction], prefix2, direction), \
+                        (u, v)[direction])
         # This is only run if there are no edges and the function has
         # reached the end of the line
         return -1, -1
 
-    matches = {prefix1 + 'id': [], 'On_Segment': [],
-               'Downstream': [], 'Upstream': []}
+    matches = {prefix1 + 'id': [], 'On_Segment': [], 'Downstream': [], 'Upstream': []}
 
     for u, v, data in network.out_edges(data=True):
         pref_1_data = data[prefix1 + 'data']
@@ -376,16 +396,13 @@ def edge_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
             if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
                 on_dict = {pref_2_data.iloc[0]['ID']: LineString([u, v])}
 
-            down_id, *point_list = dfs(v, prefix2)
-            up_id, *point_list2 = reverse_dfs(u, prefix2)
+            down_id, *point_list = dfs(get_out,v, prefix2, 0)
+            up_id, *point_list2 = dfs(get_in, u, prefix2, 1)
 
             if down_id != -1:
-                line = LineString(point_list)
-                down_dict = {down_id: line}
-
+                down_dict = {down_id: LineString(point_list)}
             if up_id != -1:
-                line = LineString(point_list2)
-                up_dict = {up_id: line}
+                up_dict = {up_id: LineString(point_list2)}
 
             for start_id in pref_1_data['ID']:
                 matches[prefix1 + 'id'].append(start_id)
@@ -393,8 +410,7 @@ def edge_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
                 matches['Downstream'].append(down_dict)
                 matches['Upstream'].append(up_dict)
 
-    df = pd.DataFrame(data=matches)
-    return df
+    return
 
 
 def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=True, show=True) -> nx.DiGraph:
@@ -402,7 +418,7 @@ def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=True, show=True) -> n
     Creates a directed network from a hydroRIVER line GeoDataFrame.
 
     A glorified wrapper function that gives the option to plot the
-    produced network against the original GeoDataFrame
+    produced network against the original GeoDataFrame.
 
     :param hyriv_gdf: Geopandas GeoDataFrame
         The GeoDataFrame to turn into a directed network
@@ -500,17 +516,6 @@ def check_hyriv_network(digraph: nx.DiGraph) -> float:
     ratio = correct_edges / total_edges
     print(f"{correct_edges}/{total_edges} ({ratio * 100}%) correct.")
     return ratio
-
-
-def get_hyriv_network(bbox=None, sample=None) -> nx.DiGraph:
-    """
-    Wrapper function for getting the HydroRIVERS directed graph.
-
-    :return: NetworkX DiGraph
-        A directed graph representing the HydroRIVERS dataset.
-    """
-    hyriv = load_hydro_rivers(sample=sample, bbox=bbox)
-    return hyriv_gdf_to_network(hyriv)
 
 
 def __draw_network__(p_graph, ax=None):
