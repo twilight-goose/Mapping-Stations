@@ -238,15 +238,15 @@ def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, ax=plt):
 
 
 def plot_paths(edge_df):
-    for row in edge_df['Downstream']:
+    for ind, row in edge_df.iterrows():
         for key in row.keys():
-            plot_g_series(gpd.GeoSeries(row[key], crs=Can_LCC_wkt), color='orange')
-    for row in edge_df['Upstream']:
-        for key in row.keys():
-            plot_g_series(gpd.GeoSeries(row[key], crs=Can_LCC_wkt), color='purple')
-    for row in edge_df['On_Segment']:
-        for key in row.keys():
-            plot_g_series(gpd.GeoSeries(row[key], crs=Can_LCC_wkt), color='pink')
+            if row['pos'] == 'On':
+                color = 'orange'
+            elif row['pos'] == 'Down':
+                color = 'pink'
+            elif row['pos'] == 'Up':
+                color = 'purple'
+            plot_g_series(gpd.GeoSeries(row['path'], crs=Can_LCC_wkt), color=color)
 
 
 def line_browser(lines, bbox):
