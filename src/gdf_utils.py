@@ -390,7 +390,6 @@ def dfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
         if type(pref_1_data) in [pd.DataFrame, gpd.GeoDataFrame]:
 
             for ind, station in pref_1_data.iterrows():
-                print(station['ID'])
 
                 if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
 
