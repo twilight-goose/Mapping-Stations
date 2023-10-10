@@ -237,15 +237,15 @@ def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, ax=plt):
     plot_gdf(points, ax=ax, color='blue', zorder=10, label='original')
 
 
-def plot_paths(edge_df, filter=""):
+def plot_paths(edge_df):
     for ind, row in edge_df.iterrows():
-        if row['pos'] == 'On':
-            color = 'orange'
-        elif row['pos'] == 'Down':
-            color = 'pink'
-        elif row['pos'] == 'Up':
-            color = 'purple'
-        if not filter or row['pos'] == filter:
+        for key in row.keys():
+            if row['pos'] == 'On':
+                color = 'orange'
+            elif row['pos'] == 'Down':
+                color = 'pink'
+            elif row['pos'] == 'Up':
+                color = 'purple'
             plot_g_series(gpd.GeoSeries(row['path'], crs=Can_LCC_wkt), color=color)
 
 
