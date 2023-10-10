@@ -150,7 +150,7 @@ def run_tests():
 def main():
     timer = Timer()
 
-    bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
+    bbox = BBox(min_x=-79.27, max_x=-79.2, min_y=45.3, max_y=45.4)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
@@ -167,9 +167,10 @@ def main():
     network = gdf_utils.hyriv_gdf_to_network(lines, show=False, plot=False)
 
     edge_df = gdf_utils.dfs_search(network)
+    print(edge_df.head())
 
     plot_utils.draw_network(network)
-    plot_utils.plot_paths(edge_df)
+    plot_utils.plot_paths(edge_df, filter='Down')
 
     lines = gdf_utils.straighten(lines)
     hydat.geometry = gdf_utils.snap_points(hydat, lines)
@@ -179,7 +180,6 @@ def main():
     plot_utils.plot_gdf(pwqmn, color='red', zorder=5)
 
     plot_utils.show()
-
     # browser_test_1()
     # browser_test_2()
 
