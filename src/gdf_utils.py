@@ -298,7 +298,7 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
 
     stations = stations.assign(dist=stations['other'].project(stations.geometry))
     stations.rename(columns={stat_id_f: 'ID'}, inplace=True)
-    stations = stations[['ID', 'unique_ind', 'dist']]
+    stations = stations[['ID', 'unique_ind', 'dist', 'geometry']]
 
     grouped = stations.groupby(by='unique_ind', sort=False)
 
@@ -306,7 +306,7 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
 
     for ind, data in grouped:
         temp_data['unique_ind'].append(ind)
-        temp_data[prefix + 'data'].append(data[['ID', 'dist']])
+        temp_data[prefix + 'data'].append(data[['ID', 'dist', 'geometry']])
 
     temp = pd.DataFrame(data=temp_data)
     edges = edges.merge(temp, on='unique_ind', how='left')
@@ -347,74 +347,73 @@ def dfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
         but it's shape is not accurate to that of the real world path
         representative along the river system.
     """
-    def get_out(nbunch, data):
-        """
-        Wrapper to allow network.out_edges to be passed as a parameter
-        because out_edges is both a network function and an attribute.
-        """
-        return network.out_edges(nbunch=nbunch, data=data)
-
-    def get_in(nbunch, data):
-        """
-        Wrapper to allow network.in_edges to be passed as a parameter
-        because in_edges is both a network function and an attribute.
-        """
-        return network.in_edges(nbunch=nbunch, data=data)
-
-    def dfs(search_func, source, prefix, direction):
+    def dfs(source, prefix, direction, cum_dist):
         """
         Traverses edges depth first search moving along the network.
 
-        :param search_func:
         :param source:
         :param prefix:
         :param direction:
 
         :return:
         """
-        edges = search_func(nbunch=source, data=prefix+'data')
+        if direction == 0:
+            edges = network.out_edges(nbunch=source, data=True)
+        elif direction == 1:
+            edges = network.in_edges(nbunch=source, data=True)
+        else:
+            raise ValueError('Invalid direction')
 
         for u, v, data in edges:
-            if type(data) in [pd.DataFrame, gpd.GeoDataFrame]:
-                series = data.sort_values(by='dist').iloc[0]
-                return series['ID'], (u, v)[not direction], (u, v)[direction]
+            if type(data[prefix + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
+                series = data[prefix + 'data'].sort_values(by='dist').iloc[0]
+                dist  = cum_dist + abs(direction * data['mm_len'] - series['dist'])
+
+                return series['ID'], dist, series['geometry'], (u, v)[direction]
             else:
-                result = (*dfs(search_func, (u, v)[not direction], prefix2, direction), \
-                        (u, v)[direction])
-                if result != -1:
+                result = *dfs((u, v)[not direction], prefix2, direction, cum_dist + data['mm_len']), \
+                          (u, v)[direction]
+
+                if result[0] != -1:
                     return result
         # This is only run if there are no edges and the function has
         # reached the end of the line
-        return -1, -1
+        return -1, -1, -1
 
-    def add_to_matches(id1, id2, path, _pos):
+    def add_to_matches(id1, id2, path, _dist, _pos):
         matches[prefix1 + 'id'].append(id1)
         matches[prefix2 + 'id'].append(id2)
         matches['path'].append(path)
-        # matches['dist'].append(_dist)
+        matches['dist'].append(_dist)
         matches['pos'].append(_pos)
 
-    matches = {prefix1 + 'id': [], prefix2 + 'id' : [], 'path': [], 'pos': []}
+    matches = {prefix1 + 'id': [], prefix2 + 'id' : [], 'path': [], 'dist':[], 'pos': []}
 
     for u, v, data in network.out_edges(data=True):
         pref_1_data = data[prefix1 + 'data']
         pref_2_data = data[prefix2 + 'data']
 
         if type(pref_1_data) in [pd.DataFrame, gpd.GeoDataFrame]:
+
             for ind, station in pref_1_data.iterrows():
-
                 if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-                    for ind, row in pref_2_data.iterrows():
-                        add_to_matches(station['ID'], row['ID'], LineString([u, v]), 'On')
 
-                down_id, *point_list = dfs(get_out,v, prefix2, 0)
-                up_id, *point_list2 = dfs(get_in, u, prefix2, 1)
+                    for ind, row in pref_2_data.iterrows():
+                        on_dist = abs(station['dist'] - row['dist'])
+                        add_to_matches(station['ID'], row['ID'], LineString([station['geometry'], row['geometry']]),
+                                       on_dist, 'On')
+
+                down_id, down_dist, *point_list = dfs(v, prefix2, 0, data['mm_len'] - station['dist'])
+                up_id, up_dist, *point_list2 = dfs(u, prefix2, 1, station['dist'])
+
+                point_list.append(station['geometry'])
+                point_list2.append(station['geometry'])
 
                 if down_id != -1:
-                    add_to_matches(station['ID'], down_id, LineString(point_list), 'Down')
+                    add_to_matches(station['ID'], down_id, LineString(point_list), down_dist, 'Down')
 
                 if up_id != -1:
-                    add_to_matches(station['ID'], up_id, LineString(point_list2), 'Up')
+                    add_to_matches(station['ID'], up_id, LineString(point_list2), up_dist, 'Up')
 
     return pd.DataFrame(data=matches)
 

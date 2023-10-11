@@ -245,7 +245,9 @@ def plot_paths(edge_df, filter=""):
             color = 'pink'
         elif row['pos'] == 'Up':
             color = 'purple'
-        if not filter or row['pos'] == filter:
+        else:
+            color = 'grey'
+        if filter == "" or row['pos'] == filter:
             plot_g_series(gpd.GeoSeries(row['path'], crs=Can_LCC_wkt), color=color)
 
 
