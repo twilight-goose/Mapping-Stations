@@ -379,39 +379,44 @@ def dfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
                 series = data.sort_values(by='dist').iloc[0]
                 return series['ID'], (u, v)[not direction], (u, v)[direction]
             else:
-                return (*dfs(search_func, (u, v)[not direction], prefix2, direction), \
+                result = (*dfs(search_func, (u, v)[not direction], prefix2, direction), \
                         (u, v)[direction])
+                if result != -1:
+                    return result
         # This is only run if there are no edges and the function has
         # reached the end of the line
         return -1, -1
 
-    matches = {prefix1 + 'id': [], 'On_Segment': [], 'Downstream': [], 'Upstream': []}
+    def add_to_matches(id1, id2, path, _pos):
+        matches[prefix1 + 'id'].append(id1)
+        matches[prefix2 + 'id'].append(id2)
+        matches['path'].append(path)
+        # matches['dist'].append(_dist)
+        matches['pos'].append(_pos)
+
+    matches = {prefix1 + 'id': [], prefix2 + 'id' : [], 'path': [], 'pos': []}
 
     for u, v, data in network.out_edges(data=True):
         pref_1_data = data[prefix1 + 'data']
         pref_2_data = data[prefix2 + 'data']
 
         if type(pref_1_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-            on_dict, down_dict, up_dict = {}, {}, {}
+            for ind, station in pref_1_data.iterrows():
 
-            if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-                on_dict = {pref_2_data.iloc[0]['ID']: LineString([u, v])}
+                if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
+                    for ind, row in pref_2_data.iterrows():
+                        add_to_matches(station['ID'], row['ID'], LineString([u, v]), 'On')
 
-            down_id, *point_list = dfs(get_out,v, prefix2, 0)
-            up_id, *point_list2 = dfs(get_in, u, prefix2, 1)
+                down_id, *point_list = dfs(get_out,v, prefix2, 0)
+                up_id, *point_list2 = dfs(get_in, u, prefix2, 1)
 
-            if down_id != -1:
-                down_dict = {down_id: LineString(point_list)}
-            if up_id != -1:
-                up_dict = {up_id: LineString(point_list2)}
+                if down_id != -1:
+                    add_to_matches(station['ID'], down_id, LineString(point_list), 'Down')
 
-            for start_id in pref_1_data['ID']:
-                matches[prefix1 + 'id'].append(start_id)
-                matches['On_Segment'].append(on_dict)
-                matches['Downstream'].append(down_dict)
-                matches['Upstream'].append(up_dict)
+                if up_id != -1:
+                    add_to_matches(station['ID'], up_id, LineString(point_list2), 'Up')
 
-    return matches
+    return pd.DataFrame(data=matches)
 
 
 def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=True, show=True) -> nx.DiGraph:
