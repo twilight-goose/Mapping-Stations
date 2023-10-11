@@ -369,6 +369,7 @@ def dfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
         :param source:
         :param prefix:
         :param direction:
+
         :return:
         """
         edges = search_func(nbunch=source, data=prefix+'data')
@@ -376,7 +377,7 @@ def dfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
         for u, v, data in edges:
             if type(data) in [pd.DataFrame, gpd.GeoDataFrame]:
                 series = data.sort_values(by='dist').iloc[0]
-                return series['ID'], (u, v)[direction], (u, v)[not direction]
+                return series['ID'], (u, v)[not direction], (u, v)[direction]
             else:
                 return (*dfs(search_func, (u, v)[not direction], prefix2, direction), \
                         (u, v)[direction])
@@ -410,7 +411,7 @@ def dfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
                 matches['Downstream'].append(down_dict)
                 matches['Upstream'].append(up_dict)
 
-    return
+    return matches
 
 
 def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=True, show=True) -> nx.DiGraph:
