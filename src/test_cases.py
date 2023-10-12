@@ -30,17 +30,6 @@ def tests():
     assert Period.check_period(["2022-10-11"]) == TypeError
 
 
-def timed_display(seconds=2):
-    """
-    Shows the current plot and automatically closes it after
-    a specific amount of time.
-    :return:
-    """
-    plot_utils.show()
-    time.sleep(seconds)
-    plot_utils.close()
-
-
 def hydat_query_test(points, bbox, period):
     """
 
@@ -58,7 +47,7 @@ def hydat_query_test(points, bbox, period):
     plot_utils.plot_gdf(points, ax=ax, zorder=4, color='blue')
     plot_utils.plot_gdf(hydat, ax=ax, zorder=5, color='red')
 
-    timed_display()
+    plot_utils.timed_display()
 
 
 def pwqmn_query_test(points, bbox, period):
@@ -80,7 +69,7 @@ def pwqmn_query_test(points, bbox, period):
     plot_utils.plot_gdf(points, ax=ax, zorder=4, color='blue')
     plot_utils.plot_gdf(pwqmn, ax=ax, zorder=5, color='red')
 
-    timed_display()
+    plot_utils.timed_display()
 
 
 def point_plot_test(points, bbox):
@@ -88,7 +77,7 @@ def point_plot_test(points, bbox):
         total_bounds=bbox.to_ccrs(gdf_utils.lambert)
     )
     plot_utils.plot_gdf(points, ax=ax)
-    timed_display()
+    plot_utils.timed_display()
 
 
 def snap_test(points, edges, bbox):
@@ -96,17 +85,45 @@ def snap_test(points, edges, bbox):
         total_bounds=bbox.to_ccrs(gdf_utils.lambert)
     )
     plot_utils.plot_closest(points, edges, ax=ax)
-    timed_display()
+    plot_utils.timed_display()
 
 
 def network_test(lines):
     network = gdf_utils.hyriv_gdf_to_network(lines, plot=True)
     gdf_utils.check_hyriv_network(network)
-    timed_display()
+    plot_utils.timed_display()
 
 
-def network_assign_test(lines, stations, field, prefix):
-    gdf_utils.assign_stations(lines, stations, field, prefix=prefix)
+def network_assign_test():
+    bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
+
+    hydat = load_data.get_hydat_station_data(bbox=bbox)
+    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
+
+    lines = load_data.load_hydro_rivers(bbox=bbox)
+    hydat = gdf_utils.point_gdf_from_df(hydat)
+    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
+
+    lines = gdf_utils.assign_stations(lines, hydat, 'STATION_NUMBER', prefix='hydat_')
+    lines = gdf_utils.assign_stations(lines, pwqmn, 'Location ID', prefix='pwqmn_')
+
+    network = gdf_utils.hyriv_gdf_to_network(lines)
+
+    edge_df = gdf_utils.dfs_search(network)
+
+    plot_utils.draw_network(network)
+    plot_utils.plot_paths(edge_df)
+
+    plot_utils.plot_gdf(hydat, color='blue', zorder=4)
+    plot_utils.plot_gdf(pwqmn, color='red', zorder=5)
+
+    legend_dict = {'Symbol': ['line', 'line', 'line', 'point', 'point'],
+                   'Colour': ['orange', 'pink', 'purple', 'blue', 'red'],
+                   'Label': ['On', 'Downstream', 'Upstream', 'HYDAT', 'PWQMN']}
+    plot_utils.configure_legend(legend_dict)
+
+    plot_utils.show()
+
 
 
 def browser_test_1():
@@ -150,35 +167,10 @@ def run_tests():
 def main():
     timer = Timer()
 
-    bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
-
-    hydat = load_data.get_hydat_station_data(bbox=bbox)
-    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
-
-    lines = load_data.load_hydro_rivers(bbox=bbox)
-
-    hydat = gdf_utils.point_gdf_from_df(hydat)
-    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
-
-    lines = gdf_utils.assign_stations(lines, hydat, 'STATION_NUMBER', prefix='hydat_')
-
-    lines = gdf_utils.assign_stations(lines, pwqmn, 'Location ID', prefix='pwqmn_')
-
-    network = gdf_utils.hyriv_gdf_to_network(lines, show=False, plot=False)
-
-    edge_df = gdf_utils.dfs_search(network)
-
-    plot_utils.draw_network(network)
-    plot_utils.plot_paths(edge_df)
-
-    lines = gdf_utils.straighten(lines)
-    hydat.geometry = gdf_utils.snap_points(hydat, lines)
-    pwqmn.geometry = gdf_utils.snap_points(pwqmn, lines)
-
-    plot_utils.plot_gdf(hydat, color='blue', zorder=4)
-    plot_utils.plot_gdf(pwqmn, color='red', zorder=5)
-
-    plot_utils.show()
+    network_assign_test()
+    # lines = gdf_utils.straighten(lines)
+    # hydat.geometry = gdf_utils.snap_points(hydat, lines)
+    # pwqmn.geometry = gdf_utils.snap_points(pwqmn, lines)
 
     # browser_test_1()
     # browser_test_2()

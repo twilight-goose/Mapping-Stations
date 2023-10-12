@@ -370,6 +370,10 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
     return station_df
 
 
+def load_shp(path, sample=None, bbox=None):
+    return read_file(path, rows=sample, bbox=BBox.to_tuple(bbox))
+
+
 def load_hydro_rivers(sample=None, bbox=None):
     """
     Loads HydroRIVERS_v10.shp as a geopandas GeoDataFrame.
@@ -390,7 +394,7 @@ def load_hydro_rivers(sample=None, bbox=None):
     :return: Geopandas GeoDataFrame
         HydroRIVERS data as a LineString GeoDataFrame.
     """
-    return read_file(hydroRIVERS_path, rows=sample, bbox=BBox.to_tuple(bbox))
+    return load_shp(hydroRIVERS_path, sample, bbox)
 
 
 def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:

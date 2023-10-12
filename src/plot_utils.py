@@ -8,6 +8,7 @@ import geopandas as gpd
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -152,8 +153,8 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
         print("Plotting failed. The GeoSeries has no geometry.")
 
 
-def draw_network(p_graph):
-    gdf_utils.__draw_network__(p_graph)
+def draw_network(p_graph, **kwargs):
+    gdf_utils.__draw_network__(p_graph, **kwargs)
 
 
 def plot_gdf(gdf: gpd.GeoDataFrame, crs=Can_LCC_wkt, ax=plt, **kwargs):
@@ -238,17 +239,35 @@ def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, ax=plt):
 
 
 def plot_paths(edge_df, filter=""):
-    for ind, row in edge_df.iterrows():
-        if row['pos'] == 'On':
+    grouped = edge_df.groupby(by='pos')
+    for ind, group in grouped:
+        print(ind)
+        if ind == 'On':
             color = 'orange'
-        elif row['pos'] == 'Down':
+        elif ind == 'Down':
             color = 'pink'
-        elif row['pos'] == 'Up':
+        elif ind == 'Up':
             color = 'purple'
         else:
             color = 'grey'
-        if filter == "" or row['pos'] == filter:
-            plot_g_series(gpd.GeoSeries(row['path'], crs=Can_LCC_wkt), color=color)
+        if ind == filter or filter == "":
+            plot_g_series(gpd.GeoSeries(group['path'], crs=Can_LCC_wkt), color=color, linewidth=3)
+
+
+def configure_legend(legend_dict: dict):
+    custom_lines = []
+    for i in range(len(legend_dict['Symbol'])):
+        color = legend_dict['Colour'][i]
+        symbol = legend_dict['Symbol'][i]
+        label = legend_dict['Label'][i]
+
+        if symbol == 'line':
+            custom_lines.append(Line2D([0], [0], color=color, label=label, lw=4))
+        elif symbol == 'point':
+            custom_lines.append(Line2D([0], [0], color=color, label=label, marker='o',
+                                       markersize=5))
+
+    plt.legend(handles=custom_lines)
 
 
 def line_browser(lines, bbox):
@@ -465,4 +484,13 @@ def close():
 
     :return:
     """
+    plt.close()
+
+
+def legend():
+    plt.legend()
+
+def timed_display(seconds=2):
+    plt.show(block=False)
+    plt.pause(seconds)
     plt.close()

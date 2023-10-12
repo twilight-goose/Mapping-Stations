@@ -240,7 +240,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
 
 
 def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
-                    stat_id_f: str, prefix="", max_distance=None) -> gpd.GeoDataFrame:
+                    stat_id_f: str, prefix="", max_distance=1000) -> gpd.GeoDataFrame:
     """
     Snaps stations to the closest features in edges and assigns
     descriptors to line segments. Uses a solution similar
@@ -323,7 +323,7 @@ def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
     """
 
 
-def dfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
+def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
     """
     For each station assigned to the network denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -418,7 +418,7 @@ def dfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
     return pd.DataFrame(data=matches)
 
 
-def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=True, show=True) -> nx.DiGraph:
+def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=False, show=False) -> nx.DiGraph:
     """
     Creates a directed network from a hydroRIVER line GeoDataFrame.
 
@@ -455,7 +455,7 @@ def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=True, show=True) -> n
     return p_graph
 
 
-def hyriv_network_to_gdf(network, show=True, plot=True):
+def hyriv_network_to_gdf(network, show=False, plot=False):
     nodes, edges, sw = momepy.nx_to_gdf(network)
 
 
@@ -523,7 +523,7 @@ def check_hyriv_network(digraph: nx.DiGraph) -> float:
     return ratio
 
 
-def __draw_network__(p_graph, ax=None):
+def __draw_network__(p_graph, ax=None, **kwargs):
     """
     Draws a NetworkX Graph object onto an axes.
 
@@ -537,4 +537,4 @@ def __draw_network__(p_graph, ax=None):
     if ax is None:
         ax = plt.axes()
     positions = {n: [n[0], n[1]] for n in list(p_graph.nodes)}
-    nx.draw(p_graph, positions, ax=ax, node_size=3)
+    nx.draw(p_graph, pos=positions, ax=ax, node_size=3, **kwargs)
