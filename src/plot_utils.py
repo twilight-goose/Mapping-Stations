@@ -90,7 +90,8 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
         plt.figure(figsize=(8, 8))
         ax = plt.axes(projection=projection, **kwargs)
 
-    print(total_bounds)
+    if type(total_bounds) is bbox:
+        total_bounds = total_bounds.to_crs(projection)
 
     # check if the GeoSeries has a valid bounding information
     try:

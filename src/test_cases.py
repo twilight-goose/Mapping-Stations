@@ -97,6 +97,8 @@ def network_test(lines):
 def network_assign_test():
     bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
 
+    plot_utils.add_map_to_plot(total_bounds=bbox)
+
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
 
