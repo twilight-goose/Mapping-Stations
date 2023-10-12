@@ -1,5 +1,5 @@
 import os
-from classes import Timer
+from classes import Timer, BBox
 from load_data import proj_path
 import gdf_utils
 
@@ -90,8 +90,8 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
         plt.figure(figsize=(8, 8))
         ax = plt.axes(projection=projection, **kwargs)
 
-    if type(total_bounds) is bbox:
-        total_bounds = total_bounds.to_crs(projection)
+    if type(total_bounds) is BBox:
+        total_bounds = total_bounds.to_ccrs(projection)
 
     # check if the GeoSeries has a valid bounding information
     try:
