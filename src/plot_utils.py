@@ -267,7 +267,7 @@ def configure_legend(legend_dict: dict, ax=plt):
             custom_lines.append(Line2D([0], [0], color=color, label=label, marker='o',
                                        markersize=5))
 
-    ax.legend(handles=custom_lines)
+    ax.legend(handles=custom_lines, loc='upper right')
 
 
 def line_browser(lines, bbox):
@@ -372,7 +372,7 @@ def line_browser(lines, bbox):
     plt.show()
 
 
-def browser(data, bbox):
+def browser(data, bbox, **kwargs):
     class PointBrowser:
         """
         Click on a point to select and highlight it -- the data that
@@ -442,19 +442,17 @@ def browser(data, bbox):
     xs = X.geometry.x
     ys = X.geometry.y
 
-    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(14, 7))
-    fig.delaxes(ax)
-
-    ax = fig.add_axes([0.02, 0.04, 0.46, 0.92], projection=lambert)
+    fig = plt.figure(figsize=(14, 7))
+    ax = plt.subplot(1, 2, 1, projection=lambert, position=[0.02, 0.04, 0.46, 0.92])
+    ax2 = plt.subplot(1, 2, 2)
+    ax2.set_axis_off()
 
     add_map_to_plot(ax=ax, total_bounds=bbox.to_ccrs(lambert))
 
     ax.set_box_aspect(1)
     ax2.set_box_aspect(1)
 
-    ax.set_title('click on point to plot time series')
-
-    plot_gdf(data, ax=ax, marker='o', picker=True, pickradius=5)
+    plot_gdf(data, ax=ax, marker='o', picker=True, pickradius=5, **kwargs)
 
     browser = PointBrowser()
 

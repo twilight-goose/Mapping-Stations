@@ -346,7 +346,8 @@ def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
     """
 
 
-def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
+def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
+               max_distance=10000, ):
     """
     For each station assigned to the network denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -372,6 +373,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
     :param network:
     :param prefix1: string
     :param prefix2: string
+    :param max_distance: int
 
     :return: Pandas DataFrame
         DataFrame with the following columns:
@@ -389,6 +391,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
         but it's shape is not accurate to that of the real world path
         representative along the river system.
     """
+    def bfs(source):
+        pass
+
     def dfs(source, prefix, direction, cum_dist, depth):
         """
         Traverses edges depth first search moving along the network.
@@ -397,6 +402,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
         :param prefix:
         :param direction:
         :param cum_dist
+        :param depth:
 
         :return:
         """
@@ -407,7 +413,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
         else:
             raise ValueError('Invalid direction')
 
-        if cum_dist >= 10000 or len(edges) == 0 or depth >= 10:
+        if cum_dist >= max_distance or len(edges) == 0 or depth >= 10:
             return -1, -1, -1
 
         for u, v, data in edges:
@@ -417,7 +423,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
                 ).iloc[0]
                 dist  = cum_dist + abs(direction * data['LENGTH_M'] - series['dist'])
 
-                return series['ID'], dist, series['geometry'], (u, v)[direction]
+                if dist < max_distance:
+                    return series['ID'], dist, series['geometry'], (u, v)[direction]
+                return -1, -1, -1
             else:
                 result = *dfs((u, v)[not direction], prefix2, direction,
                               cum_dist + data['LENGTH_M'], depth + 1), \
@@ -447,11 +455,21 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
             for ind, station in pref_1_data.iterrows():
                 if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
 
+                    # row = pref_2_data.sort_values(by='dist', key=(
+                    #     lambda x: abs(x - station['dist']))).iloc[0]
+                    #
+                    # if on_calc == 'absolute':
+                    #     on_dist = station['geometry'].distance(row['geometry'])
+                    # else:  # on_calc == 'relative
+                    #     on_dist = abs(station['dist'] - row['dist'])
+
                     for ind, row in pref_2_data.iterrows():
                         on_dist = station['geometry'].distance(row['geometry'])
-                        add_to_matches(station['ID'], row['ID'],
-                                       LineString([station['geometry'], row['geometry']]),
-                                       on_dist, 'On')
+
+                        if on_dist < max_distance:
+                            add_to_matches(station['ID'], row['ID'],
+                                           LineString([station['geometry'], row['geometry']]),
+                                           on_dist, 'On')
 
                 down_id, down_dist, *point_list = dfs(v, prefix2, 0, data['LENGTH_M'] - station['dist'], 0)
                 up_id, up_dist, *point_list2 = dfs(u, prefix2, 1, station['dist'], 0)
