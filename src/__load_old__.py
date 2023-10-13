@@ -2,7 +2,7 @@ import os.path
 import sqlite3
 import pandas as pd
 import check_files
-from classes import BBox, Timer
+from util_classes import BBox, Timer
 
 
 # Copyright (c) 2023 James Wang - jcw4698(at)gmail.com

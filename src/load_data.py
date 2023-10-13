@@ -1,7 +1,7 @@
 import os.path
 import sqlite3
 import check_files
-from classes import BBox, Period, Timer
+from util_classes import BBox, Period, Timer
 
 import pandas as pd
 from geopandas import read_file
@@ -165,7 +165,7 @@ def generate_pwqmn_sql():
                                'MonitoringLocationID': "Location ID",
                                'MonitoringLocationLongitude': 'Longitude',
                                'MonitoringLocationLatitude': 'Latitude',
-                               'ActivityStartDate': 'DATE',
+                               'ActivityStartDate': 'Date',
                                'CharacteristicName': 'Variables'}, inplace=True)
 
     # fill the sql database and close the connection
@@ -293,6 +293,9 @@ def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd
     station_df['LONGITUDE'] = station_df['LONGITUDE'].astype('float')
     station_df['LATITUDE'] = station_df['LATITUDE'].astype('float')
 
+    station_df.rename(columns={'LONGITUDE': 'Longitude', 'LATITUDE': 'Latitude'},
+                      inplace=True)
+
     timer.stop()
     conn.close()        # close the sqlite3 connection
 
@@ -376,7 +379,9 @@ def load_shp(path, sample=None, bbox=None):
 
 def load_hydro_rivers(sample=None, bbox=None):
     """
-    Loads HydroRIVERS_v10.shp as a geopandas GeoDataFrame.
+    Loads HydroRIVERS_v10.shp as a geopandas GeoDataFrame. The
+    HydroRIVERS shapefile are provided in a geographic
+    (latitude/longitude) projection referenced to datum WGS84.
 
     Note: As BBox grows larger, spatial distortion at the edge increases.
     Attempting to place geometry features outside the projection's

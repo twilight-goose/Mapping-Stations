@@ -1,5 +1,5 @@
 import os
-from classes import Timer, BBox
+from util_classes import Timer, BBox
 from load_data import proj_path
 import gdf_utils
 
@@ -97,13 +97,12 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
     try:
         min_x, min_y, max_x, max_y = total_bounds
 
-        x_buffer = (max_x - min_x) * 0.2
-        y_buffer = (max_y - min_y) * 0.2
+        size = max([max_x - min_x,max_y - min_y]) * 0.6
 
-        x0 = min_x - x_buffer
-        x1 = max_x + x_buffer
-        y0 = min_y - y_buffer
-        y1 = max_y + y_buffer
+        x0 = (min_x + max_x) / 2 - size
+        x1 = (min_x + max_x) / 2 + size
+        y0 = (min_y + max_y) / 2 - size
+        y1 = (min_y + max_y) / 2 + size
 
         ax.set_extent([x0, x1, y0, y1], crs=projection)
 
@@ -239,7 +238,7 @@ def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, ax=plt):
     plot_gdf(points, ax=ax, color='blue', zorder=10, label='original')
 
 
-def plot_paths(edge_df, filter=""):
+def plot_paths(edge_df, ax=None, filter=""):
     grouped = edge_df.groupby(by='pos')
     for ind, group in grouped:
         print(ind)
@@ -252,10 +251,10 @@ def plot_paths(edge_df, filter=""):
         else:
             color = 'grey'
         if ind == filter or filter == "":
-            plot_g_series(gpd.GeoSeries(group['path'], crs=Can_LCC_wkt), color=color, linewidth=3)
+            plot_g_series(gpd.GeoSeries(group['path'], crs=Can_LCC_wkt), ax=ax, color=color, linewidth=3)
 
 
-def configure_legend(legend_dict: dict):
+def configure_legend(legend_dict: dict, ax=plt):
     custom_lines = []
     for i in range(len(legend_dict['Symbol'])):
         color = legend_dict['Colour'][i]
@@ -268,7 +267,7 @@ def configure_legend(legend_dict: dict):
             custom_lines.append(Line2D([0], [0], color=color, label=label, marker='o',
                                        markersize=5))
 
-    plt.legend(handles=custom_lines)
+    ax.legend(handles=custom_lines)
 
 
 def line_browser(lines, bbox):
@@ -439,9 +438,6 @@ def browser(data, bbox):
             self.text.set_text('selected: %d' % dataind)
             fig.canvas.draw()
 
-    # Fixing random state for reproducibility
-    np.random.seed(19680801)
-
     X = data
     xs = X.geometry.x
     ys = X.geometry.y
@@ -465,7 +461,7 @@ def browser(data, bbox):
     fig.canvas.mpl_connect('pick_event', browser.on_pick)
     fig.canvas.mpl_connect('key_press_event', browser.on_press)
 
-    plt.show()
+    return ax
 
 
 def show():

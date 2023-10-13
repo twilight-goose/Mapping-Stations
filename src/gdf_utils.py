@@ -1,5 +1,6 @@
 import os
-from classes import BBox, Timer
+import math
+from util_classes import BBox, Timer
 from load_data import find_xy_fields, data_path
 
 import pandas as pd
@@ -271,9 +272,10 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
         assign more than 1 set of stations to edges. If left blank, may
         cause overlapping columns in output GeoDataFrame.
 
-    :param max_distance: int or None (default)
+    :param max_distance: int
         The maximum distance (in CRS units) within which to assign a
-        station to edges. If int, must be greater than 0.
+        station to edges. If int, must be greater than 0. Default
+        1000 (meters; Lambert Conformal Conic units ).
 
     :return: Geopandas GeoDataFrame
         A copy of edges merged that includes selected station related
@@ -281,8 +283,9 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
             - <prefix>_data (DataFrame)
                 Contains the following columns:
                     - ID (int) of the station
+                    - geometry (geometry) representing the station location.
                     - dist (float) from the start of the line
-            - unique_ind    (int)
+            - unique_ind (int)
     """
     if stations.crs != Can_LCC_wkt:
         stations = stations.to_crs(crs=Can_LCC_wkt)
@@ -331,9 +334,14 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
     marked, but not counted towards the 1 upstream and 1 downstream
     stations. The located stations may not be the closest stations.
 
+    Distance accumulation is calculated using 2 network edge
+    attributes; the 'LENGTH_KM' attribute (length of the river reach
+    segment, in kilometers encoded in the HydroRIVERS data), and 
+
     :param network:
     :param prefix1:
     :param prefix2:
+
     :return: Pandas DataFrame
         DataFrame with the following columns:
             - prefix1_id (string)
@@ -438,6 +446,7 @@ def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=False, show=False) ->
     :return: networkX DiGraph
         The resultant networkx directed graph.
     """
+    hyriv_gdf = hyriv_gdf.to_crs(crs=Can_LCC_wkt)
     p_graph = momepy.gdf_to_nx(hyriv_gdf, approach='primal', directed=True)
 
     if plot:

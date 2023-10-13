@@ -1,5 +1,5 @@
 import sys
-from classes import BBox, Timer, Period
+from util_classes import BBox, Timer, Period
 import load_data
 import gdf_utils
 import plot_utils
@@ -95,9 +95,9 @@ def network_test(lines):
 
 
 def network_assign_test():
-    bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
+    bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
 
-    plot_utils.add_map_to_plot(total_bounds=bbox)
+    ax = plot_utils.add_map_to_plot(total_bounds=bbox)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
@@ -112,17 +112,27 @@ def network_assign_test():
     network = gdf_utils.hyriv_gdf_to_network(lines)
 
     edge_df = gdf_utils.dfs_search(network)
+    print(edge_df.drop(columns=['path', 'pos']).sort_values(by='hydat_id').to_string())
 
-    plot_utils.draw_network(network)
-    plot_utils.plot_paths(edge_df)
+    plot_utils.draw_network(network, ax=ax)
+    plot_utils.plot_paths(edge_df, ax=ax)
 
-    plot_utils.plot_gdf(hydat, color='blue', zorder=4)
-    plot_utils.plot_gdf(pwqmn, color='red', zorder=5)
+    plot_utils.plot_gdf(hydat, ax=ax, color='blue', zorder=4)
+    plot_utils.plot_gdf(pwqmn, ax=ax, color='red', zorder=5)
+
+    for ind, row in hydat.to_crs(crs=gdf_utils.Can_LCC_wkt).iterrows():
+        ax.annotate(row['STATION_NUMBER'], xy=(row['geometry'].x, row['geometry'].y))
+
+    for ind, row in pwqmn.to_crs(crs=gdf_utils.Can_LCC_wkt).drop_duplicates('Location ID').iterrows():
+        if row['Location ID'] in edge_df['pwqmn_id']:
+            ax.annotate(row['Location ID'], xy=(row['geometry'].x, row['geometry'].y))
 
     legend_dict = {'Symbol': ['line', 'line', 'line', 'point', 'point'],
                    'Colour': ['orange', 'pink', 'purple', 'blue', 'red'],
                    'Label': ['On', 'Downstream', 'Upstream', 'HYDAT', 'PWQMN']}
+
     plot_utils.configure_legend(legend_dict)
+    ax.set_title('Matching HYDAT (Blue) to PWQMN (Red) Stations')
 
     plot_utils.show()
 

@@ -176,3 +176,10 @@ awk -F'"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", ";", $i) } 1' Provincial
 ```commandline
 
 ```
+## Output Accuracy Table
+### Zone 1: Southern/Central Ontario
+| HYDAT ID | PWQMN ID | Manual Dist | Algorithm Dist |
+|:---------| :---     | :---        | :---           |
+|          | :---     | :---        | :---           |
+| :---     | :---     | :---        | :---           |
+| :---     | :---     | :---        | :---           |
