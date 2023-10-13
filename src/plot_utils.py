@@ -238,7 +238,7 @@ def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, ax=plt):
     plot_gdf(points, ax=ax, color='blue', zorder=10, label='original')
 
 
-def plot_paths(edge_df, ax=None, filter=""):
+def plot_paths(edge_df, ax=None, filter="", annotate_dist=False):
     grouped = edge_df.groupby(by='pos')
     for ind, group in grouped:
         print(ind)

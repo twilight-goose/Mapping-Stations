@@ -115,7 +115,7 @@ def network_assign_test():
     print(edge_df.drop(columns=['path']).sort_values(by='hydat_id').to_string())
 
     plot_utils.draw_network(network, ax=ax)
-    plot_utils.plot_paths(edge_df, ax=ax)
+    plot_utils.plot_paths(edge_df, ax=ax, annotate_dist=True)
 
     plot_utils.plot_gdf(hydat, ax=ax, color='blue', zorder=4)
     plot_utils.plot_gdf(pwqmn, ax=ax, color='red', zorder=5)

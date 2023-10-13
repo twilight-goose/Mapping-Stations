@@ -389,7 +389,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
         but it's shape is not accurate to that of the real world path
         representative along the river system.
     """
-    def dfs(source, prefix, direction, cum_dist):
+    def dfs(source, prefix, direction, cum_dist, depth):
         """
         Traverses edges depth first search moving along the network.
 
@@ -407,6 +407,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
         else:
             raise ValueError('Invalid direction')
 
+        if cum_dist >= 10000 or len(edges) == 0 or depth >= 10:
+            return -1, -1, -1
+
         for u, v, data in edges:
             if type(data[prefix + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
                 series = data[prefix + 'data'].sort_values(
@@ -417,7 +420,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
                 return series['ID'], dist, series['geometry'], (u, v)[direction]
             else:
                 result = *dfs((u, v)[not direction], prefix2, direction,
-                              cum_dist + data['LENGTH_M']), \
+                              cum_dist + data['LENGTH_M'], depth + 1), \
                           (u, v)[direction]
 
                 if result[0] != -1:
@@ -450,8 +453,8 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
                                        LineString([station['geometry'], row['geometry']]),
                                        on_dist, 'On')
 
-                down_id, down_dist, *point_list = dfs(v, prefix2, 0, data['LENGTH_M'] - station['dist'])
-                up_id, up_dist, *point_list2 = dfs(u, prefix2, 1, station['dist'])
+                down_id, down_dist, *point_list = dfs(v, prefix2, 0, data['LENGTH_M'] - station['dist'], 0)
+                up_id, up_dist, *point_list2 = dfs(u, prefix2, 1, station['dist'], 0)
 
                 point_list.append(station['geometry'])
                 point_list2.append(station['geometry'])
