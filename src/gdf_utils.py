@@ -258,6 +258,14 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     the same edge feature, station ids and distances are stored in
     DataFrames.
 
+    To address some potential issues caused by course data resolution,
+    distortions caused by conversions between coordinate systems, and
+    to maintain consistent distances between stations, distances are
+    calculated by finding the relative position along the line in the
+    set crs as a proportion. That proportion is used to determine the
+    distance from the start of the line segment using the HydroRIVERS
+    provided LENGTH_KM field.
+
     :param edges: Geopandas GeoDataFrame
         The lines/features to assign stations to.
 
@@ -280,12 +288,22 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     :return: Geopandas GeoDataFrame
         A copy of edges merged that includes selected station related
         data. Has the following additional fields:
-            - <prefix>_data (DataFrame)
-                Contains the following columns:
-                    - ID (int) of the station
-                    - geometry (geometry) representing the station location.
-                    - dist (float) from the start of the line
-            - unique_ind (int)
+
+        <prefix>_data (DataFrame)
+            Contains the following columns:
+            - ID (int) of the station
+            - geometry (geometry)
+                Shapely object representing original
+                station location.
+            - dist (float)
+                Distance in meters) from the start of the river segment
+                to the point closest to the station. Calculated by
+                finding the relative position along the line as a
+                proportion and determining the distance using the
+                HydroRIVERS provided length field (LENGTH_KM).
+
+        unique_ind (int)
+            Used as a unique identifier for joining and merging data.
     """
     if stations.crs != Can_LCC_wkt:
         stations = stations.to_crs(crs=Can_LCC_wkt)
@@ -294,13 +312,15 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
 
     edges = edges.assign(unique_ind=edges.index)
     edges = edges.assign(other=edges.geometry)
+    edges = edges.assign(LENGTH_M=edges['LENGTH_KM'] * 1000)
 
     stations = stations.drop_duplicates(stat_id_f)
 
     stations = stations.sjoin_nearest(edges, how='left', max_distance=max_distance)
 
-    stations = stations.assign(dist=stations['other'].project(stations.geometry))
-    stations.rename(columns={stat_id_f: 'ID'}, inplace=True)
+    rel_pos = stations['other'].project(stations.geometry) / stations['other'].length
+    stations = stations.assign(dist=rel_pos * stations['LENGTH_M'])
+    stations = stations.rename(columns={stat_id_f: 'ID'})
     stations = stations[['ID', 'unique_ind', 'dist', 'geometry']]
 
     grouped = stations.groupby(by='unique_ind', sort=False)
@@ -334,20 +354,34 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
     marked, but not counted towards the 1 upstream and 1 downstream
     stations. The located stations may not be the closest stations.
 
+    All edges in the provided Directed Graph must contain an edge
+    attribute for each prefix suffixed by "_data". To encode
+    this data to the network, assign stations to the GeoDataFrame
+    before converting it to a Network using assign_stations().
+
     Distance accumulation is calculated using 2 network edge
-    attributes; the 'LENGTH_KM' attribute (length of the river reach
-    segment, in kilometers encoded in the HydroRIVERS data), and 
+    attributes; the 'LENGTH_M' attribute (length of the river reach
+    segment, in meters) derived from 'LENGTH_KM' provided as part of
+    the HydroRIVERS data, and edge attributes suffixed with '_data'
+    that hold information about the stations encoded to that edge in
+    DataFrames. Said DataFrames MUST contain a 'dist' column.
+
+    For stations located on the same river segment/network edge,
+    distance between matched stations is computed geographically.
 
     :param network:
-    :param prefix1:
-    :param prefix2:
+    :param prefix1: string
+    :param prefix2: string
 
     :return: Pandas DataFrame
         DataFrame with the following columns:
             - prefix1_id (string)
-            - On_segment (dict)
-            - Downstream (dict)
-            - Upstream   (dict)
+            - prefix2_id (string)
+            - path (geometry)
+            - dist (float)
+            - pos (string)
+                One of "On", "Downstream", "Upstream"
+
         Where all dict are built of string:LineString key/value pairs,
         string is the ID of the prefix2 closest station, and LineString
         is the sequence of nodes that were traversed to reach that
@@ -362,6 +396,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
         :param source:
         :param prefix:
         :param direction:
+        :param cum_dist
 
         :return:
         """
@@ -374,12 +409,15 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
 
         for u, v, data in edges:
             if type(data[prefix + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
-                series = data[prefix + 'data'].sort_values(by='dist').iloc[0]
-                dist  = cum_dist + abs(direction * data['mm_len'] - series['dist'])
+                series = data[prefix + 'data'].sort_values(
+                    by='dist',ascending=not direction
+                ).iloc[0]
+                dist  = cum_dist + abs(direction * data['LENGTH_M'] - series['dist'])
 
                 return series['ID'], dist, series['geometry'], (u, v)[direction]
             else:
-                result = *dfs((u, v)[not direction], prefix2, direction, cum_dist + data['mm_len']), \
+                result = *dfs((u, v)[not direction], prefix2, direction,
+                              cum_dist + data['LENGTH_M']), \
                           (u, v)[direction]
 
                 if result[0] != -1:
@@ -407,11 +445,12 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_'):
                 if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
 
                     for ind, row in pref_2_data.iterrows():
-                        on_dist = abs(station['dist'] - row['dist'])
-                        add_to_matches(station['ID'], row['ID'], LineString([station['geometry'], row['geometry']]),
+                        on_dist = station['geometry'].distance(row['geometry'])
+                        add_to_matches(station['ID'], row['ID'],
+                                       LineString([station['geometry'], row['geometry']]),
                                        on_dist, 'On')
 
-                down_id, down_dist, *point_list = dfs(v, prefix2, 0, data['mm_len'] - station['dist'])
+                down_id, down_dist, *point_list = dfs(v, prefix2, 0, data['LENGTH_M'] - station['dist'])
                 up_id, up_dist, *point_list2 = dfs(u, prefix2, 1, station['dist'])
 
                 point_list.append(station['geometry'])

@@ -112,7 +112,7 @@ def network_assign_test():
     network = gdf_utils.hyriv_gdf_to_network(lines)
 
     edge_df = gdf_utils.dfs_search(network)
-    print(edge_df.drop(columns=['path', 'pos']).sort_values(by='hydat_id').to_string())
+    print(edge_df.drop(columns=['path']).sort_values(by='hydat_id').to_string())
 
     plot_utils.draw_network(network, ax=ax)
     plot_utils.plot_paths(edge_df, ax=ax)
@@ -124,8 +124,7 @@ def network_assign_test():
         ax.annotate(row['STATION_NUMBER'], xy=(row['geometry'].x, row['geometry'].y))
 
     for ind, row in pwqmn.to_crs(crs=gdf_utils.Can_LCC_wkt).drop_duplicates('Location ID').iterrows():
-        if row['Location ID'] in edge_df['pwqmn_id']:
-            ax.annotate(row['Location ID'], xy=(row['geometry'].x, row['geometry'].y))
+        ax.annotate(row['Location ID'], xy=(row['geometry'].x, row['geometry'].y))
 
     legend_dict = {'Symbol': ['line', 'line', 'line', 'point', 'point'],
                    'Colour': ['orange', 'pink', 'purple', 'blue', 'red'],
