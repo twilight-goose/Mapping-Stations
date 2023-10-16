@@ -408,12 +408,14 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
     plot_utils.add_map_to_plot(ax=ax, total_bounds=bbox.to_ccrs(plot_utils.lambert))
 
     ax.set_box_aspect(1)
+    ax.set_facecolor('white')
     ax2.set_box_aspect(1)
+    ax2.set_facecolor('white')
 
     plot_utils.plot_gdf(hydat, ax=ax, marker='o', picker=True, pickradius=5, color='blue', zorder=5)
     plot_utils.plot_gdf(pwqmn, ax=ax, marker='o', picker=True, pickradius=5, color='red', zorder=4)
-    plot_utils.draw_network(network, ax=ax, zorder=3)
-    plot_utils.plot_paths(edge_df, ax=ax, annotate_dist=True)
+    plot_utils.draw_network(network, ax=ax)
+    plot_utils.plot_paths(edge_df, ax=ax)
 
     browser = PointBrowser()
 

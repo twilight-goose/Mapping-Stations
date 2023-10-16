@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import matplotlib.gridspec as gspec
 
+from adjustText import adjust_text
+
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from shapely import Point
@@ -318,7 +320,7 @@ def configure_legend(legend_dict: dict, ax=plt):
     ax.legend(handles=custom_lines, loc='upper right')
 
 
-def plot_station_array(edge_df, shape=None):
+def plot_station_array(edge_df, hydat, pwqmn, network, shape=None):
     grouped = edge_df.groupby(by='pwqmn_id')
 
     if shape is None:
@@ -329,6 +331,7 @@ def plot_station_array(edge_df, shape=None):
     fig, ax = plt.subplots(nrows=shape[0], ncols=shape[1],
                            subplot_kw={'projection': lambert, 'aspect': 'equal'},
                            figsize=(16, 8))
+
     plt.subplots_adjust(left=0.02, right=0.89, top=0.98, bottom=0.02)
     fig.add_axes([0.91, 0.01, 0.08, 0.96])
     n = 0
@@ -336,8 +339,25 @@ def plot_station_array(edge_df, shape=None):
     for ind, group in grouped:
         row, col = n // shape[1], n % shape[1]
         ax[row][col].set_box_aspect(1)
+        g_series = gpd.GeoSeries(group['path'], crs=Can_LCC_wkt)
+        add_map_to_plot(total_bounds=g_series.total_bounds, ax=ax[row][col])
         plot_paths(group, ax=ax[row][col])
+
+        plot_gdf(hydat, ax=ax[row][col], zorder=4, color='blue')
+        plot_gdf(pwqmn, ax=ax[row][col], zorder=5, color='red')
+        draw_network(network, ax=ax[row][col])
+
         n += 1
+
+        texts = []
+
+        for ind, row in hydat.to_crs(crs=gdf_utils.Can_LCC_wkt).iterrows():
+            texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['STATION_NUMBER']))
+
+        for ind, row in pwqmn.to_crs(crs=gdf_utils.Can_LCC_wkt).drop_duplicates('Location_ID').iterrows():
+            texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Location_ID']))
+
+        adjust_text(texts)
 
     plt.show()
 

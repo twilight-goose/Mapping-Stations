@@ -75,7 +75,7 @@ def pwqmn_query_test(points, bbox, period):
 
 def point_plot_test(points, bbox):
     ax = plot_utils.add_map_to_plot(
-        total_bounds=bbox.to_ccrs(gdf_utils.lambert)
+        total_bounds=bbox.to_ccrs(plot_utils.lambert)
     )
     plot_utils.plot_gdf(points, ax=ax)
     plot_utils.timed_display()
@@ -83,7 +83,7 @@ def point_plot_test(points, bbox):
 
 def snap_test(points, edges, bbox):
     ax = plot_utils.add_map_to_plot(
-        total_bounds=bbox.to_ccrs(gdf_utils.lambert)
+        total_bounds=bbox.to_ccrs(plot_utils.lambert)
     )
     plot_utils.plot_closest(points, edges, ax=ax)
     plot_utils.timed_display()
@@ -95,8 +95,7 @@ def network_test(lines):
     plot_utils.timed_display()
 
 
-def network_assign_test():
-    bbox=BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
+def network_assign_test(bbox=BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)):
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
@@ -128,6 +127,26 @@ def browser_test_2():
     plot_utils.line_browser(lines, bbox)
 
 
+def multiplot_test():
+    bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
+
+    hydat = load_data.get_hydat_station_data(bbox=bbox)
+    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
+
+    lines = load_data.load_hydro_rivers(bbox=bbox)
+    hydat = gdf_utils.point_gdf_from_df(hydat)
+    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
+
+    lines = gdf_utils.assign_stations(lines, hydat, 'STATION_NUMBER', prefix='hydat_')
+    lines = gdf_utils.assign_stations(lines, pwqmn, 'Location_ID', prefix='pwqmn_')
+
+    network = gdf_utils.hyriv_gdf_to_network(lines)
+
+    edge_df = gdf_utils.dfs_search(network)
+
+    plot_utils.plot_station_array(edge_df, hydat, pwqmn, network)
+
+
 def run_tests():
     bbox = BBox(min_x=-80, max_x=-75, min_y=45, max_y=50)
     period = Period("2000-01-12", "2004-10-10")
@@ -155,23 +174,7 @@ def run_tests():
 def main():
     timer = Timer()
 
-    bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
-
-    hydat = load_data.get_hydat_station_data(bbox=bbox)
-    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
-
-    lines = load_data.load_hydro_rivers(bbox=bbox)
-    hydat = gdf_utils.point_gdf_from_df(hydat)
-    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
-
-    lines = gdf_utils.assign_stations(lines, hydat, 'STATION_NUMBER', prefix='hydat_')
-    lines = gdf_utils.assign_stations(lines, pwqmn, 'Location_ID', prefix='pwqmn_')
-
-    network = gdf_utils.hyriv_gdf_to_network(lines)
-
-    edge_df = gdf_utils.dfs_search(network)
-
-    plot_utils.plot_station_array(edge_df)
+    network_assign_test()
 
     timer.stop()
 
