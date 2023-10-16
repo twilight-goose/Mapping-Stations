@@ -232,8 +232,8 @@ def browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
 
         def __init__(self):
             self.lastind = 0
-            self.text = ax.text(0.05, 0.95, 'selected: none',
-                                transform=ax.transAxes, va='top')
+            # self.text = ax.text(0.05, 0.95, 'selected: none',
+            #                     transform=ax.transAxes, va='top')
             self.selected, = ax.plot([xs[0]], [ys[0]], 'o', ms=12, alpha=0.4,
                                      color='yellow', visible=False)
 
@@ -267,17 +267,27 @@ def browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
                 return
 
             dataind = self.lastind
+            display_data = []
 
             ax2.clear()
-            data = X.iloc[dataind].to_dict()
-            display_data = []
+            if dataind > X.shape[0]:
+                data_key_1 = 'pwqmn_id'
+                data_key_2 = 'Location_ID'
+                data_key_3 = 'hydat_id'
+                data = pwqmn.iloc[dataind - X.shape[0]].to_dict()
+            else:
+                data_key_1 = 'hydat_id'
+                data_key_2 = 'STATION_NUMBER'
+                data_key_3 = 'pwqmn_id'
+                data = X.iloc[dataind].to_dict()
+
 
             for key in list(data.keys())[:-1]:
                 display_data.append((key, str(data[key])))
 
             for ind, row in edge_df.iterrows():
-                if row['hydat_id'] == data["STATION_NUMBER"]:
-                    display_data.append((f'Match: {row["pwqmn_id"]}', f"{row['dist']} m"))
+                if row[data_key_1] == data[data_key_2]:
+                    display_data.append((f'Match: {row[data_key_3]}', f"{row['dist']} m"))
 
             table = mpl.table.table(ax2, cellText=display_data, loc='upper center')
             table.auto_set_font_size(False)
@@ -288,13 +298,12 @@ def browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
             self.selected.set_data(
                 plot_utils.lambert.transform_point(xs[dataind], ys[dataind], plot_utils.geodetic)
             )
-
-            self.text.set_text('selected: %d' % dataind)
+            # self.text.set_text('selected: %d' % dataind)
             fig.canvas.draw()
 
     X = hydat
-    xs = X.geometry.x
-    ys = X.geometry.y
+    xs = X.geometry.x + pwqmn.geometry.x
+    ys = X.geometry.y + pwqmn.geometry.y
 
     fig = plt.figure(figsize=(14, 7))
     ax = plt.subplot(1, 2, 1, projection=plot_utils.lambert, position=[0.02, 0.04, 0.46, 0.92])
@@ -306,10 +315,10 @@ def browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
     ax.set_box_aspect(1)
     ax2.set_box_aspect(1)
 
-    plot_utils.plot_gdf(hydat, ax=ax, marker='o', picker=True, pickradius=5, **kwargs)
+    plot_utils.plot_gdf(hydat, ax=ax, marker='o', picker=True, pickradius=5, color='blue', zorder=5)
+    plot_utils.plot_gdf(pwqmn, ax=ax, marker='o', picker=True, pickradius=5, color='red', zorder=4)
     plot_utils.draw_network(network, ax=ax)
     plot_utils.plot_paths(edge_df, ax=ax, annotate_dist=True)
-    plot_utils.plot_gdf(pwqmn, ax=ax, color='red', zorder=5)
 
     browser = PointBrowser()
 

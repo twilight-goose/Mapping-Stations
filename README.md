@@ -23,6 +23,7 @@ conda install -n env-conda-3.9.18 -c conda-forge matplotlib
 conda install -n env-conda-3.9.18 -c conda-forge cartopy
 conda install -n env-conda-3.9.18 -c conda-forge momepy
 conda install -n env-conda-3.9.18 -c conda-forge networkx
+conda install -n env-conda-3.9.18 -c conda-forge matplotlib-scalebar
 ```
 
 A number of other dependencies will come with geopandas. You can check the version of each of these dependencies
@@ -178,7 +179,7 @@ awk -F'"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", ";", $i) } 1' Provincial
 ```
 ## Output Accuracy Table
 ### Zone 1: Southern/Central Ontario
-
+@submission 49303b0
    hydat_id    pwqmz`n_id  alg dist (m)   pos   manual
 0   02EA001  3009800302   3247.810984    On  ~3670 m
 1   02EA001  3009800402   3838.929621    On  ~4590 m

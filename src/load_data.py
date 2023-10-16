@@ -162,14 +162,14 @@ def generate_pwqmn_sql():
 
     # rename some columns to make working with the PWQMN data easier
     pwqmn_data.rename(columns={'MonitoringLocationName': 'Name',
-                               'MonitoringLocationID': "Location ID",
+                               'MonitoringLocationID': "Location_ID",
                                'MonitoringLocationLongitude': 'Longitude',
                                'MonitoringLocationLatitude': 'Latitude',
                                'ActivityStartDate': 'Date',
                                'CharacteristicName': 'Variables'}, inplace=True)
 
     # fill the sql database and close the connection
-    pwqmn_data['DATE'] = pd.to_datetime(pwqmn_data['DATE'])
+    pwqmn_data['Date'] = pd.to_datetime(pwqmn_data['Date'])
     pwqmn_data.to_sql("DATA", connection, index=False, if_exists='replace')
     connection.close()
 

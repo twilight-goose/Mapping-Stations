@@ -96,6 +96,7 @@ def network_test(lines):
 
 
 def network_assign_test():
+    load_data.generate_pwqmn_sql()
     bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
@@ -106,14 +107,14 @@ def network_assign_test():
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
     lines = gdf_utils.assign_stations(lines, hydat, 'STATION_NUMBER', prefix='hydat_')
-    lines = gdf_utils.assign_stations(lines, pwqmn, 'Location ID', prefix='pwqmn_')
+    lines = gdf_utils.assign_stations(lines, pwqmn, 'Location_ID', prefix='pwqmn_')
 
     network = gdf_utils.hyriv_gdf_to_network(lines)
 
     edge_df = gdf_utils.dfs_search(network)
     print(edge_df.drop(columns=['path']).sort_values(by='hydat_id').to_string())
 
-    browser.browser(hydat,network, pwqmn, edge_df, bbox, color='blue', zorder=10)
+    browser.browser(hydat,network, pwqmn, edge_df, bbox, color='blue')
 
     # plot_utils.draw_network(network, ax=ax)
     # plot_utils.plot_paths(edge_df, ax=ax, annotate_dist=True)
