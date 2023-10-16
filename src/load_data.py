@@ -39,6 +39,62 @@ No spatial manipulation is done in this file.
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# ========================================================================= ##
+# Generator =============================================================== ##
+# ========================================================================= ##
+
+def generate_pwqmn_sql():
+    """
+    Creates a sqlite3 database from PWQMN data.
+
+    Creates a connection to the sql database (if it doesn't exist it
+    is created), reads a specified set of columns from the PWQMN data,
+    then writes it to the sql database as the 'DATA' table. If a 'DATA'
+    table exists already, that table is overwritten by the new data.
+
+    :return: None
+    """
+    print("Generating PWQMN sqlite3 database")
+    connection = sqlite3.connect(pwqmn_sql_path)
+
+    # read fields of interest, and set data types for mixed type fields
+    pwqmn_data = pd.read_csv(pwqmn_path,
+                             usecols=['MonitoringLocationName',
+                                      'MonitoringLocationID',
+                                      'MonitoringLocationLongitude',
+                                      'MonitoringLocationLatitude',
+                                      'ActivityStartDate',
+                                      'CharacteristicName',
+                                      'SampleCollectionEquipmentName',
+                                      'ResultSampleFraction',
+                                      'ResultValue',
+                                      'ResultUnit',
+                                      'ResultValueType',
+                                      'ResultDetectionCondition',
+                                      'ResultDetectionQuantitationLimitMeasure',
+                                      'ResultDetectionQuantitationLimitUnit'],
+                             dtype={'MonitoringLocationLongitude': float,
+                                    'MonitoringLocationLatitude': float,
+                                    'ResultSampleFraction': str,
+                                    'ResultValue': float,
+                                    'ResultUnit': str,
+                                    'ResultDetectionCondition': str,
+                                    'ResultDetectionQuantitationLimitMeasure': str,
+                                    'ResultDetectionQuantitationLimitUnit': str})
+
+    # rename some columns to make working with the PWQMN data easier
+    pwqmn_data.rename(columns={'MonitoringLocationName': 'Name',
+                               'MonitoringLocationID': "Location_ID",
+                               'MonitoringLocationLongitude': 'Longitude',
+                               'MonitoringLocationLatitude': 'Latitude',
+                               'ActivityStartDate': 'Date',
+                               'CharacteristicName': 'Variables'}, inplace=True)
+
+    # fill the sql database and close the connection
+    pwqmn_data['Date'] = pd.to_datetime(pwqmn_data['Date'])
+    pwqmn_data.to_sql("DATA", connection, index=False, if_exists='replace')
+    connection.close()
+
 
 # ========================================================================= ##
 # Data File Paths ========================================================= ##
@@ -116,62 +172,6 @@ def find_xy_fields(df: pd.DataFrame) -> [str, str]:
 
     return x, y
 
-
-# ========================================================================= ##
-# Generator =============================================================== ##
-# ========================================================================= ##
-
-def generate_pwqmn_sql():
-    """
-    Creates a sqlite3 database from PWQMN data.
-
-    Creates a connection to the sql database (if it doesn't exist it
-    is created), reads a specified set of columns from the PWQMN data,
-    then writes it to the sql database as the 'DATA' table. If a 'DATA'
-    table exists already, that table is overwritten by the new data.
-
-    :return: None
-    """
-    print("Generating PWQMN sqlite3 database")
-    connection = sqlite3.connect(pwqmn_sql_path)
-
-    # read fields of interest, and set data types for mixed type fields
-    pwqmn_data = pd.read_csv(pwqmn_path,
-                             usecols=['MonitoringLocationName',
-                                      'MonitoringLocationID',
-                                      'MonitoringLocationLongitude',
-                                      'MonitoringLocationLatitude',
-                                      'ActivityStartDate',
-                                      'CharacteristicName',
-                                      'SampleCollectionEquipmentName',
-                                      'ResultSampleFraction',
-                                      'ResultValue',
-                                      'ResultUnit',
-                                      'ResultValueType',
-                                      'ResultDetectionCondition',
-                                      'ResultDetectionQuantitationLimitMeasure',
-                                      'ResultDetectionQuantitationLimitUnit'],
-                             dtype={'MonitoringLocationLongitude': float,
-                                    'MonitoringLocationLatitude': float,
-                                    'ResultSampleFraction': str,
-                                    'ResultValue': float,
-                                    'ResultUnit': str,
-                                    'ResultDetectionCondition': str,
-                                    'ResultDetectionQuantitationLimitMeasure': str,
-                                    'ResultDetectionQuantitationLimitUnit': str})
-
-    # rename some columns to make working with the PWQMN data easier
-    pwqmn_data.rename(columns={'MonitoringLocationName': 'Name',
-                               'MonitoringLocationID': "Location_ID",
-                               'MonitoringLocationLongitude': 'Longitude',
-                               'MonitoringLocationLatitude': 'Latitude',
-                               'ActivityStartDate': 'Date',
-                               'CharacteristicName': 'Variables'}, inplace=True)
-
-    # fill the sql database and close the connection
-    pwqmn_data['Date'] = pd.to_datetime(pwqmn_data['Date'])
-    pwqmn_data.to_sql("DATA", connection, index=False, if_exists='replace')
-    connection.close()
 
 # ========================================================================= ##
 # Loaders ================================================================= ##
@@ -295,6 +295,8 @@ def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd
 
     station_df.rename(columns={'LONGITUDE': 'Longitude', 'LATITUDE': 'Latitude'},
                       inplace=True)
+
+    period_query = Period.sql_query(period, ['YEAR_FROM', 'YEAR_TO'])
 
     timer.stop()
     conn.close()        # close the sqlite3 connection

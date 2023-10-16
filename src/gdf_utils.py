@@ -275,12 +275,12 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     :param stat_id_f: string
         The name of the unique identifier field in stations.
 
-    :param prefix: string
+    :param prefix: string (default="")
         Prefix to apply to added 'data' column. Useful if you need to
         assign more than 1 set of stations to edges. If left blank, may
         cause overlapping columns in output GeoDataFrame.
 
-    :param max_distance: int
+    :param max_distance: int (default=1000)
         The maximum distance (in CRS units) within which to assign a
         station to edges. If int, must be greater than 0. Default
         1000 (meters; Lambert Conformal Conic units ).
@@ -460,6 +460,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         return -1, -1, -1
 
     def add_to_matches(id1, id2, path, _dist, _pos):
+        """
+        Helper function that adds a set of values to a dictionary.
+        """
         matches[prefix1 + 'id'].append(id1)
         matches[prefix2 + 'id'].append(id2)
         matches['path'].append(path)
@@ -476,7 +479,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
 
             for ind, station in pref_1_data.iterrows():
                 if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-                    
+
                     for ind, row in pref_2_data.iterrows():
                         on_dist = station['geometry'].distance(row['geometry'])
 

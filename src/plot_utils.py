@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+import matplotlib.gridspec as gspec
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -238,19 +239,31 @@ def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, ax=plt):
     plot_gdf(points, ax=ax, color='blue', zorder=10, label='original')
 
 
-def plot_paths(edge_df, ax=None, filter="", annotate_dist=False):
+def plot_paths(edge_df, ax=None, filter=""):
     """
+    Plots geometry data of a DataFrame with a specific structure.
+    Accepts the output from gdf_utils.dfs_search(), plots paths
+    from origin to matched stations with the following color code:
+        On Segment: Orange
+        Downstream: Pink
+        Upstream: Purple
 
-    :param edge_df:
+    :param edge_df: DataFrame
+        The structure containing the data to plot. Must contain the
+        following columns:
+            - 'pos' (string)
+            - 'path' (geometry; LineString)
+
     :param ax:
-    :param filter:
-    :param annotate_dist:
+        The axes to plot the paths onto.
+
+    :param filter: string
+        Accepts any value in 'pos'.
 
     :return:
     """
     grouped = edge_df.groupby(by='pos')
     for ind, group in grouped:
-        print(ind)
         if ind == 'On':
             color = 'orange'
         elif ind == 'Down':
@@ -260,10 +273,36 @@ def plot_paths(edge_df, ax=None, filter="", annotate_dist=False):
         else:
             color = 'grey'
         if ind == filter or filter == "":
-            plot_g_series(gpd.GeoSeries(group['path'], crs=Can_LCC_wkt), ax=ax, color=color, linewidth=3)
+            plot_g_series(gpd.GeoSeries(group['path'], crs=Can_LCC_wkt), ax=ax,
+                          color=color, linewidth=3)
 
 
 def configure_legend(legend_dict: dict, ax=plt):
+    """
+    Configures a custom legend on an Axes object based on information
+    provided in a dict.
+
+    :param legend_dict: dict
+        Dictionary object of 3 key/list pairs, where keys are 'Symbol',
+        'Colour', and 'Label', and lists are the same length. Items at
+        index i of each list hold properties of the element to add to
+        the legend.
+
+        Items in legend_dict['Symbol'] must be either 'point' or 'line'.
+        Items in legend_dict['Colour'] must be matplotlib recognized
+            colour values.
+        Items in legend_dict['Label'] must be strings.
+
+        i.e.
+            legend_dict['Symbol'][3], legend_dict['Colour'][3], and
+            legend_dict['Label'][3] are used to configure the 4th
+            element on the legend.
+
+    :param ax: Axes object
+        Axes to plot the configured custom legend onto.
+
+    :return:
+    """
     custom_lines = []
     for i in range(len(legend_dict['Symbol'])):
         color = legend_dict['Colour'][i]
@@ -279,8 +318,28 @@ def configure_legend(legend_dict: dict, ax=plt):
     ax.legend(handles=custom_lines, loc='upper right')
 
 
-def plot_station_array():
-    pass
+def plot_station_array(edge_df, shape=None):
+    grouped = edge_df.groupby(by='pwqmn_id')
+
+    if shape is None:
+        cols = np.ceil(np.sqrt(len(grouped.groups.keys()))) + 1
+        rows = np.ceil(len(grouped.groups.keys()) / cols)
+        shape = int(rows), int(cols)
+
+    fig, ax = plt.subplots(nrows=shape[0], ncols=shape[1],
+                           subplot_kw={'projection': lambert, 'aspect': 'equal'},
+                           figsize=(16, 8))
+    plt.subplots_adjust(left=0.02, right=0.89, top=0.98, bottom=0.02)
+    fig.add_axes([0.91, 0.01, 0.08, 0.96])
+    n = 0
+
+    for ind, group in grouped:
+        row, col = n // shape[1], n % shape[1]
+        ax[row][col].set_box_aspect(1)
+        plot_paths(group, ax=ax[row][col])
+        n += 1
+
+    plt.show()
 
 
 def show():

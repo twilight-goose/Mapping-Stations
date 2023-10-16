@@ -111,9 +111,8 @@ def network_assign_test():
     network = gdf_utils.hyriv_gdf_to_network(lines)
 
     edge_df = gdf_utils.dfs_search(network)
-    print(edge_df.drop(columns=['path']).sort_values(by='hydat_id').to_string())
 
-    browser.browser(hydat,network, pwqmn, edge_df, bbox, color='blue')
+    browser.match_browser(hydat, network, pwqmn, edge_df, bbox, color='blue')
 
 
 def browser_test_1():
@@ -156,7 +155,23 @@ def run_tests():
 def main():
     timer = Timer()
 
-    network_assign_test()
+    bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
+
+    hydat = load_data.get_hydat_station_data(bbox=bbox)
+    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
+
+    lines = load_data.load_hydro_rivers(bbox=bbox)
+    hydat = gdf_utils.point_gdf_from_df(hydat)
+    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
+
+    lines = gdf_utils.assign_stations(lines, hydat, 'STATION_NUMBER', prefix='hydat_')
+    lines = gdf_utils.assign_stations(lines, pwqmn, 'Location_ID', prefix='pwqmn_')
+
+    network = gdf_utils.hyriv_gdf_to_network(lines)
+
+    edge_df = gdf_utils.dfs_search(network)
+
+    plot_utils.plot_station_array(edge_df)
 
     timer.stop()
 
