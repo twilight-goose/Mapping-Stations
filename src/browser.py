@@ -9,6 +9,8 @@ import gdf_utils
 import matplotlib as mpl
 from matplotlib_scalebar.scalebar import ScaleBar
 
+from adjustText import adjust_text
+
 
 class LineBuilder(object):
     epsilon = 0.5
@@ -222,7 +224,97 @@ def line_browser(lines, bbox):
     plt.show()
 
 
-def browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
+def browser(data, bbox, **kwargs):
+    class PointBrowser:
+        """
+        Click on a point to select and highlight it -- the data that
+        generated the point will be shown in the lower axes.  Use the 'n'
+        and 'p' keys to browse through the next and previous points
+        """
+
+        def __init__(self):
+            self.lastind = 0
+            self.text = ax.text(0.05, 0.95, 'selected: none',
+                                transform=ax.transAxes, va='top')
+            self.selected, = ax.plot([xs[0]], [ys[0]], 'o', ms=12, alpha=0.4,
+                                     color='yellow', visible=False)
+
+        def on_press(self, event):
+            if self.lastind is None:
+                return
+            if event.key not in ('n', 'p'):
+                return
+            if event.key == 'n':
+                inc = 1
+            else:
+                inc = -1
+
+            self.lastind += inc
+            self.lastind = np.clip(self.lastind, 0, len(xs) - 1)
+            self.update()
+
+        def on_pick(self, event):
+            x = event.mouseevent.xdata
+            y = event.mouseevent.ydata
+
+            distances = np.hypot(x - xs[event.ind], y - ys[event.ind])
+            indmin = distances.argmin()
+            dataind = event.ind[indmin]
+
+            self.lastind = dataind
+            self.update()
+
+        def update(self):
+            if self.lastind is None:
+                return
+
+            dataind = self.lastind
+
+            ax2.clear()
+            data = X.iloc[dataind].to_dict()
+            display_data = []
+
+            for key in list(data.keys())[:-1]:
+                display_data.append((key, str(data[key])))
+
+            table = mpl.table.table(ax2, cellText=display_data, loc='upper center')
+            table.auto_set_font_size(False)
+            table.set_fontsize(9)
+            table.scale(1, 2)
+
+            self.selected.set_visible(True)
+            self.selected.set_data(
+                plot_utils.lambert.transform_point(xs[dataind], ys[dataind], plot_utils.geodetic)
+            )
+
+            self.text.set_text('selected: %d' % dataind)
+            fig.canvas.draw()
+
+    X = data
+    xs = X.geometry.x
+    ys = X.geometry.y
+
+    fig = plt.figure(figsize=(14, 7))
+    ax = plt.subplot(1, 2, 1, projection=plot_utils.lambert, position=[0.02, 0.04, 0.46, 0.92])
+    ax2 = plt.subplot(1, 2, 2)
+    ax2.set_axis_off()
+
+    plot_utils.add_map_to_plot(ax=ax, total_bounds=bbox.to_ccrs(plot_utils.lambert))
+
+    ax.set_box_aspect(1)
+    ax2.set_box_aspect(1)
+
+    plot_utils.plot_gdf(data, ax=ax, marker='o', picker=True, pickradius=5, **kwargs)
+
+    browser = PointBrowser()
+
+    fig.canvas.mpl_connect('pick_event', browser.on_pick)
+    fig.canvas.mpl_connect('key_press_event', browser.on_press)
+
+    return ax
+
+
+def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
     class PointBrowser:
         """
         Click on a point to select and highlight it -- the data that
@@ -234,8 +326,9 @@ def browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
             self.lastind = 0
             # self.text = ax.text(0.05, 0.95, 'selected: none',
             #                     transform=ax.transAxes, va='top')
-            self.selected, = ax.plot([xs[0]], [ys[0]], 'o', ms=12, alpha=0.4,
-                                     color='yellow', visible=False)
+            self.selected, = ax.plot([xs[0]], [ys[0]], 'o', ms=20, alpha=0.4,
+                                     color='yellow', visible=False, marker='*',
+                                     zorder=6)
 
         def on_press(self, event):
             if self.lastind is None:
@@ -281,7 +374,6 @@ def browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
                 data_key_3 = 'pwqmn_id'
                 data = X.iloc[dataind].to_dict()
 
-
             for key in list(data.keys())[:-1]:
                 display_data.append((key, str(data[key])))
 
@@ -293,10 +385,13 @@ def browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
             table.auto_set_font_size(False)
             table.set_fontsize(9)
             table.scale(1, 2)
+            ax2.set_axis_off()
+            ax2.set_title('Station Info')
 
             self.selected.set_visible(True)
             self.selected.set_data(
-                plot_utils.lambert.transform_point(xs[dataind], ys[dataind], plot_utils.geodetic)
+                plot_utils.lambert.transform_point(data['geometry'].x, data['geometry'].y,
+                                                   plot_utils.geodetic)
             )
             # self.text.set_text('selected: %d' % dataind)
             fig.canvas.draw()
@@ -307,7 +402,7 @@ def browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
 
     fig = plt.figure(figsize=(14, 7))
     ax = plt.subplot(1, 2, 1, projection=plot_utils.lambert, position=[0.02, 0.04, 0.46, 0.92])
-    ax2 = plt.subplot(1, 2, 2)
+    ax2 = plt.subplot(1, 2, 2, position=[0.52, 0.04, 0.46, 0.92])
     ax2.set_axis_off()
 
     plot_utils.add_map_to_plot(ax=ax, total_bounds=bbox.to_ccrs(plot_utils.lambert))
@@ -317,7 +412,7 @@ def browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
 
     plot_utils.plot_gdf(hydat, ax=ax, marker='o', picker=True, pickradius=5, color='blue', zorder=5)
     plot_utils.plot_gdf(pwqmn, ax=ax, marker='o', picker=True, pickradius=5, color='red', zorder=4)
-    plot_utils.draw_network(network, ax=ax)
+    plot_utils.draw_network(network, ax=ax, zorder=3)
     plot_utils.plot_paths(edge_df, ax=ax, annotate_dist=True)
 
     browser = PointBrowser()
@@ -325,11 +420,15 @@ def browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
     fig.canvas.mpl_connect('pick_event', browser.on_pick)
     fig.canvas.mpl_connect('key_press_event', browser.on_press)
 
-    for ind, row in hydat.to_crs(crs=gdf_utils.Can_LCC_wkt).iterrows():
-        ax.annotate(row['STATION_NUMBER'], xy=(row['geometry'].x, row['geometry'].y))
+    texts = []
 
-    for ind, row in pwqmn.to_crs(crs=gdf_utils.Can_LCC_wkt).drop_duplicates('Location ID').iterrows():
-        ax.annotate(row['Location ID'], xy=(row['geometry'].x, row['geometry'].y))
+    for ind, row in hydat.to_crs(crs=gdf_utils.Can_LCC_wkt).iterrows():
+        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['STATION_NUMBER']))
+
+    for ind, row in pwqmn.to_crs(crs=gdf_utils.Can_LCC_wkt).drop_duplicates('Location_ID').iterrows():
+        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Location_ID']))
+
+    adjust_text(texts)
 
     legend_dict = {'Symbol': ['line', 'line', 'line', 'point', 'point'],
                    'Colour': ['orange', 'pink', 'purple', 'blue', 'red'],

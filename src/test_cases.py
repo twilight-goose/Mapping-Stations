@@ -96,8 +96,7 @@ def network_test(lines):
 
 
 def network_assign_test():
-    load_data.generate_pwqmn_sql()
-    bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
+    bbox=BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
@@ -116,39 +115,17 @@ def network_assign_test():
 
     browser.browser(hydat,network, pwqmn, edge_df, bbox, color='blue')
 
-    # plot_utils.draw_network(network, ax=ax)
-    # plot_utils.plot_paths(edge_df, ax=ax, annotate_dist=True)
-    #
-    # # plot_utils.plot_gdf(hydat, ax=ax, color='blue', zorder=4)
-    # plot_utils.plot_gdf(pwqmn, ax=ax, color='red', zorder=5)
-    #
-    # for ind, row in hydat.to_crs(crs=gdf_utils.Can_LCC_wkt).iterrows():
-    #     ax.annotate(row['STATION_NUMBER'], xy=(row['geometry'].x, row['geometry'].y))
-    #
-    # for ind, row in pwqmn.to_crs(crs=gdf_utils.Can_LCC_wkt).drop_duplicates('Location ID').iterrows():
-    #     ax.annotate(row['Location ID'], xy=(row['geometry'].x, row['geometry'].y))
-    #
-    # legend_dict = {'Symbol': ['line', 'line', 'line', 'point', 'point'],
-    #                'Colour': ['orange', 'pink', 'purple', 'blue', 'red'],
-    #                'Label': ['On', 'Downstream', 'Upstream', 'HYDAT', 'PWQMN']}
-    #
-    # plot_utils.configure_legend(legend_dict, ax=ax)
-    # ax.set_title('Matching HYDAT (Blue) to PWQMN (Red) Stations')
-    #
-    # plot_utils.show()
-
-
 
 def browser_test_1():
     bbox = BBox(min_x=-80, max_x=-75, min_y=45, max_y=50)
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     hydat = gdf_utils.point_gdf_from_df(hydat)
-    plot_utils.browser(hydat, bbox)
+    browser.browser(hydat, bbox)
 
 
 def browser_test_2():
     bbox = BBox(min_x=-80, max_x=-75, min_y=45, max_y=50)
-    lines = gdf_utils.load_hydro_rivers(bbox=bbox)
+    lines = load_data.load_hydro_rivers(bbox=bbox)
     plot_utils.line_browser(lines, bbox)
 
 
@@ -158,7 +135,7 @@ def run_tests():
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
-    lines = gdf_utils.load_hydro_rivers(bbox=bbox)
+    lines = load_data.load_hydro_rivers(bbox=bbox)
 
     hydat = gdf_utils.point_gdf_from_df(hydat)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
@@ -173,8 +150,7 @@ def run_tests():
     snap_test(pwqmn, lines, bbox)
 
     network_test(lines)
-    network_assign_test(lines, pwqmn, 'Location ID', 'pwqmn_')
-    network_assign_test(lines, hydat, 'STATION_NUMBER', 'hydat_')
+    network_assign_test()
 
 
 def main():

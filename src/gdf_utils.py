@@ -347,7 +347,7 @@ def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
 
 
 def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
-               max_distance=10000, ):
+               max_distance=10000):
     """
     For each station assigned to the network denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -371,25 +371,35 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
     distance between matched stations is computed geographically.
 
     :param network:
+        NetworkX Directed graph.
+
     :param prefix1: string
+        Prefix denoting the network edge attribute holding origin
+        station data.
+
     :param prefix2: string
+        Prefix denoting the network edge attribute holding candidate
+        station data.
+
     :param max_distance: int
+        Maximum distance to search for a matching station in CRS units.
+        Default 10000 (m).
 
     :return: Pandas DataFrame
         DataFrame with the following columns:
             - prefix1_id (string)
+                Origin station ID.
             - prefix2_id (string)
-            - path (geometry)
+                ID of the station matched to the origin station.
+            - path (geometry; LineString)
+                Path from the origin station to the matched station,
+                following network nodes.
             - dist (float)
+                Distance along the river network between matched
+                stations.
             - pos (string)
-                One of "On", "Downstream", "Upstream"
-
-        Where all dict are built of string:LineString key/value pairs,
-        string is the ID of the prefix2 closest station, and LineString
-        is the sequence of nodes that were traversed to reach that
-        station. The output LineStrings represent paths along the Graph
-        but it's shape is not accurate to that of the real world path
-        representative along the river system.
+                One of "On", "Downstream", "Upstream" indicating
+                the relative position of the matched station.
     """
     def bfs(source):
         pass
@@ -397,12 +407,24 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
     def dfs(source, prefix, direction, cum_dist, depth):
         """
         Traverses edges depth first search moving along the network.
+        Does not accept candidates that are max_distance units away
+        or 10 segments away.
 
         :param source:
-        :param prefix:
-        :param direction:
-        :param cum_dist
-        :param depth:
+            Source node key to search from.
+
+        :param prefix: string
+            Prefix of candidate station data.
+
+        :param direction: int (0 or 1)
+            Integer flag indicating direction to search.
+            0=Downstream, 1=Upstream.
+
+        :param cum_dist: float
+            Approximate cumulative distance from origin node.
+
+        :param depth: int
+            The number of segments that have been traversed.
 
         :return:
         """
@@ -454,15 +476,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
 
             for ind, station in pref_1_data.iterrows():
                 if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-
-                    # row = pref_2_data.sort_values(by='dist', key=(
-                    #     lambda x: abs(x - station['dist']))).iloc[0]
-                    #
-                    # if on_calc == 'absolute':
-                    #     on_dist = station['geometry'].distance(row['geometry'])
-                    # else:  # on_calc == 'relative
-                    #     on_dist = abs(station['dist'] - row['dist'])
-
+                    
                     for ind, row in pref_2_data.iterrows():
                         on_dist = station['geometry'].distance(row['geometry'])
 
