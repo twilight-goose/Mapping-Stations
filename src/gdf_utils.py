@@ -474,7 +474,8 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         matches['dist'].append(_dist)
         matches['pos'].append(_pos)
         matches['seg_apart'].append(depth)
-
+    """
+    """
     matches = {prefix1 + 'id': [], prefix2 + 'id' : [], 'path': [],
                'dist':[], 'pos': [], 'seg_apart': []}
 
