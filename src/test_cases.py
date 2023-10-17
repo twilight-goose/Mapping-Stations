@@ -111,6 +111,7 @@ def network_assign_test():
     network = gdf_utils.hyriv_gdf_to_network(lines)
 
     edge_df = gdf_utils.dfs_search(network)
+    print(edge_df.drop(columns='path').to_string())
 
     browser.match_browser(hydat, network, pwqmn, edge_df, bbox, color='blue')
 
@@ -175,7 +176,6 @@ def plot_array_test():
 def main():
     timer = Timer()
 
-    plot_array_test()
     network_assign_test()
 
     timer.stop()

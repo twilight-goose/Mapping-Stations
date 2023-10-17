@@ -3,15 +3,13 @@ import sqlite3
 import check_files
 from util_classes import BBox, Period, Timer
 
-import pandas as pd
+from pandas import read_csv, read_sql_query
 from geopandas import read_file
 
 
 """
-
-Overview: 
-
-No spatial manipulation is done in this file.
+Contains functions, constants, and objects relevant to the loading
+and saving of files.
 """
 
 # ========================================================================= ##
@@ -39,6 +37,48 @@ No spatial manipulation is done in this file.
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+
+# ========================================================================= ##
+# Utilities =============================================================== ##
+# ========================================================================= ##
+
+
+def find_xy_fields(df: pd.DataFrame) -> [str, str]:
+    """
+    Searches a pandas DataFrame for specific field names to use as
+    longitudinal and latitudinal values.
+
+    If more than 1 match is found for X or Y, "Failed" will be
+    returned. If no match is found for X or Y, an empty string
+    will be returned. Not case-sensitive.
+
+    :param df: <Pandas DataFrame>
+        The DataFrame to search
+
+    :return: list(<str>, <str>)
+        The result of the search for x and y fields, where each item
+        in the list is either the field name or "Failed"
+        i.e:
+            [<X field name> or "Failed", <Y field name> or "Failed"]
+    """
+
+    # simple helper function
+    def _(i, field_name) -> str:
+        return field_name if i == "" else "Failed"
+
+    # initiate x and y
+    x, y = "", ""
+
+    # Iterate through dataframe field names
+    for field in df.columns.values:
+        # Check if the field matches one of the X or Y field names
+        if field.upper() in ["LON", "LONG", "LONGITUDE", "X"]:
+            x = _(x, field)
+        elif field.upper() in ["LAT", "LATITUDE", "Y"]:
+            y = _(y, field)
+
+    return x, y
+
 # ========================================================================= ##
 # Generator =============================================================== ##
 # ========================================================================= ##
@@ -58,7 +98,7 @@ def generate_pwqmn_sql():
     connection = sqlite3.connect(pwqmn_sql_path)
 
     # read fields of interest, and set data types for mixed type fields
-    pwqmn_data = pd.read_csv(pwqmn_path,
+    pwqmn_data = read_csv(pwqmn_path,
                              usecols=['MonitoringLocationName',
                                       'MonitoringLocationID',
                                       'MonitoringLocationLongitude',
@@ -132,48 +172,6 @@ timer = Timer()
 
 
 # ========================================================================= ##
-# Utilities =============================================================== ##
-# ========================================================================= ##
-
-
-def find_xy_fields(df: pd.DataFrame) -> [str, str]:
-    """
-    Searches a pandas DataFrame for specific field names to use as
-    longitudinal and latitudinal values.
-
-    If more than 1 match is found for X or Y, "Failed" will be
-    returned. If no match is found for X or Y, an empty string
-    will be returned. Not case-sensitive.
-
-    :param df: <Pandas DataFrame>
-        The DataFrame to search
-
-    :return: list(<str>, <str>)
-        The result of the search for x and y fields, where each item
-        in the list is either the field name or "Failed"
-        i.e:
-            [<X field name> or "Failed", <Y field name> or "Failed"]
-    """
-
-    # simple helper function
-    def _(i, field_name) -> str:
-        return field_name if i == "" else "Failed"
-
-    # initiate x and y
-    x, y = "", ""
-
-    # Iterate through dataframe field names
-    for field in df.columns.values:
-        # Check if the field matches one of the X or Y field names
-        if field.upper() in ["LON", "LONG", "LONGITUDE", "X"]:
-            x = _(x, field)
-        elif field.upper() in ["LAT", "LATITUDE", "Y"]:
-            y = _(y, field)
-
-    return x, y
-
-
-# ========================================================================= ##
 # Loaders ================================================================= ##
 # ========================================================================= ##
 
@@ -209,7 +207,7 @@ def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
         # read the entirety of the .csv and add it to the dictionary
         # not recommended for use with large .csv files (>500 mb) as
         # loading times can become long
-        df = pd.read_csv(os.path.join(path, file))
+        df = read_csv(os.path.join(path, file))
 
         # check if a filtering by bbox is necessary
         if bbox is not None:
@@ -286,7 +284,7 @@ def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd
 
     # read station info from the STATIONS table within the database and
     # load that info into the station data dict
-    station_df = pd.read_sql_query("SELECT STATION_NUMBER, STATION_NAME, HYD_STATUS, SED_STATUS, LATITUDE, LONGITUDE,"
+    station_df = read_sql_query("SELECT STATION_NUMBER, STATION_NAME, HYD_STATUS, SED_STATUS, LATITUDE, LONGITUDE,"
                                    "DRAINAGE_AREA_GROSS, DRAINAGE_AREA_EFFECT FROM 'STATIONS' WHERE PROV_TERR_STATE_"
                                    "LOC == 'ON'" + bbox_query, conn)
 
@@ -363,7 +361,7 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
         query += f" ORDER BY RANDOM() LIMIT {sample}"
 
     # Load PWQMN data as a DataFrame
-    station_df = pd.read_sql_query("SELECT * FROM 'DATA'" + query, conn)
+    station_df = read_sql_query("SELECT * FROM 'DATA'" + query, conn)
 
     # Usually takes around 80 seconds
     timer.stop()
