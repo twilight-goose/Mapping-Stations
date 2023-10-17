@@ -153,7 +153,7 @@ def run_tests():
 
 
 def plot_array_test():
-    bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
+    bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
@@ -169,11 +169,13 @@ def plot_array_test():
 
     edge_df = gdf_utils.dfs_search(network)
 
-    plot_utils.plot_station_array(edge_df)
+    plot_utils.plot_match_array(edge_df)
+
 
 def main():
     timer = Timer()
 
+    plot_array_test()
     network_assign_test()
 
     timer.stop()

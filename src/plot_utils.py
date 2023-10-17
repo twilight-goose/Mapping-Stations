@@ -14,6 +14,7 @@ import matplotlib.gridspec as gspec
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from shapely import Point
+from adjustText import adjust_text
 
 
 timer = Timer()
@@ -328,7 +329,31 @@ def configure_legend(legend_dict: dict, ax=plt):
     ax.legend(handles=custom_lines, loc='upper right')
 
 
-def plot_station_array(edge_df, shape=None):
+def annotate_stations(hydat, pwqmn, ax):
+    """
+
+    :param hydat:
+    :param pwqmn:
+    :return:
+    """
+    texts = []
+
+    for ind, row in hydat.to_crs(crs=gdf_utils.Can_LCC_wkt).iterrows():
+        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['STATION_NUMBER']))
+
+    for ind, row in pwqmn.to_crs(crs=gdf_utils.Can_LCC_wkt).drop_duplicates('Location_ID').iterrows():
+        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Location_ID']))
+
+    adjust_text(texts)
+
+
+def plot_match_array(edge_df, shape=None):
+    """
+
+    :param edge_df:
+    :param shape:
+    :return:
+    """
     grouped = edge_df.groupby(by='pwqmn_id')
 
     if shape is None:
@@ -339,6 +364,7 @@ def plot_station_array(edge_df, shape=None):
     fig, ax = plt.subplots(nrows=shape[0], ncols=shape[1],
                            subplot_kw={'projection': lambert, 'aspect': 'equal'},
                            figsize=(16, 8))
+
     plt.subplots_adjust(left=0.02, right=0.89, top=0.98, bottom=0.02)
     fig.add_axes([0.91, 0.01, 0.08, 0.96])
     n = 0
@@ -373,6 +399,14 @@ def close():
 
 
 def timed_display(seconds=2):
+    """
+    Displays the current matplotlib.pyplot plot, and automatically
+    closes the plot window after a specificied amount of time.r
+
+    :param seconds: int
+        Time to display the plot for in seconds. Default 2 seconds.
+    :return:
+    """
     plt.show(block=False)
     plt.pause(seconds)
     plt.close()

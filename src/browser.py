@@ -1,17 +1,13 @@
 import matplotlib.pyplot as plt
-from util_classes import BBox
-
-import matplotlib.pyplot as plt
-import numpy as np
+import matplotlib.table as mpl_table
 from matplotlib.lines import Line2D
-import plot_utils
-import gdf_utils
-import matplotlib as mpl
 from matplotlib_scalebar.scalebar import ScaleBar
 
-from adjustText import adjust_text
-import pandas as pd
+from util_classes import BBox
 import numpy as np
+
+import plot_utils
+import pandas as pd
 
 
 class LineBuilder(object):
@@ -186,7 +182,7 @@ def line_browser(lines, bbox):
             for key in list(data.keys())[:-1]:
                 display_data.append((key, str(data[key])))
 
-            table = mpl.table.table(ax2, cellText=display_data, loc='upper center')
+            table = mpl_table.table(ax2, cellText=display_data, loc='upper center')
             table.auto_set_font_size(False)
             table.set_fontsize(9)
             table.scale(1, 2)
@@ -279,7 +275,7 @@ def browser(data, bbox, **kwargs):
             for key in list(data.keys())[:-1]:
                 display_data.append((key, str(data[key])))
 
-            table = mpl.table.table(ax2, cellText=display_data, loc='upper center')
+            table = mpl_table.table(ax2, cellText=display_data, loc='upper center')
             table.auto_set_font_size(False)
             table.set_fontsize(9)
             table.scale(1, 2)
@@ -381,7 +377,7 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
                 if row[data_key_1] == data[data_key_2]:
                     display_data.append((f'Match: {row[data_key_3]}', f"{row['dist']} m"))
 
-            table = mpl.table.table(ax2, cellText=display_data, loc='upper center')
+            table = mpl_table.table(ax2, cellText=display_data, loc='upper center')
             table.auto_set_font_size(False)
             table.set_fontsize(9)
             table.scale(1, 2)
@@ -415,15 +411,7 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
 
     fig.canvas.mpl_connect('pick_event', browser.on_pick)
 
-    texts = []
-
-    for ind, row in hydat.to_crs(crs=gdf_utils.Can_LCC_wkt).iterrows():
-        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['STATION_NUMBER']))
-
-    for ind, row in pwqmn.to_crs(crs=gdf_utils.Can_LCC_wkt).drop_duplicates('Location_ID').iterrows():
-        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Location_ID']))
-
-    adjust_text(texts)
+    plot_utils.annotate_stations(hydat, pwqmn, ax)
 
     legend_dict = {'Symbol': ['line', 'line', 'line', 'point', 'point'],
                    'Colour': ['orange', 'pink', 'purple', 'blue', 'red'],
