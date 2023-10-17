@@ -225,6 +225,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
     try:
         gdf = gpd.GeoDataFrame(
             df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=crs)
+        gdf.drop_duplicates(subset=[x, y], inplace=True)
         gdf.to_crs(Can_LCC_wkt)
         print("Dataframe successfully converted to geopandas point geodataframe")
     except KeyError:

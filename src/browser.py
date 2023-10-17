@@ -10,6 +10,8 @@ import matplotlib as mpl
 from matplotlib_scalebar.scalebar import ScaleBar
 
 from adjustText import adjust_text
+import pandas as pd
+import numpy as np
 
 
 class LineBuilder(object):
@@ -323,59 +325,57 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
         """
 
         def __init__(self):
-            self.lastind = 0
+            self.event_ind = 0
+            self.event_artist = None
             # self.text = ax.text(0.05, 0.95, 'selected: none',
             #                     transform=ax.transAxes, va='top')
-            self.selected, = ax.plot([xs[0]], [ys[0]], 'o', ms=20, alpha=0.4,
+            self.selected, = ax.plot([0], [0], ms=20, alpha=0.4,
                                      color='yellow', visible=False, marker='*',
                                      zorder=6)
 
-        def on_press(self, event):
-            if self.lastind is None:
-                return
-            if event.key not in ('n', 'p'):
-                return
-            if event.key == 'n':
-                inc = 1
-            else:
-                inc = -1
-
-            self.lastind += inc
-            self.lastind = np.clip(self.lastind, 0, len(xs) - 1)
-            self.update()
+        # def on_press(self, event):
+        #     if self.lastind is None:
+        #         return
+        #     if event.key not in ('n', 'p'):
+        #         return
+        #     if event.key == 'n':
+        #         inc = 1
+        #     else:
+        #         inc = -1
+        #
+        #     self.lastind += inc
+        #     self.event = np.clip(self.lastind, 0, len(xs) - 1)
+        #     self.update()
 
         def on_pick(self, event):
-            x = event.mouseevent.xdata
-            y = event.mouseevent.ydata
-
-            distances = np.hypot(x - xs[event.ind], y - ys[event.ind])
-            indmin = distances.argmin()
-            dataind = event.ind[indmin]
-
-            self.lastind = dataind
+            self.event_artist = event.artist
+            self.event_ind = event.ind[0]
             self.update()
 
         def update(self):
-            if self.lastind is None:
+            if self.event_ind is None:
                 return
 
-            dataind = self.lastind
             display_data = []
 
             ax2.clear()
-            if dataind > X.shape[0]:
-                data_key_1 = 'pwqmn_id'
-                data_key_2 = 'Location_ID'
-                data_key_3 = 'hydat_id'
-                data = pwqmn.iloc[dataind - X.shape[0]].to_dict()
-            else:
+
+            if self.event_artist == hydat_artist:
                 data_key_1 = 'hydat_id'
                 data_key_2 = 'STATION_NUMBER'
                 data_key_3 = 'pwqmn_id'
-                data = X.iloc[dataind].to_dict()
+                data = hydat.iloc[self.event_ind]
+                ax2.set_title('HYDAT Station Info')
+            elif self.event_artist == pwqmn_artist:
+                data_key_1 = 'pwqmn_id'
+                data_key_2 = 'Location_ID'
+                data_key_3 = 'hydat_id'
+                data = pwqmn.iloc[self.event_ind]
+                ax2.set_title('PWQMN Station Info')
 
             for key in list(data.keys())[:-1]:
                 display_data.append((key, str(data[key])))
+
 
             for ind, row in edge_df.iterrows():
                 if row[data_key_1] == data[data_key_2]:
@@ -386,7 +386,6 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
             table.set_fontsize(9)
             table.scale(1, 2)
             ax2.set_axis_off()
-            ax2.set_title('Station Info')
 
             self.selected.set_visible(True)
             self.selected.set_data(
@@ -395,10 +394,6 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
             )
             # self.text.set_text('selected: %d' % dataind)
             fig.canvas.draw()
-
-    X = hydat
-    xs = X.geometry.x + pwqmn.geometry.x
-    ys = X.geometry.y + pwqmn.geometry.y
 
     fig = plt.figure(figsize=(14, 7))
     ax = plt.subplot(1, 2, 1, projection=plot_utils.lambert, position=[0.02, 0.04, 0.46, 0.92])
@@ -410,15 +405,15 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
     ax.set_box_aspect(1)
     ax2.set_box_aspect(1)
 
-    plot_utils.plot_gdf(hydat, ax=ax, marker='o', picker=True, pickradius=5, color='blue', zorder=5)
-    plot_utils.plot_gdf(pwqmn, ax=ax, marker='o', picker=True, pickradius=5, color='red', zorder=4)
-    plot_utils.draw_network(network, ax=ax, zorder=3)
-    plot_utils.plot_paths(edge_df, ax=ax, annotate_dist=True)
+    hydat_artist = plot_utils.plot_gdf(hydat, ax=ax, marker='o', picker=True, pickradius=3, color='blue', zorder=5)
+    pwqmn_artist = plot_utils.plot_gdf(pwqmn, ax=ax, marker='o', picker=True, pickradius=3, color='red', zorder=4)
+
+    plot_utils.draw_network(network, ax=ax)
+    plot_utils.plot_paths(edge_df, ax=ax)
 
     browser = PointBrowser()
 
     fig.canvas.mpl_connect('pick_event', browser.on_pick)
-    fig.canvas.mpl_connect('key_press_event', browser.on_press)
 
     texts = []
 

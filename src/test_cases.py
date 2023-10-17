@@ -152,9 +152,7 @@ def run_tests():
     network_assign_test()
 
 
-def main():
-    timer = Timer()
-
+def plot_array_test():
     bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
@@ -172,6 +170,11 @@ def main():
     edge_df = gdf_utils.dfs_search(network)
 
     plot_utils.plot_station_array(edge_df)
+
+def main():
+    timer = Timer()
+
+    network_assign_test()
 
     timer.stop()
 

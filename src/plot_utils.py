@@ -138,6 +138,8 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
     :param kwargs:
         Keyword arguments to pass when plotting g_series. Kwargs are
         Line2D properties.
+
+    :return: PathCollection
     """
     assert type(g_series) == gpd.GeoSeries, f"GeoSeries expected, {type(g_series)} found."
 
@@ -145,13 +147,16 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
 
     try:
         if g_series.geom_type.iat[0] == "Point":
-            ax.scatter(g_series.x, g_series.y, **kwargs)
+            path_collection = ax.scatter(g_series.x, g_series.y, **kwargs)
 
         elif g_series.geom_type.iat[0] == "LineString":
+            path_collection = []
             for geom in g_series:
-                ax.plot(*geom.xy, **kwargs)
+                path_collection.append(ax.plot(*geom.xy, **kwargs))
     except IndexError:
         print("Plotting failed. The GeoSeries has no geometry.")
+
+    return path_collection
 
 
 def draw_network(p_graph, **kwargs):
@@ -177,8 +182,10 @@ def plot_gdf(gdf: gpd.GeoDataFrame, crs=Can_LCC_wkt, ax=plt, **kwargs):
     :param kwargs:
         Keyword arguments to pass when plotting the gdf. Kwargs are
         Line2D properties.
+
+    :return: PathCollection
     """
-    plot_g_series(gdf.geometry, ax=ax, crs=crs, **kwargs)
+    return plot_g_series(gdf.geometry, ax=ax, crs=crs, **kwargs)
 
 
 def plot_df(df: pd.DataFrame, ax=None, crs=Can_LCC_wkt, **kwargs):
@@ -200,6 +207,8 @@ def plot_df(df: pd.DataFrame, ax=None, crs=Can_LCC_wkt, **kwargs):
 
     :raises TypeError:
         If df is not a Pandas DataFrame
+
+    :return:
     """
     if type(df) != pd.DataFrame:
         raise TypeError("Parameter passed as 'df' is not a DataFrame'")
@@ -208,9 +217,10 @@ def plot_df(df: pd.DataFrame, ax=None, crs=Can_LCC_wkt, **kwargs):
 
     # Only try to plot the output if the conversion was successful
     if type(output) is gpd.GeoDataFrame:
-        plot_gdf(output, ax=ax, crs=crs, **kwargs)
+        return plot_gdf(output, ax=ax, crs=crs, **kwargs)
     else:
         print("Could not be plotted")
+        return None
 
 
 def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, ax=plt):
