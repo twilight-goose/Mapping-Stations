@@ -380,12 +380,9 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
 
         for path in group['path']:
             start, end = path.boundary.geoms
-            ax[row][col].scatter(
-                *lambert.transform_point(start.x, start.y, geodetic), color='blue', zorder=6,
-            marker='o', ms=15)
-            ax[row][col].scatter(
-                *lambert.transform_point(end.x, end.y, geodetic), color='red', zorder=6,
-            marker='o', ms=15)
+            print(start.x, start.y)
+            ax[row][col].scatter([start.x], [start.y], color='blue', zorder=6, marker='o')
+            ax[row][col].scatter([end.x], [end.y], color='red', zorder=6,marker='o')
 
         if add_to_plot is not None:
             for i in add_to_plot:
