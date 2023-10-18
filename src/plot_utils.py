@@ -96,20 +96,20 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
         total_bounds = total_bounds.to_ccrs(projection)
 
     # check if the GeoSeries has a valid bounding information
-    try:
-        min_x, min_y, max_x, max_y = total_bounds
+    if total_bounds is not None:
+        try:
+            min_x, min_y, max_x, max_y = total_bounds
 
-        size = max([max_x - min_x,max_y - min_y]) * 0.6
+            size = max([max_x - min_x,max_y - min_y]) * 0.6
 
-        x0 = (min_x + max_x) / 2 - size
-        x1 = (min_x + max_x) / 2 + size
-        y0 = (min_y + max_y) / 2 - size
-        y1 = (min_y + max_y) / 2 + size
+            x0 = (min_x + max_x) / 2 - size
+            x1 = (min_x + max_x) / 2 + size
+            y0 = (min_y + max_y) / 2 - size
+            y1 = (min_y + max_y) / 2 + size
 
-        ax.set_extent([x0, x1, y0, y1], crs=projection)
-
-    except ValueError:
-        print("Invalid boundary information. Extent will not be set.")
+            ax.set_extent([x0, x1, y0, y1], crs=projection)
+        except ValueError:
+            print("Invalid boundary information. Extent will not be set.")
 
     ax.stock_img()
 
@@ -347,13 +347,17 @@ def annotate_stations(hydat, pwqmn, ax):
     adjust_text(texts)
 
 
-def plot_match_array(edge_df, shape=None):
+def plot_match_array(edge_df, add_to_plot=None, shape=None):
     """
 
     :param edge_df:
     :param shape:
+    :param add_to_plot:
+
     :return:
     """
+
+
     grouped = edge_df.groupby(by='pwqmn_id')
 
     if shape is None:
@@ -373,6 +377,21 @@ def plot_match_array(edge_df, shape=None):
         row, col = n // shape[1], n % shape[1]
         ax[row][col].set_box_aspect(1)
         plot_paths(group, ax=ax[row][col])
+
+        for path in group['path']:
+            start, end = path.boundary.geoms
+            ax[row][col].scatter(
+                *lambert.transform_point(start.x, start.y, geodetic), color='blue', zorder=6,
+            marker='o', ms=15)
+            ax[row][col].scatter(
+                *lambert.transform_point(end.x, end.y, geodetic), color='red', zorder=6,
+            marker='o', ms=15)
+
+        if add_to_plot is not None:
+            for i in add_to_plot:
+                if callable(i):
+                    i(ax=ax[row][col])
+
         n += 1
 
     plt.show()

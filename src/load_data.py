@@ -3,7 +3,7 @@ import sqlite3
 import check_files
 from util_classes import BBox, Period, Timer
 
-from pandas import read_csv, read_sql_query
+import pandas as pd
 from geopandas import read_file
 
 
@@ -207,7 +207,7 @@ def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
         # read the entirety of the .csv and add it to the dictionary
         # not recommended for use with large .csv files (>500 mb) as
         # loading times can become long
-        df = read_csv(os.path.join(path, file))
+        df = pd.read_csv(os.path.join(path, file))
 
         # check if a filtering by bbox is necessary
         if bbox is not None:
@@ -284,7 +284,7 @@ def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd
 
     # read station info from the STATIONS table within the database and
     # load that info into the station data dict
-    station_df = read_sql_query("SELECT STATION_NUMBER, STATION_NAME, HYD_STATUS, SED_STATUS, LATITUDE, LONGITUDE,"
+    station_df = pd.read_sql_query("SELECT STATION_NUMBER, STATION_NAME, HYD_STATUS, SED_STATUS, LATITUDE, LONGITUDE,"
                                    "DRAINAGE_AREA_GROSS, DRAINAGE_AREA_EFFECT FROM 'STATIONS' WHERE PROV_TERR_STATE_"
                                    "LOC == 'ON'" + bbox_query, conn)
 
@@ -361,7 +361,7 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
         query += f" ORDER BY RANDOM() LIMIT {sample}"
 
     # Load PWQMN data as a DataFrame
-    station_df = read_sql_query("SELECT * FROM 'DATA'" + query, conn)
+    station_df = pd.read_sql_query("SELECT * FROM 'DATA'" + query, conn)
 
     # Usually takes around 80 seconds
     timer.stop()

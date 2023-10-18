@@ -170,13 +170,13 @@ def plot_array_test():
 
     edge_df = gdf_utils.dfs_search(network)
 
-    plot_utils.plot_match_array(edge_df)
+    plot_utils.plot_match_array(edge_df, add_to_plot=[plot_utils.add_map_to_plot])
 
 
 def main():
     timer = Timer()
 
-    network_assign_test()
+    plot_array_test()
 
     timer.stop()
 
