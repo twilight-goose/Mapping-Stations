@@ -65,7 +65,7 @@ def pwqmn_query_test(points, bbox, period):
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
     ax = plot_utils.add_map_to_plot(
-        total_bounds=bbox.to_ccrs(gdf_utils.lambert)
+        total_bounds=bbox.to_ccrs(plot_utils.lambert)
     )
     plot_utils.plot_gdf(points, ax=ax, zorder=4, color='blue')
     plot_utils.plot_gdf(pwqmn, ax=ax, zorder=5, color='red')
@@ -73,23 +73,24 @@ def pwqmn_query_test(points, bbox, period):
     plot_utils.timed_display()
 
 
-def point_plot_test(points, bbox):
+def point_plot_test():
+    bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
+
+    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
+    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
+
     ax = plot_utils.add_map_to_plot(
-        total_bounds=bbox.to_ccrs(gdf_utils.lambert)
+        total_bounds=bbox.to_ccrs(plot_utils.lambert)
     )
-    plot_utils.plot_gdf(points, ax=ax)
+    plot_utils.plot_gdf(pwqmn, ax=ax)
     plot_utils.timed_display()
 
 
 def snap_test(points, edges, bbox):
     ax = plot_utils.add_map_to_plot(
-        total_bounds=bbox.to_ccrs(gdf_utils.lambert)
+        total_bounds=bbox.to_ccrs(plot_utils.lambert)
     )
     plot_utils.plot_closest(points, edges, ax=ax)
-    ax.xaxis.set_zorder(7)
-    ax.yaxis.set_zorder(7)
-    ax.grid(visible=True)
-
     plot_utils.timed_display()
 
 
@@ -180,6 +181,7 @@ def plot_array_test():
 def main():
     timer = Timer()
 
+    point_plot_test()
     network_assign_test()
 
     timer.stop()
