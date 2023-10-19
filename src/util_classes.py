@@ -42,7 +42,8 @@ class BBox:
         1: BBox.<function name>(bbox)
         2: <BBox obj>.<function name>()
     """
-    def __init__(self, min_x=None, max_x=None, min_y=None, max_y=None, ):
+    def __init__(self, min_x=None, max_x=None, min_y=None, max_y=None,
+                 crs=ccrs.Geodetic()):
         """
         Flexible method for instantiating BoundingBox objects.
         Valid argument sets:
@@ -54,10 +55,9 @@ class BBox:
         """
         if hasattr(min_x, '__iter__'):
             min_x, min_y, max_x, max_y = min_x
-            print()
         self.bounds = {'min_x': min_x, 'max_x': max_x,
                        'min_y': min_y, 'max_y': max_y}
-        self.crs = ccrs.Geodetic()
+        self.crs = crs
 
     def contains_point(self, cord: dict) -> bool:
         """

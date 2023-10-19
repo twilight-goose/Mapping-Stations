@@ -313,9 +313,9 @@ def get_hydat_station_data(period=None, bbox=None, vars=('Q',), sample=False) ->
 
 
 def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.DataFrame:
-    """
+    """e
     Loads the PWQMN data based on selected bbox, period, and variables
-    of interest.
+    of interest from the file at
 
     :param period: Tuple/list of length 2 or None
 
@@ -379,11 +379,7 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
     return station_df
 
 
-def load_shp(path, sample=None, bbox=None):
-    return read_file(path, rows=sample, bbox=BBox.to_tuple(bbox))
-
-
-def load_hydro_rivers(sample=None, bbox=None):
+def load_rivers(path=hydroRIVERS_path, sample=None, bbox=None):
     """
     Loads HydroRIVERS_v10.shp as a geopandas GeoDataFrame. The
     HydroRIVERS shapefile are provided in a geographic
@@ -395,6 +391,10 @@ def load_hydro_rivers(sample=None, bbox=None):
     to https://epsg.io/102002 (which describes features of projection
     defined by Can_LCC_wkt) for the projected and WGS84 bounds.
 
+    :param path: string
+        The file path to load river dataset from.
+        Default: hydroRIVERS_path.
+
     :param sample: int or None (default)
         The number of river segments to load. If None, load all.
 
@@ -405,7 +405,7 @@ def load_hydro_rivers(sample=None, bbox=None):
     :return: Geopandas GeoDataFrame
         HydroRIVERS data as a LineString GeoDataFrame.
     """
-    return load_shp(hydroRIVERS_path, sample, bbox)
+    return read_file(path, rows=sample, bbox=BBox.to_tuple(bbox))
 
 
 def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:

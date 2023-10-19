@@ -133,49 +133,6 @@ def browser_test_2():
     plot_utils.line_browser(lines, bbox)
 
 
-def multiplot_test():
-    bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
-
-    hydat = load_data.get_hydat_station_data(bbox=bbox)
-    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
-
-    lines = load_data.load_hydro_rivers(bbox=bbox)
-    hydat = gdf_utils.point_gdf_from_df(hydat)
-    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
-
-    lines = gdf_utils.assign_stations(lines, hydat, 'STATION_NUMBER', prefix='hydat_')
-    lines = gdf_utils.assign_stations(lines, pwqmn, 'Location_ID', prefix='pwqmn_')
-
-    network = gdf_utils.hyriv_gdf_to_network(lines)
-
-    edge_df = gdf_utils.dfs_search(network)
-
-    plot_utils.plot_station_array(edge_df, hydat, pwqmn, network)
-
-
-def run_tests():
-    bbox = BBox(min_x=-80, max_x=-75, min_y=45, max_y=50)
-    period = Period("2000-01-12", "2004-10-10")
-
-    hydat = load_data.get_hydat_station_data(bbox=bbox)
-    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
-    lines = load_data.load_hydro_rivers(bbox=bbox)
-
-    hydat = gdf_utils.point_gdf_from_df(hydat)
-    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
-
-    point_plot_test(hydat, bbox)
-    point_plot_test(pwqmn, bbox)
-
-    hydat_query_test(hydat, bbox, period)
-    pwqmn_query_test(pwqmn, bbox, period)
-
-    snap_test(hydat, lines, bbox)
-    snap_test(pwqmn, lines, bbox)
-
-    network_test(lines)
-    network_assign_test()
-
 
 def plot_array_test():
     bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
@@ -200,18 +157,8 @@ def plot_array_test():
 def main():
     timer = Timer()
 
-    bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
-
-    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
-    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
-
-    # plot_utils.add_map_to_plot(
-    #     total_bounds=bbox.to_ccrs(plot_utils.lambert)
-    # )
-    ax = plot_utils.get_ax()
-    plot_utils.plot_gdf(pwqmn)
-    plot_utils.grid()
-    plot_utils.show()
+    network_assign_test()
+    # plot_array_test()
 
     timer.stop()
 

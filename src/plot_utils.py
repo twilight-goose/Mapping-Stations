@@ -58,17 +58,19 @@ Can_LCC_wkt = gdf_utils.Can_LCC_wkt
 # ========================================================================= ##
 
 
-def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
+def add_map_to_plot(total_bounds=None, ax=None, projection=lambert, extent_crs=None,
                     features=(cfeature.COASTLINE, cfeature.STATES, cfeature.LAKES),
                     **kwargs):
     """
     Adds an axes to the current figure, makes it the current Axes, and
     draws a map onto said axes using cartopy.
 
-    :param total_bounds: tuple or list
+    :param total_bounds: list-like, BBox, or None (Default)
         The bounding coordinates to set the extent of the map to.
-        i.e
-            (min_x, min_y, max_x, max_y)
+        If list-like, must contain exactly 4 elements (min_x, min_y,
+        max_x, max_y) and bounds are assumed to be latitude/longitude
+        floats. If BBox, must have a set CRS. If None, the extent of
+        the Axes is not set or changed.
 
     :param ax: plt.Axes object or None (default)
         The Axes to plot g_series onto. If None, draws the map on the
@@ -77,6 +79,10 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
     :param projection: Cartopy CRS object
         Projection to use to display the map. Defaults to Lambert
         Conformal Conic.
+
+    :param extent_crs: value or None (default)
+        CRS that total_bounds coordinates are in. If None, assumes
+        total_bounds is in latitude longitude format.
 
     :param features: list or tuple of cartopy.feature attributes
         Cartopy features to add to the map. If None, adds a default
@@ -95,7 +101,8 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
         ax = plt.axes(projection=projection, **kwargs)
 
     if type(total_bounds) is BBox:
-        total_bounds = total_bounds.to_ccrs(projection).to_tuple()
+        # cast the bounding coordinates to latitude longitude
+        total_bounds = total_bounds.to_ccrs(geodetic).to_tuple()
 
     # check if the GeoSeries has a valid bounding information
     if total_bounds is not None:
@@ -109,7 +116,7 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
             y0 = (min_y + max_y) / 2 - size
             y1 = (min_y + max_y) / 2 + size
 
-            ax.set_extent([x0, x1, y0, y1], crs=projection)
+            ax.set_extent([x0, x1, y0, y1], extent_crs)
         except ValueError:
             print("Invalid boundary information. Extent will not be set.")
 
@@ -128,13 +135,18 @@ def add_grid_to_plot(ax=None, projection=lambert, **kwargs):
     :param ax:
     :param projection:
 
-    :return:
+    :return: cartopy.mpl.gridliner.Gridliner object
+        The object used to add gridlines and tick labels to the axes.
     """
     if ax is None:
         ax = plt.axes(projection=projection, **kwargs)
 
-    ax.grid(visible=True, which='major', axis='both',
-            alpha=0.5, color='grey', linewidth=1)
+    gridliner = ax.gridlines(draw_labels={"bottom": "x", "left": "y"}, x_inline=False, y_inline=False,
+                             dms=False, rotate_labels=False,
+                             xlabel_style={'fontsize':8},
+                             ylabel_style={'fontsize':8},
+                             color='black', alpha=0.3)
+    return gridliner
 
 
 def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
@@ -293,7 +305,7 @@ def plot_paths(edge_df, ax=None, filter=""):
     """
     grouped = edge_df.groupby(by='pos')
     for ind, group in grouped:
-        if ind == 'On':
+        if ind.startswith('On'):
             color = 'orange'
         elif ind == 'Down':
             color = 'pink'
@@ -357,10 +369,12 @@ def annotate_stations(hydat, pwqmn, ax):
     texts = []
 
     for ind, row in hydat.to_crs(crs=gdf_utils.Can_LCC_wkt).iterrows():
-        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['STATION_NUMBER']))
+        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['STATION_NUMBER'],
+                             fontsize=8))
 
     for ind, row in pwqmn.to_crs(crs=gdf_utils.Can_LCC_wkt).drop_duplicates('Location_ID').iterrows():
-        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Location_ID']))
+        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Location_ID'],
+                             fontsize=8))
 
     adjust_text(texts)
 
@@ -390,7 +404,7 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
                   'Colour': ['orange', 'pink', 'purple', 'blue', 'red'],
                   'Label': ['On', 'Downstream', 'Upstream', 'HYDAT', 'PWQMN']}
 
-    plt.subplots_adjust(left=0.02, right=0.89, top=0.98, bottom=0.02)
+    plt.subplots_adjust(left=0.02, right=0.96, top=0.96, bottom=0.04)
     right_pad = fig.add_axes([0.91, 0.01, 0.08, 0.96])
     right_pad.set_axis_off()
     right_pad.set_title('HYDAT -> PWQMN')
@@ -402,7 +416,8 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
         row, col = n // shape[1], n % shape[1]
         ax[row][col].set_box_aspect(1)
         g_series = gpd.GeoSeries(group['path'], crs=Can_LCC_wkt)
-        add_map_to_plot(total_bounds=g_series.total_bounds, ax=ax[row][col])
+        add_map_to_plot(total_bounds=g_series.total_bounds, ax=ax[row][col], extent_crs=lambert)
+        add_grid_to_plot(ax=ax[row][col])
         plot_paths(group, ax=ax[row][col])
 
         text = []
@@ -410,9 +425,9 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
             start, end = group_row['path'].boundary.geoms
             ax[row][col].scatter([start.x], [start.y], color='blue', zorder=6, marker='o')
             ax[row][col].scatter([end.x], [end.y], color='red', zorder=6,marker='o')
+            text.append(ax[row][col].text(start.x, start.y, group_row['hydat_id']))
 
-            text.append(ax[row][col].text(end.x, end.y, group_row['pwqmn_id']))
-            text.append(ax[row][col].text(end.x, end.y, group_row['hydat_id']))
+        text.append(ax[row][col].text(end.x, end.y, group_row['pwqmn_id']))
 
         if add_to_plot is not None:
             for i in add_to_plot:

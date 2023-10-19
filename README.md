@@ -180,32 +180,32 @@ awk -F'"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", ";", $i) } 1' Provincial
 ```
 ## Output Accuracy Table
 ### Zone 1: Southern/Central Ontario
-@submission 49303b0
-   hydat_id    pwqmz`n_id  alg dist (m)   pos   manual
-0   02EA001  3009800302   3247.810984    On  ~3670 m
-1   02EA001  3009800402   3838.929621    On  ~4590 m
-14  02EB005  3008501601   7682.088931    Up  ~8630 m
-13  02EB005  3009200202   3343.306653    On  ~3300 m
-12  02EB005  3008500102   8299.933080    On ~11200 m
-17  02EB006  3008501601   7966.240139    Up       NA
-16  02EB006  3009200202   3676.271811    On  ~3675 m
-15  02EB006  3008500102   7937.783292    On  ~9580 m
-19  02EB010  3009200202   4568.338660    On  ~5315 m
-18  02EB010  3008500102   7129.984936    On  ~8800 m
-20  02EB010  3008501601   9527.944128    Up       NA
-8   02EB011  3009200102    336.848454    On  331.3 m
-21  02EB012  3008500102     64.850527    On`` 63.5 m
-9   02EB015  3008501802   4561.711575    On  ~6700 m
-11  02EB015  3009200202   1926.939631  Down  ~1780 m
-10  02EB015  3008501601   2279.480735    On  ~3780 m
-7   02EB020  3008502301   4348.473836    Up  ~4500 m
-6   02EB020  3008501102   1021.073825    On  ~1650 m
-5   02EB020  3008501002     17.148932    On   16.9 m
-4   02EB020  3008500202     62.877379    On   62.0 m
-2   02EB103  3008502802     18.925278    On   18.6 m
-3   02EB105  3008502502     31.614124    On   31.1 m
+@submission 1603a69
+   hydat_id  pwqmz`n_id  HydroRivers dist        pos    manual   OHN dist
+0   02EA001  3009800302       3247.810984    On-Down   ~3670 m
+1   02EA001  3009800402       3838.929621    On-Down   ~4590 m
+2   02EB005  3008501601       7682.088931         Up   ~8630 m
+3   02EB005  3009200202       3343.306653      On-Up   ~3300 m
+4   02EB005  3008500102       8299.933080    On-Down  ~11200 m
+5   02EB006  3008501601       7966.240139         Up        NA
+6   02EB006  3009200202       3676.271811      On-Up   ~3675 m
+7   02EB006  3008500102       7937.783292    On-Down   ~9580 m
+8   02EB010  3009200202       4568.338660      On-Up   ~5315 m
+9   02EB010  3008500102       7129.984936    On-Down   ~8800 m
+10  02EB010  3008501601       9527.944128         Up        NA
+11  02EB011  3009200102        336.848454      On-Up   331.3 m
+12  02EB012  3008500102         64.850527    On-Down    63.5 m
+13  02EB103  3008502802         18.925278      On-Up    18.6 m
+14  02EB105  3008502502         31.614124    On-Down    31.1 m
+
+On = On river segment
+Up = Upstream
+Down = Downstream
+
+All distances are in meters.
 
 Matches with NA instead of a manual distance indicate they are far enough that
 they would not reasonably be matched with said station for any reason, and/or
 there are significantly closer water quality stations that would be matched to
 it. (i.e. 02EB103 & 3008501002)
+

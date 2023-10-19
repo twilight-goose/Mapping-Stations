@@ -494,10 +494,17 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                     for ind, row in pref_2_data.iterrows():
                         on_dist = station['geometry'].distance(row['geometry'])
 
+                        if station['dist'] > row['dist']:
+                            pos = 'On-Up'
+                        elif station['dist'] < row['dist']:
+                            pos = 'On-Down'
+                        else:
+                            pos = 'On'
+
                         if on_dist < max_distance:
                             add_to_matches(station['ID'], row['ID'],
                                            LineString([station['geometry'], row['geometry']]),
-                                           on_dist, 'On', 0)
+                                           on_dist, pos, 0)
 
                 down_id, down_dist, down_depth, *point_list = dfs(v, prefix2, 0, data['LENGTH_M'] - station['dist'], 1)
                 up_id, up_dist, up_depth, *point_list2 = dfs(u, prefix2, 1, station['dist'], 1)

@@ -5,6 +5,7 @@ from matplotlib_scalebar.scalebar import ScaleBar
 
 from util_classes import BBox
 import numpy as np
+import cartopy.crs as ccrs
 
 import plot_utils
 import pandas as pd
@@ -287,18 +288,16 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
                                                    plot_utils.geodetic)
             )
             # self.text.set_text('selected: %d' % dataind)
-            ax.grid(True)
             fig.canvas.draw()
 
     fig = plt.figure(figsize=(14, 7))
-    ax = plt.subplot(1, 2, 1, projection=plot_utils.lambert, position=[0.02, 0.04, 0.46, 0.92])
-    ax2 = plt.subplot(1, 2, 2, position=[0.52, 0.04, 0.46, 0.92])
-    ax2.set_axis_off()
-
-    plot_utils.add_map_to_plot(ax=ax, total_bounds=bbox)
-
+    ax = plt.subplot(1, 2, 1, projection=plot_utils.lambert, position=[0.04, 0.08, 0.42, 0.84])
     ax.set_box_aspect(1)
     ax.set_facecolor('white')
+    plot_utils.add_map_to_plot(ax=ax, total_bounds=bbox)
+
+    ax2 = plt.subplot(1, 2, 2, position=[0.52, 0.04, 0.46, 0.92])
+    ax2.set_axis_off()
     ax2.set_box_aspect(1)
     ax2.set_facecolor('white')
 
@@ -317,7 +316,6 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
     legend_dict = {'Symbol': ['line', 'line', 'line', 'point', 'point'],
                    'Colour': ['orange', 'pink', 'purple', 'blue', 'red'],
                    'Label': ['On', 'Downstream', 'Upstream', 'HYDAT', 'PWQMN']}
-
     plot_utils.configure_legend(legend_dict, ax=ax)
 
     ax.set_axis_on()
@@ -325,8 +323,8 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
     ax.set_title('Matching HYDAT (Blue) to PWQMN (Red) Stations')
     ax.add_artist(ScaleBar(1, location='lower right', box_alpha=0.75))
 
-    ax.xaxis.set_zorder(7)
-    ax.yaxis.set_zorder(7)
-    ax.grid(visible=True)
+    gridliner = ax.gridlines(draw_labels=True, x_inline=False, y_inline=False, dms=False,
+                             rotate_labels=False, color='black', alpha=0.3)
+    gridliner.color = 'blue'
 
     plt.show()
