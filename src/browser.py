@@ -389,6 +389,7 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
                                                    plot_utils.geodetic)
             )
             # self.text.set_text('selected: %d' % dataind)
+            ax.grid(True)
             fig.canvas.draw()
 
     fig = plt.figure(figsize=(14, 7))
@@ -418,7 +419,14 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
                    'Label': ['On', 'Downstream', 'Upstream', 'HYDAT', 'PWQMN']}
 
     plot_utils.configure_legend(legend_dict, ax=ax)
+
+    ax.set_axis_on()
+
     ax.set_title('Matching HYDAT (Blue) to PWQMN (Red) Stations')
     ax.add_artist(ScaleBar(1, location='lower right', box_alpha=0.75))
+
+    ax.xaxis.set_zorder(7)
+    ax.yaxis.set_zorder(7)
+    ax.grid(visible=True)
 
     plt.show()

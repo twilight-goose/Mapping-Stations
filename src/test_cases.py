@@ -86,6 +86,10 @@ def snap_test(points, edges, bbox):
         total_bounds=bbox.to_ccrs(gdf_utils.lambert)
     )
     plot_utils.plot_closest(points, edges, ax=ax)
+    ax.xaxis.set_zorder(7)
+    ax.yaxis.set_zorder(7)
+    ax.grid(visible=True)
+
     plot_utils.timed_display()
 
 
@@ -175,8 +179,6 @@ def plot_array_test():
 
 def main():
     timer = Timer()
-
-    # plot_array_test()
 
     network_assign_test()
 

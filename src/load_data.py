@@ -279,7 +279,7 @@ def get_hydat_station_data(period=None, bbox=None, vars=('Q',), sample=False) ->
 
     # generate a sql query from the bbox bounding box
     bbox_query = BBox.sql_query(bbox, "LONGITUDE", "LATITUDE")
-    bbox_query = (' AND ' if period_query else "") + bbox_query
+    bbox_query = (' AND ' if bbox_query else "") + bbox_query
 
     if sample > 0:
         bbox_query += f" ORDER BY RANDOM() LIMIT {sample}"
@@ -295,8 +295,7 @@ def get_hydat_station_data(period=None, bbox=None, vars=('Q',), sample=False) ->
                       inplace=True)
 
     period_query = Period.sql_query(period, ['YEAR_FROM', 'YEAR_TO'])
-    if period_query:
-        period_query = ' AND ' + period_query
+    period_query = (' AND ' if period_query else '') + period_query
     var_query = ' OR '.join([f'DATA_TYPE == "{v}"' for v in vars])
 
     stations_w_var = pd.read_sql_query('SELECT STATION_NUMBER FROM "STN_DATA_RANGE" WHERE ' +
