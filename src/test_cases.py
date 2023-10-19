@@ -176,7 +176,9 @@ def plot_array_test():
 def main():
     timer = Timer()
 
-    plot_array_test()
+    # plot_array_test()
+
+    network_assign_test()
 
     timer.stop()
 

@@ -93,7 +93,7 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
         ax = plt.axes(projection=projection, **kwargs)
 
     if type(total_bounds) is BBox:
-        total_bounds = total_bounds.to_ccrs(projection)
+        total_bounds = total_bounds.to_ccrs(projection).to_tuple()
 
     # check if the GeoSeries has a valid bounding information
     if total_bounds is not None:
@@ -117,6 +117,22 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
         ax.add_feature(feature)
 
     return ax
+
+
+def add_grid_to_plot(ax=None, projection=lambert, **kwargs):
+    """
+    Adds a Latitude Longitude grid to an Axes.
+
+    :param ax:
+    :param projection:
+
+    :return:
+    """
+    if ax is None:
+        ax = plt.axes(projection=projection, **kwargs)
+
+    ax.grid(visible=True, which='major', axis='both',
+            alpha=0.5, color='grey', linewidth=1)
 
 
 def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
@@ -369,8 +385,16 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
                            subplot_kw={'projection': lambert, 'aspect': 'equal'},
                            figsize=(16, 8))
 
+    legend_dict = {'Symbol': ['line', 'line', 'line', 'point', 'point'],
+                  'Colour': ['orange', 'pink', 'purple', 'blue', 'red'],
+                  'Label': ['On', 'Downstream', 'Upstream', 'HYDAT', 'PWQMN']}
+
     plt.subplots_adjust(left=0.02, right=0.89, top=0.98, bottom=0.02)
-    fig.add_axes([0.91, 0.01, 0.08, 0.96])
+    right_pad = fig.add_axes([0.91, 0.01, 0.08, 0.96])
+    right_pad.set_axis_off()
+    right_pad.set_title('HYDAT -> PWQMN')
+    configure_legend(legend_dict, ax=right_pad)
+
     n = 0
 
     for ind, group in grouped:
@@ -378,11 +402,13 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
         ax[row][col].set_box_aspect(1)
         plot_paths(group, ax=ax[row][col])
 
-        for path in group['path']:
-            start, end = path.boundary.geoms
-            print(start.x, start.y)
+        text = []
+        for ind, group_row in group.iterrows():
+            start, end = group_row['path'].boundary.geoms
             ax[row][col].scatter([start.x], [start.y], color='blue', zorder=6, marker='o')
             ax[row][col].scatter([end.x], [end.y], color='red', zorder=6,marker='o')
+
+            text.append(ax[row][col].text(end.x, end.y, group_row['pwqmn_id']))
 
         if add_to_plot is not None:
             for i in add_to_plot:

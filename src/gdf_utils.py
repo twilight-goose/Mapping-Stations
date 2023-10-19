@@ -348,7 +348,7 @@ def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
 
 
 def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
-               max_distance=10000):
+               max_distance=10000, max_depth=10):
     """
     For each station assigned to the network denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -385,6 +385,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
     :param max_distance: int
         Maximum distance to search for a matching station in CRS units.
         Default 10000 (m).
+
+    :param max_depth:
+
 
     :return: Pandas DataFrame
         DataFrame with the following columns:
@@ -440,7 +443,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         else:
             raise ValueError('Invalid direction')
 
-        if cum_dist >= max_distance or len(edges) == 0 or depth >= 10:
+        if cum_dist >= max_distance or len(edges) == 0 or depth >= max_depth:
             return -1, -1, -1
 
         for u, v, data in edges:

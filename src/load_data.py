@@ -238,9 +238,10 @@ def get_monday_files(bbox=None) -> {str: pd.DataFrame}:
     return load_csvs(monday_path, bbox=bbox)
 
 
-def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd.DataFrame:
+def get_hydat_station_data(period=None, bbox=None, vars=('Q',), sample=False) -> pd.DataFrame:
     """
-    Retrieves HYDAT station data in the period and bbox of interest
+    Retrieves HYDAT stations based on a bounding box, period, and
+    variables of interest.
 
     :param period: Tuple/list of length 2 or None
 
@@ -256,16 +257,18 @@ def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd
         BBox object defining area of interest. If None, doesn't
         filter by a bounding box.
 
-    :param var:
+    :param vars: list-like of string
+        Data types of interest. Refer to DATA_TYPES lookup table in
+        'hydat reference.md' for valid DATA_TYPE inputs.
 
     :param sample: <positive nonzero int> or None
         Number of (random) stations to read from HYDAT database. If
         None, do not sample and retrieve entire database.
 
     :return: <pandas DataFrame>
-        Hydat station data.
+        HYDAT stations within the bounds of BBox that have data in var
+        during the period of interest.
     """
-
     # check period validity
     Period.check_period(period)
     timer.start()
@@ -276,29 +279,33 @@ def get_hydat_station_data(period=None, bbox=None, var=None, sample=False) -> pd
 
     # generate a sql query from the bbox bounding box
     bbox_query = BBox.sql_query(bbox, "LONGITUDE", "LATITUDE")
-    if bbox_query:
-        bbox_query = " AND " + bbox_query
+    bbox_query = (' AND ' if period_query else "") + bbox_query
 
     if sample > 0:
         bbox_query += f" ORDER BY RANDOM() LIMIT {sample}"
 
     # read station info from the STATIONS table within the database and
     # load that info into the station data dict
-    station_df = pd.read_sql_query("SELECT STATION_NUMBER, STATION_NAME, HYD_STATUS, SED_STATUS, LATITUDE, LONGITUDE,"
-                                   "DRAINAGE_AREA_GROSS, DRAINAGE_AREA_EFFECT FROM 'STATIONS' WHERE PROV_TERR_STATE_"
-                                   "LOC == 'ON'" + bbox_query, conn)
-
-    station_df['LONGITUDE'] = station_df['LONGITUDE'].astype('float')
-    station_df['LATITUDE'] = station_df['LATITUDE'].astype('float')
+    station_df = pd.read_sql_query("SELECT STATION_NUMBER, STATION_NAME, HYD_STATUS, SED_STATUS, "
+                                   "LATITUDE, LONGITUDE, DRAINAGE_AREA_GROSS, DRAINAGE_AREA_EFFECT "
+                                   "FROM 'STATIONS' WHERE PROV_TERR_STATE_LOC == 'ON'" + bbox_query,
+                                   conn)
 
     station_df.rename(columns={'LONGITUDE': 'Longitude', 'LATITUDE': 'Latitude'},
                       inplace=True)
 
     period_query = Period.sql_query(period, ['YEAR_FROM', 'YEAR_TO'])
+    if period_query:
+        period_query = ' AND ' + period_query
+    var_query = ' OR '.join([f'DATA_TYPE == "{v}"' for v in vars])
+
+    stations_w_var = pd.read_sql_query('SELECT STATION_NUMBER FROM "STN_DATA_RANGE" WHERE ' +
+                                       var_query + period_query, conn)
 
     timer.stop()
     conn.close()        # close the sqlite3 connection
 
+    station_df = station_df.merge(stations_w_var, on='STATION_NUMBER')
     if station_df.empty:
         print("Chosen query resulted in empty GeoDataFrame.")
 

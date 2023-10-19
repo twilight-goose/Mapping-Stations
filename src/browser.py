@@ -396,7 +396,7 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
     ax2 = plt.subplot(1, 2, 2, position=[0.52, 0.04, 0.46, 0.92])
     ax2.set_axis_off()
 
-    plot_utils.add_map_to_plot(ax=ax, total_bounds=bbox.to_ccrs(plot_utils.lambert))
+    plot_utils.add_map_to_plot(ax=ax, total_bounds=bbox)
 
     ax.set_box_aspect(1)
     ax2.set_box_aspect(1)

@@ -107,10 +107,10 @@ class BBox:
             Transformed min_x, min_y, max_x, max_y coordinates of the
             BBox.
         """
-        return (crs.transform_point(self.bounds['min_x'], self.bounds['min_y'],
-                                    self.crs) +
-                crs.transform_point(self.bounds['max_x'], self.bounds['max_y'],
-                                    self.crs))
+        minx, miny, maxx, maxy =\
+            (crs.transform_point(self.bounds['min_x'], self.bounds['min_y'], self.crs) +
+             crs.transform_point(self.bounds['max_x'], self.bounds['max_y'], self.crs))
+        return BBox([minx, miny, maxx, maxy])
 
     @staticmethod
     def sql_query(bbox, x_field, y_field) -> str:
@@ -150,12 +150,21 @@ class BBox:
         Works with both pandas DataFrames and Series, without needing
         to import the Pandas library.
 
-        :param series: The pandas DataFrame to be scanned
-        :param bbox: The bounding box object (or None)
-        :param x_field: The name of the x_field of the series
-        :param y_field: The name of the y_field of the series
+        :param series: Pandas Series
+            The series/row to be scanned
 
-        :return bool:
+        :param bbox: BBox or None (default)
+            BBox object defining area of interest. If None, doesn't
+            filter by a bounding box.
+
+        :param x_field: string
+            The name of the x_field of the series
+
+        :param y_field: string
+            The name of the y_field of the series
+
+        :return: bool
+
 
         :raises ValueError:
         """
