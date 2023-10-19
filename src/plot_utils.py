@@ -458,3 +458,11 @@ def timed_display(seconds=2):
     plt.show(block=False)
     plt.pause(seconds)
     plt.close()
+
+
+def grid():
+    plt.grid(True)
+
+
+def get_ax():
+    return plt.subplot(projection=lambert)

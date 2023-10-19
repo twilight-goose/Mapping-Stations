@@ -200,8 +200,18 @@ def plot_array_test():
 def main():
     timer = Timer()
 
-    point_plot_test()
-    network_assign_test()
+    bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
+
+    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
+    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
+
+    # plot_utils.add_map_to_plot(
+    #     total_bounds=bbox.to_ccrs(plot_utils.lambert)
+    # )
+    ax = plot_utils.get_ax()
+    plot_utils.plot_gdf(pwqmn)
+    plot_utils.grid()
+    plot_utils.show()
 
     timer.stop()
 
