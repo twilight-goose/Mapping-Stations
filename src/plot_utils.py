@@ -16,6 +16,7 @@ from adjustText import adjust_text
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from shapely import Point
+from adjustText import adjust_text
 
 
 timer = Timer()
@@ -94,23 +95,23 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
         ax = plt.axes(projection=projection, **kwargs)
 
     if type(total_bounds) is BBox:
-        total_bounds = total_bounds.to_ccrs(projection)
+        total_bounds = total_bounds.to_ccrs(projection).to_tuple()
 
     # check if the GeoSeries has a valid bounding information
-    try:
-        min_x, min_y, max_x, max_y = total_bounds
+    if total_bounds is not None:
+        try:
+            min_x, min_y, max_x, max_y = total_bounds
 
-        size = max([max_x - min_x,max_y - min_y]) * 0.6
+            size = max([max_x - min_x,max_y - min_y]) * 0.6
 
-        x0 = (min_x + max_x) / 2 - size
-        x1 = (min_x + max_x) / 2 + size
-        y0 = (min_y + max_y) / 2 - size
-        y1 = (min_y + max_y) / 2 + size
+            x0 = (min_x + max_x) / 2 - size
+            x1 = (min_x + max_x) / 2 + size
+            y0 = (min_y + max_y) / 2 - size
+            y1 = (min_y + max_y) / 2 + size
 
-        ax.set_extent([x0, x1, y0, y1], crs=projection)
-
-    except ValueError:
-        print("Invalid boundary information. Extent will not be set.")
+            ax.set_extent([x0, x1, y0, y1], crs=projection)
+        except ValueError:
+            print("Invalid boundary information. Extent will not be set.")
 
     ax.stock_img()
 
@@ -118,6 +119,22 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert,
         ax.add_feature(feature)
 
     return ax
+
+
+def add_grid_to_plot(ax=None, projection=lambert, **kwargs):
+    """
+    Adds a Latitude Longitude grid to an Axes.
+
+    :param ax:
+    :param projection:
+
+    :return:
+    """
+    if ax is None:
+        ax = plt.axes(projection=projection, **kwargs)
+
+    ax.grid(visible=True, which='major', axis='both',
+            alpha=0.5, color='grey', linewidth=1)
 
 
 def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
@@ -140,6 +157,8 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
     :param kwargs:
         Keyword arguments to pass when plotting g_series. Kwargs are
         Line2D properties.
+
+    :return: PathCollection
     """
     assert type(g_series) == gpd.GeoSeries, f"GeoSeries expected, {type(g_series)} found."
 
@@ -147,13 +166,16 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
 
     try:
         if g_series.geom_type.iat[0] == "Point":
-            ax.scatter(g_series.x, g_series.y, **kwargs)
+            path_collection = ax.scatter(g_series.x, g_series.y, **kwargs)
 
         elif g_series.geom_type.iat[0] == "LineString":
+            path_collection = []
             for geom in g_series:
-                ax.plot(*geom.xy, **kwargs)
+                path_collection.append(ax.plot(*geom.xy, **kwargs))
     except IndexError:
         print("Plotting failed. The GeoSeries has no geometry.")
+
+    return path_collection
 
 
 def draw_network(p_graph, **kwargs):
@@ -179,8 +201,10 @@ def plot_gdf(gdf: gpd.GeoDataFrame, crs=Can_LCC_wkt, ax=plt, **kwargs):
     :param kwargs:
         Keyword arguments to pass when plotting the gdf. Kwargs are
         Line2D properties.
+
+    :return: PathCollection
     """
-    plot_g_series(gdf.geometry, ax=ax, crs=crs, **kwargs)
+    return plot_g_series(gdf.geometry, ax=ax, crs=crs, **kwargs)
 
 
 def plot_df(df: pd.DataFrame, ax=None, crs=Can_LCC_wkt, **kwargs):
@@ -202,6 +226,8 @@ def plot_df(df: pd.DataFrame, ax=None, crs=Can_LCC_wkt, **kwargs):
 
     :raises TypeError:
         If df is not a Pandas DataFrame
+
+    :return:
     """
     if type(df) != pd.DataFrame:
         raise TypeError("Parameter passed as 'df' is not a DataFrame'")
@@ -210,9 +236,10 @@ def plot_df(df: pd.DataFrame, ax=None, crs=Can_LCC_wkt, **kwargs):
 
     # Only try to plot the output if the conversion was successful
     if type(output) is gpd.GeoDataFrame:
-        plot_gdf(output, ax=ax, crs=crs, **kwargs)
+        return plot_gdf(output, ax=ax, crs=crs, **kwargs)
     else:
         print("Could not be plotted")
+        return None
 
 
 def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, ax=plt):
@@ -320,7 +347,34 @@ def configure_legend(legend_dict: dict, ax=plt):
     ax.legend(handles=custom_lines, loc='upper right')
 
 
-def plot_station_array(edge_df, hydat, pwqmn, network, shape=None):
+def annotate_stations(hydat, pwqmn, ax):
+    """
+
+    :param hydat:
+    :param pwqmn:
+    :return:
+    """
+    texts = []
+
+    for ind, row in hydat.to_crs(crs=gdf_utils.Can_LCC_wkt).iterrows():
+        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['STATION_NUMBER']))
+
+    for ind, row in pwqmn.to_crs(crs=gdf_utils.Can_LCC_wkt).drop_duplicates('Location_ID').iterrows():
+        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Location_ID']))
+
+    adjust_text(texts)
+
+
+def plot_match_array(edge_df, add_to_plot=None, shape=None):
+    """
+
+    :param edge_df:
+    :param shape:
+    :param add_to_plot:
+
+    :return:
+    """
+
     grouped = edge_df.groupby(by='pwqmn_id')
 
     if shape is None:
@@ -332,8 +386,16 @@ def plot_station_array(edge_df, hydat, pwqmn, network, shape=None):
                            subplot_kw={'projection': lambert, 'aspect': 'equal'},
                            figsize=(16, 8))
 
+    legend_dict = {'Symbol': ['line', 'line', 'line', 'point', 'point'],
+                  'Colour': ['orange', 'pink', 'purple', 'blue', 'red'],
+                  'Label': ['On', 'Downstream', 'Upstream', 'HYDAT', 'PWQMN']}
+
     plt.subplots_adjust(left=0.02, right=0.89, top=0.98, bottom=0.02)
-    fig.add_axes([0.91, 0.01, 0.08, 0.96])
+    right_pad = fig.add_axes([0.91, 0.01, 0.08, 0.96])
+    right_pad.set_axis_off()
+    right_pad.set_title('HYDAT -> PWQMN')
+    configure_legend(legend_dict, ax=right_pad)
+
     n = 0
 
     for ind, group in grouped:
@@ -343,21 +405,23 @@ def plot_station_array(edge_df, hydat, pwqmn, network, shape=None):
         add_map_to_plot(total_bounds=g_series.total_bounds, ax=ax[row][col])
         plot_paths(group, ax=ax[row][col])
 
-        plot_gdf(hydat, ax=ax[row][col], zorder=4, color='blue')
-        plot_gdf(pwqmn, ax=ax[row][col], zorder=5, color='red')
-        draw_network(network, ax=ax[row][col])
+        text = []
+        for ind, group_row in group.iterrows():
+            start, end = group_row['path'].boundary.geoms
+            ax[row][col].scatter([start.x], [start.y], color='blue', zorder=6, marker='o')
+            ax[row][col].scatter([end.x], [end.y], color='red', zorder=6,marker='o')
+
+            text.append(ax[row][col].text(end.x, end.y, group_row['pwqmn_id']))
+            text.append(ax[row][col].text(end.x, end.y, group_row['hydat_id']))
+
+        if add_to_plot is not None:
+            for i in add_to_plot:
+                if callable(i):
+                    i(ax=ax[row][col])
 
         n += 1
 
-        texts = []
-
-        for ind, row in hydat.to_crs(crs=gdf_utils.Can_LCC_wkt).iterrows():
-            texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['STATION_NUMBER']))
-
-        for ind, row in pwqmn.to_crs(crs=gdf_utils.Can_LCC_wkt).drop_duplicates('Location_ID').iterrows():
-            texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Location_ID']))
-
-        adjust_text(texts)
+        adjust_text(text)
 
     plt.show()
 
@@ -383,6 +447,14 @@ def close():
 
 
 def timed_display(seconds=2):
+    """
+    Displays the current matplotlib.pyplot plot, and automatically
+    closes the plot window after a specificied amount of time.r
+
+    :param seconds: int
+        Time to display the plot for in seconds. Default 2 seconds.
+    :return:
+    """
     plt.show(block=False)
     plt.pause(seconds)
     plt.close()

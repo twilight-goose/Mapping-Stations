@@ -225,6 +225,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
     try:
         gdf = gpd.GeoDataFrame(
             df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=crs)
+        gdf.drop_duplicates(subset=[x, y], inplace=True)
         gdf.to_crs(Can_LCC_wkt)
         print("Dataframe successfully converted to geopandas point geodataframe")
     except KeyError:
@@ -347,7 +348,7 @@ def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
 
 
 def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
-               max_distance=10000):
+               max_distance=10000, max_depth=10):
     """
     For each station assigned to the network denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -385,6 +386,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         Maximum distance to search for a matching station in CRS units.
         Default 10000 (m).
 
+    :param max_depth:
+
+
     :return: Pandas DataFrame
         DataFrame with the following columns:
             - prefix1_id (string)
@@ -400,6 +404,10 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
             - pos (string)
                 One of "On", "Downstream", "Upstream" indicating
                 the relative position of the matched station.
+            - seg_apart (int)
+                The number of river segments separating the origin and
+                matched station. Stations on the same segment will have
+                a value of 0.
     """
     def bfs(source):
         pass
@@ -435,7 +443,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         else:
             raise ValueError('Invalid direction')
 
-        if cum_dist >= max_distance or len(edges) == 0 or depth >= 10:
+        if cum_dist >= max_distance or len(edges) == 0 or depth >= max_depth:
             return -1, -1, -1
 
         for u, v, data in edges:
@@ -446,7 +454,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                 dist  = cum_dist + abs(direction * data['LENGTH_M'] - series['dist'])
 
                 if dist < max_distance:
-                    return series['ID'], dist, series['geometry'], (u, v)[direction]
+                    return series['ID'], dist, depth, series['geometry'], (u, v)[direction]
                 return -1, -1, -1
             else:
                 result = *dfs((u, v)[not direction], prefix2, direction,
@@ -459,17 +467,20 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         # reached the end of the line
         return -1, -1, -1
 
-    def add_to_matches(id1, id2, path, _dist, _pos):
+    def add_to_matches(id1, id2, path, _dist, _pos, depth):
         """
-        Helper function that adds a set of values to a dictionary.
+        Helper function that adds a set of values to a dictionary with specific keys.
         """
         matches[prefix1 + 'id'].append(id1)
         matches[prefix2 + 'id'].append(id2)
         matches['path'].append(path)
         matches['dist'].append(_dist)
         matches['pos'].append(_pos)
-
-    matches = {prefix1 + 'id': [], prefix2 + 'id' : [], 'path': [], 'dist':[], 'pos': []}
+        matches['seg_apart'].append(depth)
+    """
+    """
+    matches = {prefix1 + 'id': [], prefix2 + 'id' : [], 'path': [],
+               'dist':[], 'pos': [], 'seg_apart': []}
 
     for u, v, data in network.out_edges(data=True):
         pref_1_data = data[prefix1 + 'data']
@@ -486,19 +497,19 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                         if on_dist < max_distance:
                             add_to_matches(station['ID'], row['ID'],
                                            LineString([station['geometry'], row['geometry']]),
-                                           on_dist, 'On')
+                                           on_dist, 'On', 0)
 
-                down_id, down_dist, *point_list = dfs(v, prefix2, 0, data['LENGTH_M'] - station['dist'], 0)
-                up_id, up_dist, *point_list2 = dfs(u, prefix2, 1, station['dist'], 0)
+                down_id, down_dist, down_depth, *point_list = dfs(v, prefix2, 0, data['LENGTH_M'] - station['dist'], 1)
+                up_id, up_dist, up_depth, *point_list2 = dfs(u, prefix2, 1, station['dist'], 1)
 
                 point_list.append(station['geometry'])
                 point_list2.append(station['geometry'])
 
                 if down_id != -1:
-                    add_to_matches(station['ID'], down_id, LineString(point_list), down_dist, 'Down')
+                    add_to_matches(station['ID'], down_id, LineString(point_list), down_dist, 'Down', down_depth)
 
                 if up_id != -1:
-                    add_to_matches(station['ID'], up_id, LineString(point_list2), up_dist, 'Up')
+                    add_to_matches(station['ID'], up_id, LineString(point_list2), up_dist, 'Up', up_depth)
 
     return pd.DataFrame(data=matches)
 
