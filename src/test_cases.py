@@ -173,15 +173,10 @@ def main():
 
     network = gdf_utils.hyriv_gdf_to_network(lines)
 
-    edge_df = gdf_utils.dfs_search(network, max_depth=100)
+    edge_df = gdf_utils.dfs_search(network, max_depth=100, direct_match_dist=250)
     print(edge_df.drop(columns='path').to_string())
 
-    browser.match_browser(hydat, network, pwqmn, edge_df, bbox, color='blue')
-    plot_utils.plot_match_array(edge_df, add_to_plot=[plot_utils.add_map_to_plot])
-
-
     network_assign_test()
-    plot_array_test()
 
     timer.stop()
 

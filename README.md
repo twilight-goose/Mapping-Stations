@@ -180,34 +180,54 @@ awk -F'"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", ";", $i) } 1' Provincial
 ```
 ## Output Accuracy Table
 ### Zone 1: Southern/Central Ontario
-@submission 1603a69
-   hydat_id  pwqmz`n_id  HydroRivers dist        pos    manual   OHN dist
-0   02EA001  3009800302       3247.810984    On-Down   ~3670 m
-1   02EA001  3009800402       3838.929621    On-Down   ~4590 m
-2   02EB005  3008501601       7682.088931         Up   ~8630 m
-3   02EB005  3009200202       3343.306653      On-Up   ~3300 m
-4   02EB005  3008500102       8299.933080    On-Down  ~11200 m
-5   02EB006  3008501601       7966.240139         Up        NA
-6   02EB006  3009200202       3676.271811      On-Up   ~3675 m
-7   02EB006  3008500102       7937.783292    On-Down   ~9580 m
-8   02EB010  3009200202       4568.338660      On-Up   ~5315 m
-9   02EB010  3008500102       7129.984936    On-Down   ~8800 m
-10  02EB010  3008501601       9527.944128         Up        NA
-11  02EB011  3009200102        336.848454      On-Up   331.3 m
-12  02EB012  3008500102         64.850527    On-Down    63.5 m
-13  02EB103  3008502802         18.925278      On-Up    18.6 m
-14  02EB105  3008502502         31.614124    On-Down    31.1 m
-
-
-@submission 
 On = On river segment
 Up = Upstream
 Down = Downstream
 
-All distances are in meters.
+All distances are in meters. For stations on the same segment within 350m, regardless
+of the dataset that the network was built with, distance is calculated from origin
+to candidate station point instead of along the network. The algorithm is also designed
+to report ALL candidate stations within a maximum distance that lie on the same river
+segment as the origin station. This means that where the greater resolution of the OHN
+dataset breaks stretches of river that are recorded as single edges in HydroRIVERS into
+multiple segments some stations will no longer lie on the same segment.
 
-Matches with NA instead of a manual distance indicate they are far enough that
-they would not reasonably be matched with said station for any reason, and/or
-there are significantly closer water quality stations that would be matched to
-it. (i.e. 02EB103 & 3008501002)
+It is noted that the network built from the OHN watercourses dataset follows real-world
+rivers most accurately, containing lines placed near or at the weighted center of rivers
+at a very high resolution. More information and download can be found [here](https://geohub.lio.gov.on.ca/datasets/a222f2996e7c454f9e8d028aa05995d3_26/about)
+
+Matches with NA instead of a distance indicate 1 of the following:
+- they are far enough that they would not reasonably be matched with said station for any reason
+- there are other significantly close water quality stations that would be matched to it
+- the complexity/sinuosity of the river segment(s) is too great for manual measuring to have any accuracy benefit over the OHN dist
+- In the HydroRIVERS dist, stations with an NA value did not have a river segment close enough to snap to
+
+@submission 1603a69 - Network Built with HydroRIVERS
+hydat_id    pwqmn_id  HydroRivers dist      pos   manual      OHN dist
+ 02DD009  3013302302         43.451882  On-Down     43.1     43.451882
+ 02EA005  3012400102       6232.601156     Down       NA   7894.037701
+ 02EA006  3012400202       1073.440993  On-Down    ~1656   1700.666633
+ 02EA006  3012400102       2792.096362     Down       NA            NA
+ 02EA001  3009800302       3785.120896  On-Down    ~3670   3910.138179
+ 02EA001  3009800402       4467.751704  On-Down    ~4590            NA
+ 02EB013  3008503202       5124.624633     Down       NA            NA
+ 02EB103  3008502802         18.925278    On-Up     18.6     18.925278
+ 02EB004  3008500602         30.923688    On-Up     30.5     30.923688
+ 02EB007  3008500602       3372.482868       Up       NA   3776.371041
+ 02EB008  3008500902        296.543161    On-Up      302    310.248873
+ 02EB105  3008502502         31.614124  On-Down     31.1     31.614124
+ 02EB011  3009200102        336.848454    On-Up    331.3    333.795511
+ 02EB005  3009200202       3223.123205    On-Up    ~3300   3600.401277
+ 02EB005  3008501601       7682.088931       Up    ~8630            NA
+ 02EB006  3009200202       3507.274414    On-Up    ~3675   4286.953203
+ 02EB006  3008501601       7966.240139       Up       NA            NA
+ 02EB009  3009200102                NA     Down       NA   8863.486486
+ 02EB009  3009200202                NA       Up       NA   6024.150516
+ 02EB010  3008500102       8982.163362  On-Down    ~8800            NA
+ 02EB010  3009200202       5068.978402    On-Up    ~5315            NA
+ 02EB010  3008501601       9527.944128       Up       NA            NA
+ 02EB012  3008500102         64.850527  On-Down     63.5     64.850527
+
+@submission 106d513 - Network Built with Ontario Hydro Network - Watercourses
+
 

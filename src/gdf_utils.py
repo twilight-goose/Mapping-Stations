@@ -348,7 +348,7 @@ def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
 
 
 def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
-               max_distance=10000, max_depth=10):
+               max_distance=10000, max_depth=10, direct_match_dist=350):
     """
     For each station assigned to the network denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -386,8 +386,19 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         Maximum distance to search for a matching station in CRS units.
         Default 10000 (m).
 
-    :param max_depth:
+    :param max_depth: int
+        The maximum number of river segments to traverse from an origin
+        station to search for a match. The greater the resolution of the
+        dataset used to build the network, the greater this value should
+        be.
 
+    :param direct_match_dist: int
+        The maximum distance in CRS units between two stations at which
+        it is assumed the most accurate measure of distance along the
+        river from origin to candidate is the direct distance between
+        the two points. The greater the resolution of the dataset used
+        to build the network, the lower this value should be.
+            Default: 350
 
     :return: Pandas DataFrame
         DataFrame with the following columns:
@@ -493,6 +504,8 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
 
                     for ind, row in pref_2_data.iterrows():
                         on_dist = station['geometry'].distance(row['geometry'])
+                        if on_dist > direct_match_dist:
+                            on_dist = abs(station['dist'] - row['dist'])
 
                         if station['dist'] > row['dist']:
                             pos = 'On-Up'
