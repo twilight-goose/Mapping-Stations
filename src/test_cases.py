@@ -100,12 +100,12 @@ def network_test(lines):
     plot_utils.timed_display()
 
 
-def network_assign_test(bbox=BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)):
+def network_assign_test(bbox=BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)):
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
 
-    lines = load_data.load_hydro_rivers(bbox=bbox)
+    lines = load_data.load_rivers(bbox=bbox)
     hydat = gdf_utils.point_gdf_from_df(hydat)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
@@ -129,7 +129,7 @@ def browser_test_1():
 
 def browser_test_2():
     bbox = BBox(min_x=-80, max_x=-75, min_y=45, max_y=50)
-    lines = load_data.load_hydro_rivers(bbox=bbox)
+    lines = load_data.load_rivers(bbox=bbox)
     plot_utils.line_browser(lines, bbox)
 
 
@@ -140,7 +140,7 @@ def plot_array_test():
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
 
-    lines = load_data.load_hydro_rivers(bbox=bbox)
+    lines = load_data.load_rivers(bbox=bbox)
     hydat = gdf_utils.point_gdf_from_df(hydat)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
@@ -157,8 +157,31 @@ def plot_array_test():
 def main():
     timer = Timer()
 
+    bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
+
+    hydat = load_data.get_hydat_station_data(bbox=bbox)
+    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
+
+    path = "E:\Python projects\Mapping-Stations\data\OHN\Ontario_Hydro_Network_(OHN)_-_Watercourse.shp"
+
+    lines = load_data.load_rivers(path=path, bbox=bbox)
+    hydat = gdf_utils.point_gdf_from_df(hydat)
+    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
+
+    lines = gdf_utils.assign_stations(lines, hydat, 'STATION_NUMBER', prefix='hydat_')
+    lines = gdf_utils.assign_stations(lines, pwqmn, 'Location_ID', prefix='pwqmn_')
+
+    network = gdf_utils.hyriv_gdf_to_network(lines)
+
+    edge_df = gdf_utils.dfs_search(network, max_depth=100)
+    print(edge_df.drop(columns='path').to_string())
+
+    browser.match_browser(hydat, network, pwqmn, edge_df, bbox, color='blue')
+    plot_utils.plot_match_array(edge_df, add_to_plot=[plot_utils.add_map_to_plot])
+
+
     network_assign_test()
-    # plot_array_test()
+    plot_array_test()
 
     timer.stop()
 

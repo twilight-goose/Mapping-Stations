@@ -198,6 +198,8 @@ awk -F'"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", ";", $i) } 1' Provincial
 13  02EB103  3008502802         18.925278      On-Up    18.6 m
 14  02EB105  3008502502         31.614124    On-Down    31.1 m
 
+
+@submission 
 On = On river segment
 Up = Upstream
 Down = Downstream

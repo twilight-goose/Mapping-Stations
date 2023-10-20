@@ -424,9 +424,9 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
         for ind, group_row in group.iterrows():
             start, end = group_row['path'].boundary.geoms
             ax[row][col].scatter([start.x], [start.y], color='blue', zorder=6, marker='o')
-            ax[row][col].scatter([end.x], [end.y], color='red', zorder=6,marker='o')
             text.append(ax[row][col].text(start.x, start.y, group_row['hydat_id']))
 
+        ax[row][col].scatter([end.x], [end.y], color='red', zorder=6, marker='o')
         text.append(ax[row][col].text(end.x, end.y, group_row['pwqmn_id']))
 
         if add_to_plot is not None:
@@ -435,7 +435,6 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
                     i(ax=ax[row][col])
 
         n += 1
-
         adjust_text(text)
 
     plt.show()
