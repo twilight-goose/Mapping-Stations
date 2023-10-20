@@ -45,9 +45,6 @@ central_lat = 40
 stand_parallel_1 = 50
 stand_parallel_2 = 70
 
-
-# standard parallels were taken from stats canada
-
 # WKT string for Canadian lambert conformal conic projection
 # refer to the source for projected and WGS84 bounds
 # As of 2023-10-02:
@@ -89,25 +86,30 @@ Can_LCC_wkt = ('PROJCS["Canada_Lambert_Conformal_Conic",'
 
 def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame) -> dict:
     """
-    For each point in points, finds and returns the location on other
-    closest to that point.
+    For each point in points, determines the closest location on other
+    and creates a line between them.
 
     Shoutout to Brendan Ward for their Medium article:
     https://medium.com/@brendan_ward/how-to-leverage-geopandas-for-faster-snapping-of-points-to-lines-6113c94e59aa
 
     :param points: GeoPandas GeoDataFrame
-        The points to snap to other.
+        The point features to snap to other. Must have a set CRS.
+        Must contain only Point geometry.
 
     :param other: GeoPandas GeoDataFrame
         GeoDataFrame to snap the points to. May be points, lines,
-        or polygons.
+        or polygons, and must have a set CRS.
 
-    :return: dict
+    :return: dict of string: GeoDataFrame
         Contains the new points on other and the lines connecting the
         original points to the new points (used for checking quality
-        of point snapping. Has 2 keys: 'new_points' & 'lines'. Maintains
-        the same order as points.
+        of point snapping). Has 2 keys: 'new_points' & 'lines'. Maintains
+        the same order as points. All lines have only two vertices.
     """
+    # Assert that points contains only Point features
+    assert len(points.groupby(by=points.geometry.geom_type).groups) == 1,\
+        "GeoDataFrame expected to only contain Points."
+
     # Spatial manipulation is performed in Lambert conformal conic
     # but the geometry of the original datasets are not changed.
     if points.crs != Can_LCC_wkt:
@@ -120,10 +122,6 @@ def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame)
     other = other.assign(other=other.geometry)
     closest = points.sjoin_nearest(other, how='left', distance_col='distance')
 
-    # project then interpolate appears to be slower for all sizes of data
-    # pos = closest['other'].project(closest.geometry)
-    # data = closest['other'].interpolate(pos)
-
     shortest_lines = closest.geometry.shortest_line(closest['other'])
 
     # Potentially find a more efficient solution that doesn't use apply
@@ -134,8 +132,17 @@ def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame)
 
 def snap_points(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
     """
+    Snaps a set of points to the closest geometry in another set of
+    features.
+
     Wrapper function for connect_points_to_feature() that returns only
     the points and not the connecting lines.
+
+    :param points: gpd.GeoDataFrame
+        Original point dataset.
+
+    :param other: gpd.GeoDataFrame
+        Features to snap Points to.
 
     :return: GeoPandas GeoDataFrame
         Point GeoDataFrame. Consult connect_points_to_feature for more
@@ -146,6 +153,9 @@ def snap_points(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
 
 def connectors(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
     """
+    Finds the shortest lines between a set of points to the closest
+    geometry in another set of features.
+
     Wrapper function for connect_points_to_feature() that returns only
     the connecting lines and not the new points.
 
@@ -171,17 +181,17 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
     Conversion will fail if only 1 of x_field or y_field is provided.
 
     If x and y fields are not provided, the crs will be assumed to be
-    EPSG:4326. If you provide x and y fields, you MUST provide a crs
-    as well.
+    EPSG:4326. If x and y fields are provided, a CRS must also be
+    provided.
 
     :param df: pandas DataFrame
-        DataFrame to convert to a GeoDataFrame
+        DataFrame to convert to a GeoDataFrame.
 
-    :param x_field: str or None (default)
+    :param x_field: str (optional)
         Field to use as longitude/x value. If None, searches df
         for X and Y fields to use. Required if y_field is provided.
 
-    :param y_field: str or None (default)
+    :param y_field: str (optional)
         Field to use as latitude/y value. If None, searches df
         for X and Y fields to use. Required if y_field is provided.
 
@@ -192,7 +202,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
         - WKT String (such as Can_LCC_wkt)
         - authority string ("EPSG:4326")
 
-    :return: Geopandas GeoDataFrame or int
+    :return: Geopandas GeoDataFrame or -1
         The resulting GeoDataFrame, or -1 if the conversion failed. If
         a crs is passed, the GDF will be in that crs. If lat/lon fields
         are found by find_xy_fields(), crs will be set to EPSG:4326.
@@ -306,6 +316,12 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
         unique_ind (int)
             Used as a unique identifier for joining and merging data.
     """
+    assert len(stations.groupby(by=stations.geometry.geom_type).groups) == 1 \
+        and stations.geometry.geom_type[0] == 'Point', "GeoDataFrame expected to only contain Points."
+    assert len(edges.groupby(by=edges.geometry.geom_type).groups) == 1 \
+           and stations.geometry.geom_type[0] == 'LineString',\
+        "GeoDataFrame expected to only contain LineStrings."
+
     if stations.crs != Can_LCC_wkt:
         stations = stations.to_crs(crs=Can_LCC_wkt)
     if edges.crs != Can_LCC_wkt:
@@ -316,7 +332,6 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     edges = edges.assign(LENGTH_M=edges['LENGTH_KM'] * 1000)
 
     stations = stations.drop_duplicates(stat_id_f)
-
     stations = stations.sjoin_nearest(edges, how='left', max_distance=max_distance)
 
     rel_pos = stations['other'].project(stations.geometry) / stations['other'].length
@@ -327,14 +342,12 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     grouped = stations.groupby(by='unique_ind', sort=False)
 
     temp_data = {'unique_ind': [], prefix + 'data': []}
-
     for ind, data in grouped:
         temp_data['unique_ind'].append(ind)
         temp_data[prefix + 'data'].append(data[['ID', 'dist', 'geometry']])
 
     temp = pd.DataFrame(data=temp_data)
-    edges = edges.merge(temp, on='unique_ind', how='left')
-    return edges
+    return edges.merge(temp, on='unique_ind', how='left')
 
 
 def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
@@ -371,34 +384,33 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
     For stations located on the same river segment/network edge,
     distance between matched stations is computed geographically.
 
-    :param network:
-        NetworkX Directed graph.
+    :param network: NetworkX Directed Graph
+        The graph to search. Must contain station data stored as
+        edge attributes.
 
-    :param prefix1: string
+    :param prefix1: string (default='hydat_')
         Prefix denoting the network edge attribute holding origin
         station data.
 
-    :param prefix2: string
+    :param prefix2: string (default='pwqmn_')
         Prefix denoting the network edge attribute holding candidate
         station data.
 
-    :param max_distance: int
+    :param max_distance: int (default=1000)
         Maximum distance to search for a matching station in CRS units.
-        Default 10000 (m).
 
-    :param max_depth: int
+    :param max_depth: int (default=10)
         The maximum number of river segments to traverse from an origin
         station to search for a match. The greater the resolution of the
         dataset used to build the network, the greater this value should
         be.
 
-    :param direct_match_dist: int
+    :param direct_match_dist: int (default=350)
         The maximum distance in CRS units between two stations at which
         it is assumed the most accurate measure of distance along the
         river from origin to candidate is the direct distance between
         the two points. The greater the resolution of the dataset used
         to build the network, the lower this value should be.
-            Default: 350
 
     :return: Pandas DataFrame
         DataFrame with the following columns:
@@ -425,9 +437,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
 
     def dfs(source, prefix, direction, cum_dist, depth):
         """
-        Traverses edges depth first search moving along the network.
-        Does not accept candidates that are max_distance units away
-        or 10 segments away.
+        Traverses edges recursively along the network depth-first.
+        Does not accept candidates that are greater than max_distance
+        units or max_depth segments away.
 
         :param source:
             Source node key to search from.
@@ -446,6 +458,17 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
             The number of segments that have been traversed.
 
         :return:
+            If search was successful:
+
+                ID (str), dist (float), depth (int), cord_n (tuple), ... ,cord_0 (tuple)
+
+                Where cord_n is the location of the matched candidate
+                station, cord_0 is the location of the origin station,
+                and all cords in between are that of network nodes
+                between the origin and matched station.
+
+            If search was unsuccessful:
+                -1, -1, -1
         """
         if direction == 0:
             edges = network.out_edges(nbunch=source, data=True)
@@ -488,8 +511,8 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         matches['dist'].append(_dist)
         matches['pos'].append(_pos)
         matches['seg_apart'].append(depth)
-    """
-    """
+
+    # Instantiate dictionary to store matches
     matches = {prefix1 + 'id': [], prefix2 + 'id' : [], 'path': [],
                'dist':[], 'pos': [], 'seg_apart': []}
 
@@ -500,36 +523,36 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         if type(pref_1_data) in [pd.DataFrame, gpd.GeoDataFrame]:
 
             for ind, station in pref_1_data.iterrows():
+                # Check if there are candidate stations on the same river segment
                 if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
 
+                    # Add each candidate on the same segment to matches
                     for ind, row in pref_2_data.iterrows():
+
                         on_dist = station['geometry'].distance(row['geometry'])
                         if on_dist > direct_match_dist:
                             on_dist = abs(station['dist'] - row['dist'])
 
-                        if station['dist'] > row['dist']:
-                            pos = 'On-Up'
-                        elif station['dist'] < row['dist']:
-                            pos = 'On-Down'
-                        else:
-                            pos = 'On'
-
                         if on_dist < max_distance:
+                            pos = 'On-' + 'Up' if station['dist'] > row['dist'] else 'Down'
+
                             add_to_matches(station['ID'], row['ID'],
                                            LineString([station['geometry'], row['geometry']]),
                                            on_dist, pos, 0)
 
+                # Check for candidate stations upstream and downstream
                 down_id, down_dist, down_depth, *point_list = dfs(v, prefix2, 0, data['LENGTH_M'] - station['dist'], 1)
                 up_id, up_dist, up_depth, *point_list2 = dfs(u, prefix2, 1, station['dist'], 1)
 
-                point_list.append(station['geometry'])
-                point_list2.append(station['geometry'])
-
                 if down_id != -1:
-                    add_to_matches(station['ID'], down_id, LineString(point_list), down_dist, 'Down', down_depth)
+                    point_list.append(station['geometry'])
+                    add_to_matches(station['ID'], down_id, LineString(point_list),
+                                   down_dist, 'Down', down_depth)
 
                 if up_id != -1:
-                    add_to_matches(station['ID'], up_id, LineString(point_list2), up_dist, 'Up', up_depth)
+                    point_list2.append(station['geometry'])
+                    add_to_matches(station['ID'], up_id, LineString(point_list2),
+                                   up_dist, 'Up', up_depth)
 
     return pd.DataFrame(data=matches)
 
@@ -539,16 +562,19 @@ def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=False, show=False) ->
     Creates a directed network from a hydroRIVER line GeoDataFrame.
 
     A glorified wrapper function that gives the option to plot the
-    produced network against the original GeoDataFrame.
+    produced network against the original GeoDataFrame. Refer to the
+    momepy documentation for more information about gdf_to_nx().
+
+    Link: https://docs.momepy.org/en/stable/generated/momepy.gdf_to_nx.html#momepy.gdf_to_nx
 
     :param hyriv_gdf: Geopandas GeoDataFrame
-        The GeoDataFrame to turn into a directed network
+        The GeoDataFrame to turn into a directed network.
 
-    :param plot: bool
+    :param plot: bool (default=False)
         If True, plot a network/original line dataset comparison
         to matplotlib.pyplot. If False, do nothing.
 
-    :param show: bool
+    :param show: bool (default=False)
         If True, display the plot. If False, do nothing.
 
     :return: networkX DiGraph
@@ -572,11 +598,17 @@ def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=False, show=False) ->
     return p_graph
 
 
-def hyriv_network_to_gdf(network, show=False, plot=False):
-    nodes, edges, sw = momepy.nx_to_gdf(network)
-
-
 def straighten(lines):
+    """
+    Produces a set of lines from the start and end point of
+    each line in liens.
+
+    :param lines: GeoDataFrame
+        The line features to straighten. Must contain only lines.
+
+    :return: GeoDataFrame
+        The straightened lines.
+    """
     pairs = []
     for line in lines.geometry:
         pairs.append(LineString(line.boundary.geoms))
@@ -647,7 +679,7 @@ def __draw_network__(p_graph, ax=None, **kwargs):
     :param p_graph: NetworkX Graph
         The graph object to draw.
 
-    :param ax: plt.Axes object or None (default)
+    :param ax: plt.Axes object (optional)
         The Axes to plot g_series onto. If None, creates a new Axes,
         adds it to the current figure, and uses that Axes.
     """
