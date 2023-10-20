@@ -180,10 +180,6 @@ awk -F'"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", ";", $i) } 1' Provincial
 ```
 ## Output Accuracy Table
 ### Zone 1: Southern/Central Ontario
-On = On river segment
-Up = Upstream
-Down = Downstream
-
 All distances are in meters. For stations on the same segment within 350m, regardless
 of the dataset that the network was built with, distance is calculated from origin
 to candidate station point instead of along the network. The algorithm is also designed
@@ -200,34 +196,68 @@ Matches with NA instead of a distance indicate 1 of the following:
 - they are far enough that they would not reasonably be matched with said station for any reason
 - there are other significantly close water quality stations that would be matched to it
 - the complexity/sinuosity of the river segment(s) is too great for manual measuring to have any accuracy benefit over the OHN dist
-- In the HydroRIVERS dist, stations with an NA value did not have a river segment close enough to snap to
+- In HydroRIVERS dist, stations with an NA value did not have a river segment close enough to snap to
+- In % Error, algorithm calculated direct distance between stations for both networks (see above)
 
-@submission 1603a69 - Network Built with HydroRIVERS
-hydat_id    pwqmn_id  HydroRivers dist      pos   manual      OHN dist
- 02DD009  3013302302         43.451882  On-Down     43.1     43.451882
- 02EA005  3012400102       6232.601156     Down       NA   7894.037701
- 02EA006  3012400202       1073.440993  On-Down    ~1656   1700.666633
- 02EA006  3012400102       2792.096362     Down       NA            NA
- 02EA001  3009800302       3785.120896  On-Down    ~3670   3910.138179
- 02EA001  3009800402       4467.751704  On-Down    ~4590            NA
- 02EB013  3008503202       5124.624633     Down       NA            NA
- 02EB103  3008502802         18.925278    On-Up     18.6     18.925278
- 02EB004  3008500602         30.923688    On-Up     30.5     30.923688
- 02EB007  3008500602       3372.482868       Up       NA   3776.371041
- 02EB008  3008500902        296.543161    On-Up      302    310.248873
- 02EB105  3008502502         31.614124  On-Down     31.1     31.614124
- 02EB011  3009200102        336.848454    On-Up    331.3    333.795511
- 02EB005  3009200202       3223.123205    On-Up    ~3300   3600.401277
- 02EB005  3008501601       7682.088931       Up    ~8630            NA
- 02EB006  3009200202       3507.274414    On-Up    ~3675   4286.953203
- 02EB006  3008501601       7966.240139       Up       NA            NA
- 02EB009  3009200102                NA     Down       NA   8863.486486
- 02EB009  3009200202                NA       Up       NA   6024.150516
- 02EB010  3008500102       8982.163362  On-Down    ~8800            NA
- 02EB010  3009200202       5068.978402    On-Up    ~5315            NA
- 02EB010  3008501601       9527.944128       Up       NA            NA
- 02EB012  3008500102         64.850527  On-Down     63.5     64.850527
+@submission e728fc9
+   hydat_id    pwqmn_id  dist_hyRivers pos_hyRivers     dist_OHN  pos_OHN     error
+0   02DD009  3013302302      43.451882      On-Down    43.451882  On-Down  0.000000
+1   02EA005  3012400102    6232.601156         Down  7894.037701     Down  0.210467
+2   02EA006  3012400202    1073.440993      On-Down  1700.666633     Down  0.368812
+3   02EA006  3012400102    2792.096362         Down          NaN      NaN       NaN
+4   02EA001  3009800302    3785.120896      On-Down  3910.138179     Down  0.031973
+5   02EA001  3009800402    4467.751704      On-Down          NaN      NaN       NaN
+6   02EB013  3008503202    5124.624633         Down          NaN      NaN       NaN
+7   02EB103  3008502802      18.925278        On-Up    18.925278  On-Down  0.000000
+8   02EB004  3008500602      30.923688        On-Up    30.923688    On-Up  0.000000
+9   02EB007  3008500602    3372.482868           Up  3776.371041       Up  0.106951
+10  02EB008  3008500902     296.543161        On-Up   310.248873    On-Up  0.044177
+11  02EB105  3008502502      31.614124      On-Down    31.614124    On-Up  0.000000
+12  02EB011  3009200102     336.848454        On-Up   333.795511       Up  0.009146
+13  02EB005  3009200202    3223.123205        On-Up  3600.401277       Up  0.104788
+14  02EB005  3008501601    7682.088931           Up          NaN      NaN       NaN
+15  02EB006  3009200202    3507.274414        On-Up  4286.953203       Up  0.181872
+16  02EB006  3008501601    7966.240139           Up          NaN      NaN       NaN
+17  02EB010  3008500102    8982.163362      On-Down  9848.652301     Down  0.087980
+18  02EB010  3009200202    5068.978402        On-Up          NaN      NaN       NaN
+19  02EB010  3008501601    9527.944128           Up          NaN      NaN       NaN
+20  02EB012  3008500102      64.850527      On-Down    64.850527  On-Down  0.000000
+21  02EB009  3009200102            NaN          NaN  8863.486486     Down       NaN
+22  02EB009  3009200202            NaN          NaN  6024.150516       Up       NaN
 
-@submission 106d513 - Network Built with Ontario Hydro Network - Watercourses
+hydat_id    pwqmn_id  HydroRivers dist      pos   manual      OHN dist  % Error
+ 02DD009  3013302302         43.451882  On-Down     43.1     43.451882       NA
+ 02EA005  3012400102       6232.601156     Down       NA   7894.037701     21.0
+ 02EA006  3012400202       1073.440993  On-Down    ~1656   1700.666633     36.9
+ 02EA006  3012400102       2792.096362     Down       NA            NA       NA
+ 02EA001  3009800302       3785.120896  On-Down    ~3670   3910.138179      3.2
+ 02EA001  3009800402       4467.751704  On-Down    ~4590            NA       NA
+ 02EB013  3008503202       5124.624633     Down       NA            NA       NA
+ 02EB103  3008502802         18.925278    On-Up     18.6     18.925278       NA
+ 02EB004  3008500602         30.923688    On-Up     30.5     30.923688       NA
+ 02EB007  3008500602       3372.482868       Up       NA   3776.371041     10.7
+ 02EB008  3008500902        296.543161    On-Up      302    310.248873      4.4
+ 02EB105  3008502502         31.614124  On-Down     31.1     31.614124       NA
+ 02EB011  3009200102        336.848454    On-Up    331.3    333.795511      1.0
+ 02EB005  3009200202       3223.123205    On-Up    ~3300   3600.401277     10.5
+ 02EB005  3008501601       7682.088931       Up    ~8630            NA       NA
+ 02EB006  3009200202       3507.274414    On-Up    ~3675   4286.953203     18.2
+ 02EB006  3008501601       7966.240139       Up       NA            NA       NA
+ 02EB009  3009200102                NA     Down       NA   8863.486486       NA
+ 02EB009  3009200202                NA       Up       NA   6024.150516       NA
+ 02EB010  3008500102       8982.163362  On-Down    ~8800            NA       NA
+ 02EB010  3009200202       5068.978402    On-Up    ~5315            NA       NA
+ 02EB010  3008501601       9527.944128       Up       NA            NA       NA
+ 02EB012  3008500102         64.850527  On-Down     63.5     64.850527       NA
+
+On-Up = On the same river segment, upstream
+On-Down = On the same river segment, downstream
+Up = Upstream
+Down = Downstream
+% Error is % error in hydroRIVERS, calculated as (hydroRIVERS - OHN_dist) / OHN_dist * 100
+
+Table produced using test_cases.network_compare()
+
+
 
 

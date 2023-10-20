@@ -154,29 +154,48 @@ def plot_array_test():
     plot_utils.plot_match_array(edge_df, add_to_plot=[plot_utils.add_map_to_plot])
 
 
-def main():
+def network_compare():
+    import os.path
+
     timer = Timer()
 
     bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
-
-    path = "E:\Python projects\Mapping-Stations\data\OHN\Ontario_Hydro_Network_(OHN)_-_Watercourse.shp"
-
-    lines = load_data.load_rivers(path=path, bbox=bbox)
     hydat = gdf_utils.point_gdf_from_df(hydat)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
-    lines = gdf_utils.assign_stations(lines, hydat, 'STATION_NUMBER', prefix='hydat_')
-    lines = gdf_utils.assign_stations(lines, pwqmn, 'Location_ID', prefix='pwqmn_')
+    path = os.path.join(load_data.data_path,
+                        os.path.join("OHN", "Ontario_Hydro_Network_(OHN)_-_Watercourse.shp"))
 
-    network = gdf_utils.hyriv_gdf_to_network(lines)
+    ohn_lines = load_data.load_rivers(path=path, bbox=bbox)
+    hydroRIVERS_lines = load_data.load_rivers(bbox=bbox)
 
-    edge_df = gdf_utils.dfs_search(network, max_depth=100, direct_match_dist=250)
-    print(edge_df.drop(columns='path').to_string())
+    ohn_lines = gdf_utils.assign_stations(ohn_lines, hydat, 'STATION_NUMBER', prefix='hydat_')
+    ohn_lines = gdf_utils.assign_stations(ohn_lines, pwqmn, 'Location_ID', prefix='pwqmn_')
+    ohn_network = gdf_utils.hyriv_gdf_to_network(ohn_lines)
 
-    network_assign_test()
+    hydroRIVERS_lines = gdf_utils.assign_stations(hydroRIVERS_lines, hydat, 'STATION_NUMBER', prefix='hydat_')
+    hydroRIVERS_lines = gdf_utils.assign_stations(hydroRIVERS_lines, pwqmn, 'Location_ID', prefix='pwqmn_')
+    hydroRIVERS_network = gdf_utils.hyriv_gdf_to_network(hydroRIVERS_lines)
+
+    ohn_edge_df = gdf_utils.dfs_search(ohn_network, max_depth=100, direct_match_dist=250)
+    hydro_edge_df = gdf_utils.dfs_search(hydroRIVERS_network)
+
+    ohn_edge_df.drop(columns=['path', 'seg_apart'], inplace=True)
+    hydro_edge_df.drop(columns=['path', 'seg_apart'], inplace=True)
+
+    table = hydro_edge_df.merge(ohn_edge_df, how='outer', on=['hydat_id', 'pwqmn_id'],
+                              suffixes=('_hyRivers', '_OHN'))
+    table = table.assign(error=abs(table['dist_hyRivers'] - table['dist_OHN']) / table['dist_OHN'])
+
+    print(table)
+
+def main():
+    timer = Timer()
+
+    network_compare()
 
     timer.stop()
 
