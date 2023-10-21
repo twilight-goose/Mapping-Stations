@@ -37,9 +37,6 @@ defined by Can_LCC_wkt, and will produce output referenced in this CRS.
 # Script Constants ======================================================== ##
 # ========================================================================= ##
 
-timer = Timer()
-
-
 central_lon = -85
 central_lat = 40
 stand_parallel_1 = 50

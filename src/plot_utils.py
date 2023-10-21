@@ -19,9 +19,6 @@ from shapely import Point
 from adjustText import adjust_text
 
 
-timer = Timer()
-
-
 # ========================================================================= ##
 # Script Constants ======================================================== ##
 # ========================================================================= ##
@@ -33,23 +30,11 @@ plot_save_dir = os.path.join(proj_path, "plots")
 
 # Coordinate Reference System Constants
 geodetic = ccrs.Geodetic()
-
 lambert = ccrs.LambertConformal(central_longitude=gdf_utils.central_lon,
                                 central_latitude=gdf_utils.central_lat,
                                 standard_parallels=(gdf_utils.stand_parallel_1,
                                                     gdf_utils.stand_parallel_2))
 
-# standard parallels were taken from stats canada
-
-# WKT string for Canadian lambert conformal conic projection
-# refer to the source for projected and WGS84 bounds
-# As of 2023-10-02:
-#   Center coordinates: 261638.61 2500407.04
-#   Projected bounds: -3827665.83  -207619.51
-#                      4510310.33  5481591.53
-#   WGS84 bounds: -141.01  38.21
-#                  -40.73  86.46
-# source: https://epsg.io/102002
 Can_LCC_wkt = gdf_utils.Can_LCC_wkt
 
 
