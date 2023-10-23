@@ -194,7 +194,10 @@ def network_compare():
 
 def main():
     timer = Timer()
-    print(load_data.get_hydat_station_data().dtypes.to_string())
+
+    hydat = load_data.get_hydat_station_data(period=['2011-05-12', '2011-07-12'])
+    print(hydat.dtypes)
+    print(hydat[['YEAR', 'MONTH']].sort_values(by='MONTH'))
 
     timer.stop()
 

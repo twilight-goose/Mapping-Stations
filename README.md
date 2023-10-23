@@ -116,10 +116,27 @@ data/files from directories or files with different names, data file paths can b
 top of "/src/load_data.py". Anything beyond changing file and folder names is **not recommended**.
 
 Functions in "src/load_data.py" were designed to accommodate specific versions of the Hydat and PWQMN
-datasets. Specifically, Hydat dataset tables are expected to have a field exactly named "STATION_NUMBER".
+datasets. Specifically, HYDAT dataset tables are expected to have a field exactly named "STATION_NUMBER".
 The HYDAT dataset is also expected to contain the following table names:
 
 - STATIONS
+- DLY_FLOWS
+    
+STATIONS must contain the following fields:
+
+- STATION_NUMBER
+- STATION_NAME
+- LONGITUDE
+- LATITUDE
+- DRAINAGE_AREA_GROSS
+- DRAINAGE_AREA_EFFECT
+    
+DLY_FLOWS must contain **STATION_NUMBER** and one of the following sets of fields (or
+another field name compatible with Period.sql_query()):
+
+- YEAR and MONTH
+- YEAR_FROM and YEAR_TO
+- DATE
 
 The PWQMN dataset is expected to contain the following fields, and a missing one will result in ValueErrors.
 ```

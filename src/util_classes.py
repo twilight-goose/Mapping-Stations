@@ -259,6 +259,14 @@ class Period:
             If period (from outer scope) has date bounds, returns a SQL
             query string.
         """
+        def formatter(f_name):
+            query = []
+            if period.start:
+                query.append(f"{f_name} >= {period_start_str}")
+            if period.end:
+                query.append(f"{f_name} <= {period_end_str}")
+            return " AND ".join(query)
+
         # if a list or tuple of <str> is passed as the period,
         # convert it to a period object
         if type(period) == list or type(period) == tuple:
@@ -269,40 +277,31 @@ class Period:
         if period is None or period.is_empty():
             return ""
 
+        period_start_str = f"strftime('%Y-%m-%d', '{period.start}')"
+        period_end_str = f"strftime('%Y-%m-%d', '{period.end}')"
+
         # if the period has at least one valid bound, begin
         # building the query
-        query, start_f, end_f = "", "", ""
+        start_f, end_f = "", ""
 
         for field in fields:
-            if field.upper() == "DATE":
-                start_f = field
-            elif field.upper() == "YEAR":
-                start_f = field
-            elif field.upper() == 'YEAR_FROM':
+            if field.upper() == 'YEAR_FROM' or field.upper() == 'DATE':
                 start_f = field
             elif field.upper() == 'YEAR_TO':
                 end_f = field
+            elif field.upper() == 'YEAR' and 'MONTH' in fields:
+                start_f = f"strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01')"
+                period_start_str = f"strftime('%Y-%m', '{period.start}')"
+                period_end_str = f"strftime('%Y-%m', '{period.end}')"
 
         # Construct the SQL query, based on the period bounds and
         # identified date fields
-
-        # period has start_date and end_date
-        if period.start and period.end:
-            query += f"({start_f} BETWEEN '{period.start}' AND '{period.end}')"
-            if end_f:
-                query += f" OR ({end_f} BETWEEN '{period.start}' AND '{period.end}')"
-
-        # period has an end_date but no start_date
-        elif not period.start and period.end:
-            query += f"({start_f} <= '{period.end}')"
-            if end_f:
-                query += f" OR ({end_f} <= '{period.end}')"
-
-        # period has start_date but no end_date
-        else:
-            query += f"({start_f} >= '{period.start}')"
-            if end_f:
-                query += f" OR ({end_f} >= '{period.start}')"
+        query = []
+        if start_f:
+            query.append(formatter(start_f))
+        if end_f:
+            query.append(formatter(end_f))
+        query = " OR ".join(query)
 
         return query
 

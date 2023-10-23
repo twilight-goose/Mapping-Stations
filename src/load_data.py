@@ -241,11 +241,31 @@ def get_monday_files(bbox=None) -> {str: pd.DataFrame}:
     return load_csvs(monday_path, bbox=bbox)
 
 
-def get_hydat_station_data(period=None, bbox=None, vars=('Q',), sample=False) -> pd.DataFrame:
+def get_hydat_station_data(period=None, bbox=None, sample=False,
+                           flow_symbol=None, measure_type=None) -> pd.DataFrame:
     """
-    Retrieves HYDAT stations based on a bounding box, period, and
-    variables of interest. Renames certain data fields to standardize
-    between PWQMN and HYDAT data.
+    Retrieves HYDAT station daily flow data based on a bounding box and
+    period. Renames certain data fields to standardize between PWQMN
+    and HYDAT data.
+
+    The HYDAT sqlite3 database must contain the following tables:
+    - STATIONS
+    - DLY_FLOWS
+
+    STATIONS must contain the following fields:
+    - STATION_NUMBER
+    - STATION_NAME
+    - LONGITUDE
+    - LATITUDE
+    - DRAINAGE_AREA_GROSS
+    - DRAINAGE_AREA_EFFECT
+
+    DLY_FLOWS must contain STATION_NUMBER and one of the following
+    sets of fields (or another field name compatible with
+    Period.sql_query()):
+    - YEAR and MONTH
+    - YEAR_FROM and YEAR_TO
+    - DATE
 
     :param period: Tuple/list of length 2 or None
 
@@ -261,17 +281,17 @@ def get_hydat_station_data(period=None, bbox=None, vars=('Q',), sample=False) ->
         BBox object defining area of interest. If None, doesn't
         filter by a bounding box.
 
-    :param vars: list-like of string
-        Data types of interest. Refer to DATA_TYPES lookup table in
-        'hydat reference.md' for valid DATA_TYPE inputs.
-
     :param sample: <positive nonzero int> or None
         Number of (random) stations to read from HYDAT database. If
         None, do not sample and retrieve entire database.
 
     :return: <pandas DataFrame>
         HYDAT stations within the bounds of BBox that have data in var
-        during the period of interest.
+        during the period of interest, and available monthly streamflow
+        data (one record per month of data available from each station,
+        2 columns (flow value, flow symbol) per assumed 31 days of the
+        month). Refer to hydat_reference.md DATA_SYMBOLS for
+        FLOW_SYMBOL information.
     """
     # check period validity
     Period.check_period(period)
@@ -294,15 +314,14 @@ def get_hydat_station_data(period=None, bbox=None, vars=('Q',), sample=False) ->
                                    "DRAINAGE_AREA_GROSS, DRAINAGE_AREA_EFFECT FROM 'STATIONS'" +
                                    bbox_query, conn)
 
-    period_query = Period.sql_query(period, ['YEAR_FROM', 'YEAR_TO'])
-    period_query = (' AND ' if period_query else '') + period_query
-    var_query = ' OR '.join([f'DATA_TYPE == "{v}"' for v in vars])
+    curs = conn.execute('PRAGMA table_info(DLY_FLOWS)')
+    fields = [field[1] for field in curs.fetchall()]
+    period_query = Period.sql_query(period, fields)
+    period_query = (' WHERE ' if period_query else '') + period_query
 
-    stations_w_var = pd.read_sql_query('SELECT STATION_NUMBER FROM "STN_DATA_RANGE" WHERE ' +
-                                       var_query + period_query, conn)
-    station_daily_flows = pd.read_sql_query('SELECT * FROM "DLY_FLOWS"', conn)
+    print(period_query)
 
-    station_df = station_df.merge(stations_w_var, on='STATION_NUMBER')
+    station_daily_flows = pd.read_sql_query("SELECT * FROM 'DLY_FLOWS'" + period_query, conn)
     station_df = station_df.merge(station_daily_flows, how='right', on='STATION_NUMBER')
     if station_df.empty:
         print("Chosen query resulted in empty GeoDataFrame.")
@@ -363,16 +382,17 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
     period_query = Period.sql_query(period, fields)
     bbox_query = BBox.sql_query(bbox, "Longitude", "Latitude")
 
-    query = ""
-
     if bbox_query or period_query:
         connector = "AND" if (bbox_query and period_query) else ""
-        query = " ".join([" WHERE", bbox_query, connector, period_query])
+        query = " ".join([bbox_query, connector, period_query])
+        if query.strip():
+            query = ' WHERE ' + query
 
     if sample is not None and sample > 0:
         query += f" ORDER BY RANDOM() LIMIT {sample}"
 
     # Load PWQMN data as a DataFrame
+    print(query)
     station_df = pd.read_sql_query("SELECT * FROM 'DATA'" + query, conn)
 
     timer.stop()
