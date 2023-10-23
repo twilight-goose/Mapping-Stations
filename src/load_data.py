@@ -92,6 +92,9 @@ def generate_pwqmn_sql():
     then writes it to the sql database as the 'DATA' table. If a 'DATA'
     table exists already, that table is overwritten by the new data.
 
+    Renames certain fields to standardize the column names between PWQMN
+    and HYDAT data.
+
     :return: None
     """
     print("Generating PWQMN sqlite3 database")
@@ -123,12 +126,12 @@ def generate_pwqmn_sql():
                                     'ResultDetectionQuantitationLimitUnit': str})
 
     # rename some columns to make working with the PWQMN data easier
-    pwqmn_data.rename(columns={'MonitoringLocationName': 'Name',
-                               'MonitoringLocationID': "Location_ID",
+    pwqmn_data.rename(columns={'MonitoringLocationName': 'Station_Name',
+                               'MonitoringLocationID': "Station_ID",
                                'MonitoringLocationLongitude': 'Longitude',
                                'MonitoringLocationLatitude': 'Latitude',
                                'ActivityStartDate': 'Date',
-                               'CharacteristicName': 'Variables'}, inplace=True)
+                               'CharacteristicName': 'Variable'}, inplace=True)
 
     # fill the sql database and close the connection
     pwqmn_data['Date'] = pd.to_datetime(pwqmn_data['Date'])
@@ -241,7 +244,8 @@ def get_monday_files(bbox=None) -> {str: pd.DataFrame}:
 def get_hydat_station_data(period=None, bbox=None, vars=('Q',), sample=False) -> pd.DataFrame:
     """
     Retrieves HYDAT stations based on a bounding box, period, and
-    variables of interest.
+    variables of interest. Renames certain data fields to standardize
+    between PWQMN and HYDAT data.
 
     :param period: Tuple/list of length 2 or None
 
@@ -279,20 +283,16 @@ def get_hydat_station_data(period=None, bbox=None, vars=('Q',), sample=False) ->
 
     # generate a sql query from the bbox bounding box
     bbox_query = BBox.sql_query(bbox, "LONGITUDE", "LATITUDE")
-    bbox_query = (' AND ' if bbox_query else "") + bbox_query
+    bbox_query = (' WHERE ' if bbox_query else "") + bbox_query
 
     if sample > 0:
         bbox_query += f" ORDER BY RANDOM() LIMIT {sample}"
 
     # read station info from the STATIONS table within the database and
     # load that info into the station data dict
-    station_df = pd.read_sql_query("SELECT STATION_NUMBER, STATION_NAME, HYD_STATUS, SED_STATUS, "
-                                   "LATITUDE, LONGITUDE, DRAINAGE_AREA_GROSS, DRAINAGE_AREA_EFFECT "
-                                   "FROM 'STATIONS' WHERE PROV_TERR_STATE_LOC == 'ON'" + bbox_query,
-                                   conn)
-
-    station_df.rename(columns={'LONGITUDE': 'Longitude', 'LATITUDE': 'Latitude'},
-                      inplace=True)
+    station_df = pd.read_sql_query("SELECT STATION_NUMBER, STATION_NAME, LATITUDE, LONGITUDE,"
+                                   "DRAINAGE_AREA_GROSS, DRAINAGE_AREA_EFFECT FROM 'STATIONS'" +
+                                   bbox_query, conn)
 
     period_query = Period.sql_query(period, ['YEAR_FROM', 'YEAR_TO'])
     period_query = (' AND ' if period_query else '') + period_query
@@ -300,15 +300,21 @@ def get_hydat_station_data(period=None, bbox=None, vars=('Q',), sample=False) ->
 
     stations_w_var = pd.read_sql_query('SELECT STATION_NUMBER FROM "STN_DATA_RANGE" WHERE ' +
                                        var_query + period_query, conn)
-
-    timer.stop()
-    conn.close()        # close the sqlite3 connection
+    station_daily_flows = pd.read_sql_query('SELECT * FROM "DLY_FLOWS"', conn)
 
     station_df = station_df.merge(stations_w_var, on='STATION_NUMBER')
+    station_df = station_df.merge(station_daily_flows, how='right', on='STATION_NUMBER')
     if station_df.empty:
         print("Chosen query resulted in empty GeoDataFrame.")
 
+    station_df.rename(columns={'LONGITUDE': 'Longitude', 'LATITUDE': 'Latitude',
+                               'STATION_NUMBER': 'Station_ID', 'STATION_NAME': 'Station_Name'},
+                      inplace=True)
+
+    # close the sqlite3 connection
+    conn.close()
     # return the data
+    timer.stop()
     return station_df
 
 
@@ -369,7 +375,6 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
     # Load PWQMN data as a DataFrame
     station_df = pd.read_sql_query("SELECT * FROM 'DATA'" + query, conn)
 
-    # Usually takes around 80 seconds
     timer.stop()
     conn.close()
 

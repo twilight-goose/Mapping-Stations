@@ -171,7 +171,8 @@ def connectors(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
 def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) -> gpd.GeoDataFrame:
     """
     Convert a pandas DataFrame to a geopandas GeoDataFrame with point
-    geometry, if possible.
+    geometry, if possible. Output GeoDataFrame is identical to input
+    DataFrame with the exception of the added 'geometry' field.
 
     If neither x nor y fields are not provided, the function will
     search the DataFrame for fields to use with find_xy_fields().
@@ -208,7 +209,6 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
         If x and y fields are provided, but a CRS is not.
         If df is not a DataFrame.
     """
-    timer.start()
 
     # Do checks on passed parameters
     if type(df) != pd.DataFrame:
@@ -232,14 +232,12 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
     try:
         gdf = gpd.GeoDataFrame(
             df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=crs)
-        gdf.drop_duplicates(subset=[x, y], inplace=True)
         gdf.to_crs(Can_LCC_wkt)
         print("Dataframe successfully converted to geopandas point geodataframe")
     except KeyError:
         gdf = -1
         print("Conversion Failed")
 
-    timer.stop()
     return gdf
 
 
@@ -249,7 +247,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
 
 
 def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
-                    stat_id_f: str, prefix="", max_distance=1000) -> gpd.GeoDataFrame:
+                    prefix="", max_distance=1000) -> gpd.GeoDataFrame:
     """
     Snaps stations to the closest features in edges and assigns
     descriptors to line segments. Uses a solution similar
@@ -275,13 +273,12 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     provided LENGTH_KM field.
 
     :param edges: Geopandas GeoDataFrame
-        The lines/features to assign stations to.
+        The lines/features to assign stations to. Requires that a
+        'LENGTH_KM' field exists.
 
     :param stations: Geopandas GeoDataFrame
-        The station points to assign to edges.
-
-    :param stat_id_f: string
-        The name of the unique identifier field in stations.
+        The station points to assign to edges. Requires that a
+        'Station_ID' field exists.
 
     :param prefix: string (default="")
         Prefix to apply to added 'data' column. Useful if you need to
@@ -312,12 +309,28 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
 
         unique_ind (int)
             Used as a unique identifier for joining and merging data.
+
+    :raises ValueError:
+        If stations contains geometries aside from Points
+        If edges contains geometries aside from LineStrings
+
+    :raises KeyError:
+        If stations doesn't contain a 'Station_ID' field.
     """
-    assert len(stations.groupby(by=stations.geometry.geom_type).groups) == 1 \
-        and stations.geometry.geom_type[0] == 'Point', "GeoDataFrame expected to only contain Points."
-    assert len(edges.groupby(by=edges.geometry.geom_type).groups) == 1 \
-           and stations.geometry.geom_type[0] == 'LineString',\
-        "GeoDataFrame expected to only contain LineStrings."
+    # check inputs
+    if len(stations.groupby(by=stations.geometry.geom_type).groups) != 1 or \
+        stations.geometry.geom_type[0] != 'Point':
+        raise ValueError("Station GeoDataFrame expected to only contain Points.")
+
+    if len(stations.groupby(by=edges.geometry.geom_type).groups) != 1 or \
+        edges.geometry.geom_type[0] != 'LineString':
+        raise ValueError("Edge GeoDataFrame expected to only contain LineStrings.")
+
+    if not ('Station_ID' in stations.columns):
+        raise KeyError('Stations GeoDataFrame does not contain required "Station_ID" field.')
+
+    if not ('LENGTH_KM' in edges.columns):
+        raise KeyError('Edges GeoDataFrame does not contain required "LENGTH_KM" field.')
 
     if stations.crs != Can_LCC_wkt:
         stations = stations.to_crs(crs=Can_LCC_wkt)
@@ -333,8 +346,7 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
 
     rel_pos = stations['other'].project(stations.geometry) / stations['other'].length
     stations = stations.assign(dist=rel_pos * stations['LENGTH_M'])
-    stations = stations.rename(columns={stat_id_f: 'ID'})
-    stations = stations[['ID', 'unique_ind', 'dist', 'geometry']]
+    stations = stations[['Station_ID', 'unique_ind', 'dist', 'geometry']]
 
     grouped = stations.groupby(by='unique_ind', sort=False)
 
@@ -485,7 +497,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                 dist  = cum_dist + abs(direction * data['LENGTH_M'] - series['dist'])
 
                 if dist < max_distance:
-                    return series['ID'], dist, depth, series['geometry'], (u, v)[direction]
+                    return series['Station_ID'], dist, depth, series['geometry'], (u, v)[direction]
                 return -1, -1, -1
             else:
                 result = *dfs((u, v)[not direction], prefix2, direction,
@@ -533,7 +545,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                         if on_dist < max_distance:
                             pos = 'On-' + 'Up' if station['dist'] > row['dist'] else 'Down'
 
-                            add_to_matches(station['ID'], row['ID'],
+                            add_to_matches(station['Station_ID'], row['Station_ID'],
                                            LineString([station['geometry'], row['geometry']]),
                                            on_dist, pos, 0)
 
@@ -543,12 +555,12 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
 
                 if down_id != -1:
                     point_list.append(station['geometry'])
-                    add_to_matches(station['ID'], down_id, LineString(point_list),
+                    add_to_matches(station['Station_ID'], down_id, LineString(point_list),
                                    down_dist, 'Down', down_depth)
 
                 if up_id != -1:
                     point_list2.append(station['geometry'])
-                    add_to_matches(station['ID'], up_id, LineString(point_list2),
+                    add_to_matches(station['Station_ID'], up_id, LineString(point_list2),
                                    up_dist, 'Up', up_depth)
 
     return pd.DataFrame(data=matches)

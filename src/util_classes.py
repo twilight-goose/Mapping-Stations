@@ -1,5 +1,6 @@
 from datetime import datetime
 from cartopy import crs as ccrs
+from shapely import Polygon, Point
 
 """
 
@@ -18,16 +19,11 @@ Overview:
 # ========================================================================= ##
 
 
-class BBox:
+class BBox(Polygon):
     """
-    Class that represents a longitude/latitude bounding box.
-    Technically, can be used to represent any bounding rectangle
-    with a min x, max x, min y, and max y. Does not possess
-    geometry attributes.
-
-    Provides a framework for bounding box objects and a means of
-    adding additional functionality when desired, such as generating
-    sql queries with BBox.sql_query().
+    Class that extends the Shapely.Polygon class to add additional
+    functionality specific to this project, such as generating sql
+    queries with BBox.sql_query() and support for None value BBoxes.
 
     Static methods can be called through (1) BBox objects or (2) by
     referencing the class with BBox.<function name> and passing the
@@ -36,47 +32,51 @@ class BBox:
     For spatial data purposes, the CRS of BBox objects is assumed to
     be Geodetic (lat/lon), to simplify instantiation and avoid dealing
     with CRS format compatibility within this class declaration. To
-    change the CRS, refer to set_ccrs() docstrings.
+    change the CRS, refer to set_ccrs().
+
+    Refer to the following link for properties and methods inherited
+    from Shapely.Polygon:
+    https://shapely.readthedocs.io/en/stable/reference/shapely.Polygon.html#shapely.Polygon
 
     examples:
         1: BBox.<function name>(bbox)
         2: <BBox obj>.<function name>()
     """
-    def __init__(self, min_x=None, max_x=None, min_y=None, max_y=None,
-                 crs=ccrs.Geodetic()):
+    def __new__(cls, min_x=None, max_x=None, min_y=None, max_y=None, crs=ccrs.Geodetic()):
         """
         Flexible method for instantiating BoundingBox objects.
         Valid argument sets:
 
         1. None; Creates an empty BBox Object
         2. 4 keyword arguments in any order;
-        3. 4 optional positional arguments in the following order:
-            min_x, min_y, max_x, max_y
+        3. 4 positional arguments in the following order:  min_x, max_x, min_y, max_y
         """
         if hasattr(min_x, '__iter__'):
+            assert len(min_x) != 2,\
+                "Iterable with len 2 is not a valid input. Valid inputs are: \n" \
+                "- None \n- 4 numeric keyword arguments \n" \
+                "- 4 numeric positional arguments in the order: min_x, max_x, min_y, max_y"
             min_x, min_y, max_x, max_y = min_x
-        self.bounds = {'min_x': min_x, 'max_x': max_x,
-                       'min_y': min_y, 'max_y': max_y}
+
+        return Polygon.__new__(cls, shell=[(min_x, min_y), (max_x, min_y), (max_x, max_y), (min_x, max_y)])
+
+    def __init__(self, crs=ccrs.Geodetic()):
         self.crs = crs
 
-    def contains_point(self, cord: dict) -> bool:
+    def contains_point(self, cord: list) -> bool:
         """
         Determines if the bounding box of self contains cord
 
         :param self: BBox object or None
 
         :param cord: dict of string:float
-            Longitude/Latitude coordinate of the point.
-            i.e
-                {'lon': <float>, 'lat': <float>}
+            Coordinate of the point.
 
         :return: bool
             True if cord lies within or on the BBox or BBox is None;
             False otherwise
         """
-        return self is None or \
-            (self.bounds['min_y'] <= cord['lat'] <= self.bounds['max_y'] and
-                self.bounds['min_x'] <= cord['lon'] <= self.bounds['max_x'])
+        return self is None or Polygon.contains(Point(cord))
 
     def set_ccrs(self, crs):
         """
@@ -107,9 +107,8 @@ class BBox:
             Transformed min_x, min_y, max_x, max_y coordinates of the
             BBox.
         """
-        minx, miny, maxx, maxy =\
-            (crs.transform_point(self.bounds['min_x'], self.bounds['min_y'], self.crs) +
-             crs.transform_point(self.bounds['max_x'], self.bounds['max_y'], self.crs))
+        minx, miny, maxx, maxy = crs.transform_point(self.bounds[:2]) + \
+                                 crs.transform_point(self.bounds[2:])
         return BBox([minx, miny, maxx, maxy])
 
     @staticmethod
@@ -132,8 +131,8 @@ class BBox:
         query = ""
         # For calls from functions where no boundary is declared
         if bbox is not None:
-            min_x, max_x = bbox.bounds['min_x'], bbox.bounds['max_x']
-            min_y, max_y = bbox.bounds['min_y'], bbox.bounds['max_y']
+            min_x, max_x = bbox.bounds[0], bbox.bounds[2]
+            min_y, max_y = bbox.bounds[1], bbox.bounds[3]
 
             query = (f"({min_x} <= {x_field} AND {max_x} >= {x_field} AND " +
                      f"{min_y} <= {y_field} AND {max_y} >= {y_field})")
@@ -145,10 +144,9 @@ class BBox:
         """
         A wrapper function for passing BBox.contains_point to
         <pandas DataFrame>.apply() for the purpose of filtering a
-        DataFrame. Not to be used outside the .apply() function
+        DataFrame.
 
-        Works with both pandas DataFrames and Series, without needing
-        to import the Pandas library.
+        Scans a row
 
         :param series: Pandas Series
             The series/row to be scanned
@@ -165,7 +163,6 @@ class BBox:
 
         :return: bool
 
-
         :raises ValueError:
         """
         if type(bbox) is BBox or bbox is None:
@@ -174,10 +171,14 @@ class BBox:
         raise ValueError("None or BBox object expected but", type(bbox), "found")
 
     def to_tuple(self):
+        """
+        Returns min_x, min_y, max_x, max_y of the bounding box.
+
+        :return:
+        """
         if self is None:
             return None
-        return (self.bounds['min_x'], self.bounds['min_y'],
-                self.bounds['max_x'], self.bounds['max_y'])
+        return self.bounds
 
 
 class Period:

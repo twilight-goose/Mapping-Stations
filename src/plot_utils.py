@@ -354,11 +354,11 @@ def annotate_stations(hydat, pwqmn, ax):
     texts = []
 
     for ind, row in hydat.to_crs(crs=gdf_utils.Can_LCC_wkt).iterrows():
-        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['STATION_NUMBER'],
+        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Station_ID'],
                              fontsize=8))
 
-    for ind, row in pwqmn.to_crs(crs=gdf_utils.Can_LCC_wkt).drop_duplicates('Location_ID').iterrows():
-        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Location_ID'],
+    for ind, row in pwqmn.to_crs(crs=gdf_utils.Can_LCC_wkt).drop_duplicates('Station_ID').iterrows():
+        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Station_ID'],
                              fontsize=8))
 
     adjust_text(texts)

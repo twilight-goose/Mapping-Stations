@@ -61,3 +61,26 @@ DATA_SYMBOLS – DATA SYMBOLS
 2         D                           Dry                               Sec
 3         E                     Estimated                            Estimé
 4         S  Sample(s) collected this day  échantillons prélevés ce jour-là
+
+MEASUREMENT_CODES - MEASUREMENT METHOD
+  MEASUREMENT_CODE               MEASUREMENT_EN                      MEASUREMENT_FR
+0                A                    Automatic                         Automatique
+1                B  Both (automatic and manual)  Combinée (Automatique et Manuelle)
+2                M                       Manual                            Manuelle
+3                P                  Power Plant                 Centrale Électrique
+4                R                     Recorder                        Enregistreur
+5                S               Flow Summation       Superposition des Écoulements
+
+PEAK_CODES
+  PEAK_CODE  PEAK_EN   PEAK_FR
+0         H  Maximum  Maximale
+1         L  Minimum  Minimale
+
+REMARK_CODES
+   REMARK_TYPE_CODE           REMARK_TYPE_EN                REMARK_TYPE_FR
+0                 2       ANNUAL HYDROMETRIC                REJETS ANNUELS
+1                 4     HISTORICAL DISCHARGE         HISTORIQUE DES REJETS
+2                 5  HISTORICAL WATER LEVELS  HISTORIQUE DES NIVEAUX D’EAU
+3                 6          ANNUAL SEDIMENT  NIVEAUX DE SÉDIMENTS ANNUELS
+4                 7      HISTORICAL SEDIMENT      HISTORIQUE DES SÉDIMENTS
+5                11      ANNUAL WATER LEVELS         NIVEAUX D’EAU ANNUELS

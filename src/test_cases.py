@@ -194,8 +194,7 @@ def network_compare():
 
 def main():
     timer = Timer()
-
-    network_compare()
+    print(load_data.get_hydat_station_data().dtypes.to_string())
 
     timer.stop()
 
