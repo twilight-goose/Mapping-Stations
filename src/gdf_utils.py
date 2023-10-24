@@ -1,7 +1,7 @@
 import os
 import math
 from util_classes import BBox, Timer
-from load_data import find_xy_fields, data_path
+from gen_util import find_xy_fields, lambert, geodetic, Can_LCC_wkt
 
 import pandas as pd
 import geopandas as gpd
@@ -31,49 +31,6 @@ defined by Can_LCC_wkt, and will produce output referenced in this CRS.
 # ========================================================================= ##
 # License ================================================================= ##
 # ========================================================================= ##
-
-
-# ========================================================================= ##
-# Script Constants ======================================================== ##
-# ========================================================================= ##
-
-central_lon = -85
-central_lat = 40
-stand_parallel_1 = 50
-stand_parallel_2 = 70
-
-# WKT string for Canadian lambert conformal conic projection
-# refer to the source for projected and WGS84 bounds
-# As of 2023-10-02:
-#   Center coordinates: 261638.61 2500407.04
-#   Projected bounds: -3827665.83  -207619.51
-#                      4510310.33  5481591.53
-#   WGS84 bounds: -141.01  38.21
-#                  -40.73  86.46
-# source: https://epsg.io/102002
-Can_LCC_wkt = ('PROJCS["Canada_Lambert_Conformal_Conic",'
-                    'GEOGCS["NAD83",'
-                        'DATUM["North_American_Datum_1983",'
-                            'SPHEROID["GRS 1980",6378137,298.257222101,'
-                                'AUTHORITY["EPSG","7019"]],'
-                            'AUTHORITY["EPSG","6269"]],'
-                        'PRIMEM["Greenwich",0,'
-                            'AUTHORITY["EPSG","8901"]],'
-                        'UNIT["degree",0.0174532925199433,'
-                            'AUTHORITY["EPSG","9122"]],'
-                        'AUTHORITY["EPSG","4269"]],'
-                    'PROJECTION["Lambert_Conformal_Conic_2SP"],'
-                    f'PARAMETER["latitude_of_origin",{central_lat}],'
-                    f'PARAMETER["central_meridian",{central_lon}]'
-                    f'PARAMETER["standard_parallel_1",{stand_parallel_1}],'
-                    f'PARAMETER["standard_parallel_2",{stand_parallel_2}],'
-                    'PARAMETER["false_easting",0],'
-                    'PARAMETER["false_northing",0],'
-                    'UNIT["metre",1,'
-                        'AUTHORITY["EPSG","9001"]],'
-                    'AXIS["Easting",EAST],'
-                    'AXIS["Northing",NORTH],'
-                    'AUTHORITY["ESRI","102002"]]')
 
 
 # ========================================================================= ##
@@ -168,7 +125,8 @@ def connectors(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
 # ========================================================================= ##
 
 
-def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) -> gpd.GeoDataFrame:
+def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None,
+                      query=None) -> gpd.GeoDataFrame:
     """
     Convert a pandas DataFrame to a geopandas GeoDataFrame with point
     geometry, if possible. Output GeoDataFrame is identical to input
@@ -230,8 +188,10 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
 
     print(f"Attempting conversion with the following CRS parameter:\n{crs}")
     try:
+        if query is not None:
+            df = df.query(query)
         gdf = gpd.GeoDataFrame(
-            df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=crs)
+            df, geometry=gpd.points_from_xy(df[x], df[y]), crs=crs)
         gdf.to_crs(Can_LCC_wkt)
         print("Dataframe successfully converted to geopandas point geodataframe")
     except KeyError:
@@ -247,7 +207,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None) ->
 
 
 def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
-                    prefix="", max_distance=1000) -> gpd.GeoDataFrame:
+                    prefix="", max_distance=1000, filter=None) -> gpd.GeoDataFrame:
     """
     Snaps stations to the closest features in edges and assigns
     descriptors to line segments. Uses a solution similar
@@ -341,7 +301,7 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     edges = edges.assign(other=edges.geometry)
     edges = edges.assign(LENGTH_M=edges['LENGTH_KM'] * 1000)
 
-    stations = stations.drop_duplicates(stat_id_f)
+    stations = stations.drop_duplicates('Station_ID')
     stations = stations.sjoin_nearest(edges, how='left', max_distance=max_distance)
 
     rel_pos = stations['other'].project(stations.geometry) / stations['other'].length
@@ -353,7 +313,7 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     temp_data = {'unique_ind': [], prefix + 'data': []}
     for ind, data in grouped:
         temp_data['unique_ind'].append(ind)
-        temp_data[prefix + 'data'].append(data[['ID', 'dist', 'geometry']])
+        temp_data[prefix + 'data'].append(data[['Station_ID', 'dist', 'geometry']])
 
     temp = pd.DataFrame(data=temp_data)
     return edges.merge(temp, on='unique_ind', how='left')
@@ -370,7 +330,8 @@ def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
 
 
 def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
-               max_distance=10000, max_depth=10, direct_match_dist=350):
+               max_distance=10000, max_depth=10, direct_match_dist=350,
+               filter=None):
     """
     For each station assigned to the network denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -405,14 +366,14 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         Prefix denoting the network edge attribute holding candidate
         station data.
 
-    :param max_distance: int (default=1000)
+    :param max_distance: int (default=10000)
         Maximum distance to search for a matching station in CRS units.
 
     :param max_depth: int (default=10)
         The maximum number of river segments to traverse from an origin
         station to search for a match. The greater the resolution of the
         dataset used to build the network, the greater this value should
-        be.
+        be. (HYDAT -> 10; OHN -> 100)
 
     :param direct_match_dist: int (default=350)
         The maximum distance in CRS units between two stations at which
@@ -420,6 +381,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         river from origin to candidate is the direct distance between
         the two points. The greater the resolution of the dataset used
         to build the network, the lower this value should be.
+            (HYDAT -> 350; OHN -> 250)
 
     :return: Pandas DataFrame
         DataFrame with the following columns:

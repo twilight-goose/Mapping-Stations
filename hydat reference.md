@@ -84,3 +84,7 @@ REMARK_CODES
 3                 6          ANNUAL SEDIMENT  NIVEAUX DE SÉDIMENTS ANNUELS
 4                 7      HISTORICAL SEDIMENT      HISTORIQUE DES SÉDIMENTS
 5                11      ANNUAL WATER LEVELS         NIVEAUX D’EAU ANNUELS
+
+   PRECISION_CODE                PRECISION_EN                    PRECISION_FR
+0               8  in metres (to millimetres)  En mètres (au millimètre près)
+1               9  in metres (to centimetres)  En mètres (au centimètre près)

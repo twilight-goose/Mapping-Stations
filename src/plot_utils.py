@@ -2,6 +2,7 @@ import os
 from util_classes import Timer, BBox
 from load_data import proj_path
 import gdf_utils
+from gen_util import find_xy_fields, lambert, geodetic, Can_LCC_wkt
 
 import pandas as pd
 import geopandas as gpd
@@ -24,18 +25,7 @@ from adjustText import adjust_text
 # ========================================================================= ##
 
 
-# default save directories within the project scope
-plot_save_dir = os.path.join(proj_path, "plots")
 
-
-# Coordinate Reference System Constants
-geodetic = ccrs.Geodetic()
-lambert = ccrs.LambertConformal(central_longitude=gdf_utils.central_lon,
-                                central_latitude=gdf_utils.central_lat,
-                                standard_parallels=(gdf_utils.stand_parallel_1,
-                                                    gdf_utils.stand_parallel_2))
-
-Can_LCC_wkt = gdf_utils.Can_LCC_wkt
 
 
 # ========================================================================= ##
@@ -87,7 +77,7 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert, extent_crs=N
 
     if type(total_bounds) is BBox:
         # cast the bounding coordinates to latitude longitude
-        total_bounds = total_bounds.to_ccrs(geodetic).to_tuple()
+        total_bounds = total_bounds.to_ccrs(geodetic).bounds
 
     # check if the GeoSeries has a valid bounding information
     if total_bounds is not None:
@@ -265,7 +255,7 @@ def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, ax=plt):
     plot_gdf(points, ax=ax, color='blue', zorder=10, label='original')
 
 
-def plot_paths(edge_df, ax=None, filter=""):
+def plot_paths(path_df, ax=None, filter=""):
     """
     Plots geometry data of a DataFrame with a specific structure.
     Accepts the output from gdf_utils.dfs_search(), plots paths
@@ -274,7 +264,7 @@ def plot_paths(edge_df, ax=None, filter=""):
         Downstream: Pink
         Upstream: Purple
 
-    :param edge_df: DataFrame
+    :param path_df: DataFrame
         The structure containing the data to plot. Must contain the
         following columns:
             - 'pos' (string)
@@ -288,7 +278,7 @@ def plot_paths(edge_df, ax=None, filter=""):
 
     :return:
     """
-    grouped = edge_df.groupby(by='pos')
+    grouped = path_df.groupby(by='pos')
     for ind, group in grouped:
         if ind.startswith('On'):
             color = 'orange'
@@ -353,11 +343,11 @@ def annotate_stations(hydat, pwqmn, ax):
     """
     texts = []
 
-    for ind, row in hydat.to_crs(crs=gdf_utils.Can_LCC_wkt).iterrows():
+    for ind, row in hydat.to_crs(crs=Can_LCC_wkt).iterrows():
         texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Station_ID'],
                              fontsize=8))
 
-    for ind, row in pwqmn.to_crs(crs=gdf_utils.Can_LCC_wkt).drop_duplicates('Station_ID').iterrows():
+    for ind, row in pwqmn.to_crs(crs=Can_LCC_wkt).drop_duplicates('Station_ID').iterrows():
         texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Station_ID'],
                              fontsize=8))
 

@@ -37,48 +37,6 @@ and saving of files.
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
-# ========================================================================= ##
-# Utilities =============================================================== ##
-# ========================================================================= ##
-
-
-def find_xy_fields(df: pd.DataFrame) -> [str, str]:
-    """
-    Searches a pandas DataFrame for specific field names to use as
-    longitudinal and latitudinal values.
-
-    If more than 1 match is found for X or Y, "Failed" will be
-    returned. If no match is found for X or Y, an empty string
-    will be returned. Not case-sensitive.
-
-    :param df: <Pandas DataFrame>
-        The DataFrame to search
-
-    :return: list(<str>, <str>)
-        The result of the search for x and y fields, where each item
-        in the list is either the field name or "Failed"
-        i.e:
-            [<X field name> or "Failed", <Y field name> or "Failed"]
-    """
-
-    # simple helper function
-    def _(i, field_name) -> str:
-        return field_name if i == "" else "Failed"
-
-    # initiate x and y
-    x, y = "", ""
-
-    # Iterate through dataframe field names
-    for field in df.columns.values:
-        # Check if the field matches one of the X or Y field names
-        if field.upper() in ["LON", "LONG", "LONGITUDE", "X"]:
-            x = _(x, field)
-        elif field.upper() in ["LAT", "LATITUDE", "Y"]:
-            y = _(y, field)
-
-    return x, y
-
 # ========================================================================= ##
 # Generator =============================================================== ##
 # ========================================================================= ##
@@ -101,7 +59,7 @@ def generate_pwqmn_sql():
     connection = sqlite3.connect(pwqmn_sql_path)
 
     # read fields of interest, and set data types for mixed type fields
-    pwqmn_data = read_csv(pwqmn_path,
+    pwqmn_data = pd.read_csv(pwqmn_path,
                              usecols=['MonitoringLocationName',
                                       'MonitoringLocationID',
                                       'MonitoringLocationLongitude',

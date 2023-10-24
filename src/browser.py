@@ -8,6 +8,8 @@ import numpy as np
 import cartopy.crs as ccrs
 
 import plot_utils
+from gen_util import find_xy_fields, lambert, geodetic, Can_LCC_wkt
+
 import pandas as pd
 
 
@@ -109,14 +111,14 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
 
             self.selected.set_visible(True)
             self.selected.set_data(
-                plot_utils.lambert.transform_point(data['geometry'].x, data['geometry'].y,
-                                                   plot_utils.geodetic)
+                lambert.transform_point(data['geometry'].x, data['geometry'].y,
+                                        geodetic)
             )
             # self.text.set_text('selected: %d' % dataind)
             fig.canvas.draw()
 
     fig = plt.figure(figsize=(14, 7))
-    ax = plt.subplot(1, 2, 1, projection=plot_utils.lambert, position=[0.04, 0.08, 0.42, 0.84])
+    ax = plt.subplot(1, 2, 1, projection=lambert, position=[0.04, 0.08, 0.42, 0.84])
     ax.set_box_aspect(1)
     ax.set_facecolor('white')
     plot_utils.add_map_to_plot(ax=ax, total_bounds=bbox)

@@ -157,8 +157,6 @@ def plot_array_test():
 def network_compare():
     import os.path
 
-    timer = Timer()
-
     bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
@@ -172,12 +170,12 @@ def network_compare():
     ohn_lines = load_data.load_rivers(path=path, bbox=bbox)
     hydroRIVERS_lines = load_data.load_rivers(bbox=bbox)
 
-    ohn_lines = gdf_utils.assign_stations(ohn_lines, hydat, 'STATION_NUMBER', prefix='hydat_')
-    ohn_lines = gdf_utils.assign_stations(ohn_lines, pwqmn, 'Location_ID', prefix='pwqmn_')
+    ohn_lines = gdf_utils.assign_stations(ohn_lines, hydat, prefix='hydat_')
+    ohn_lines = gdf_utils.assign_stations(ohn_lines, pwqmn, prefix='pwqmn_')
     ohn_network = gdf_utils.hyriv_gdf_to_network(ohn_lines)
 
-    hydroRIVERS_lines = gdf_utils.assign_stations(hydroRIVERS_lines, hydat, 'STATION_NUMBER', prefix='hydat_')
-    hydroRIVERS_lines = gdf_utils.assign_stations(hydroRIVERS_lines, pwqmn, 'Location_ID', prefix='pwqmn_')
+    hydroRIVERS_lines = gdf_utils.assign_stations(hydroRIVERS_lines, hydat, prefix='hydat_')
+    hydroRIVERS_lines = gdf_utils.assign_stations(hydroRIVERS_lines, pwqmn, prefix='pwqmn_')
     hydroRIVERS_network = gdf_utils.hyriv_gdf_to_network(hydroRIVERS_lines)
 
     ohn_edge_df = gdf_utils.dfs_search(ohn_network, max_depth=100, direct_match_dist=250)
@@ -192,12 +190,37 @@ def network_compare():
 
     print(table)
 
+    from matplotlib import pyplot as plt
+    fig = plt.figure(figsize=(14, 7))
+
+    ax = plt.subplot(1, 2, 1, projection=plot_utils.lambert, position=[0.04, 0.08, 0.42, 0.84])
+    ax.set_box_aspect(1)
+    ax.set_facecolor('white')
+    plot_utils.add_map_to_plot(ax=ax, total_bounds=bbox)
+    plot_utils.draw_network(ohn_network, ax=ax)
+    plot_utils.plot_paths(ohn_edge_df, ax=ax)
+    plot_utils.annotate_stations(hydat, pwqmn, ax)
+
+    ax2 = plt.subplot(1, 2, 2, position=[0.52, 0.04, 0.46, 0.92])
+    ax2.set_box_aspect(1)
+    ax2.set_facecolor('white')
+    plot_utils.add_map_to_plot(ax=ax2, total_bounds=bbox)
+    plot_utils.draw_network(hydroRIVERS_network, ax=ax2)
+    plot_utils.plot_paths(hydro_edge_df, ax=ax2)
+    plot_utils.annotate_stations(hydat, pwqmn, ax2)
+
+    plt.show()
+
+
 def main():
     timer = Timer()
 
-    hydat = load_data.get_hydat_station_data(period=['2011-05-12', '2011-07-12'])
-    print(hydat.dtypes)
-    print(hydat[['YEAR', 'MONTH']].sort_values(by='MONTH'))
+    load_data.generate_pwqmn_sql()
+    network_compare()
+
+    # hydat = load_data.get_hydat_station_data(period=['2011-05-12', '2011-07-12'])
+    # print(hydat.dtypes)
+    # print(hydat[['YEAR', 'MONTH']].sort_values(by='MONTH'))
 
     timer.stop()
 
