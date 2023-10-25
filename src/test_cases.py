@@ -33,7 +33,7 @@ def period_test():
     assert Period.check_period(['2010-10-11', '2009-11-11']) == ValueError
     assert Period.check_period("2022-10-11") == ValueError
     assert Period.check_period(["2022-10-11"]) == ValueError
-    assert Period
+
 
 
 def hydat_query_test(points, bbox, period):
@@ -47,9 +47,7 @@ def hydat_query_test(points, bbox, period):
     """
     hydat = load_data.get_hydat_station_data(bbox=bbox, period=period)
     hydat = gdf_utils.point_gdf_from_df(hydat)
-    ax = plot_utils.add_map_to_plot(
-        total_bounds=bbox.to_ccrs(plot_utils.lambert)
-    )
+    ax = plot_utils.add_map_to_plot(extent=bbox.to_ccrs(lambert))
     plot_utils.plot_gdf(points, ax=ax, zorder=4, color='blue')
     plot_utils.plot_gdf(hydat, ax=ax, zorder=5, color='red')
 
@@ -99,7 +97,8 @@ def network_test(lines):
     plot_utils.timed_display()
 
 
-def network_assign_test(bbox=BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)):
+def network_assign_test():
+    bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
@@ -108,8 +107,8 @@ def network_assign_test(bbox=BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)):
     hydat = gdf_utils.point_gdf_from_df(hydat)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
-    lines = gdf_utils.assign_stations(lines, hydat, 'STATION_NUMBER', prefix='hydat_')
-    lines = gdf_utils.assign_stations(lines, pwqmn, 'Location_ID', prefix='pwqmn_')
+    lines = gdf_utils.assign_stations(lines, hydat, prefix='hydat_')
+    lines = gdf_utils.assign_stations(lines, pwqmn, prefix='pwqmn_')
 
     network = gdf_utils.hyriv_gdf_to_network(lines)
 
@@ -117,19 +116,6 @@ def network_assign_test(bbox=BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)):
     print(edge_df.drop(columns='path').to_string())
 
     browser.match_browser(hydat, network, pwqmn, edge_df, bbox, color='blue')
-
-
-def browser_test_1():
-    bbox = BBox(min_x=-80, max_x=-75, min_y=45, max_y=50)
-    hydat = load_data.get_hydat_station_data(bbox=bbox)
-    hydat = gdf_utils.point_gdf_from_df(hydat)
-    browser.browser(hydat, bbox)
-
-
-def browser_test_2():
-    bbox = BBox(min_x=-80, max_x=-75, min_y=45, max_y=50)
-    lines = load_data.load_rivers(bbox=bbox)
-    plot_utils.line_browser(lines, bbox)
 
 
 
@@ -213,20 +199,7 @@ def main():
 
     bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
 
-    hydat = load_data.get_hydat_station_data(bbox=bbox)
-    print(hydat.head())
-
-    hydat = gdf_utils.point_gdf_from_df(hydat)
-    ax = plot_utils.add_map_to_plot(extent=bbox)
-    plot_utils.add_grid_to_plot(ax=ax)
-    plot_utils.plot_gdf(hydat, ax=ax)
-    plot_utils.annotate_stations(hydat, ax=ax)
-
-    plot_utils.show()
-
-    # hydat = load_data.get_hydat_station_data(period=['2011-05-12', '2011-07-12'])
-    # print(hydat.dtypes)
-    # print(hydat[['YEAR', 'MONTH']].sort_values(by='MONTH'))
+    network_assign_test()
 
     timer.stop()
 

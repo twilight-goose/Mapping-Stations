@@ -338,7 +338,7 @@ def configure_legend(legend_dict: dict, ax=plt):
 def annotate_stations(*station_sets, **kwargs):
     """
 
-    :param stations:
+    :param station_sets:
     :param kwargs:
     :return:
     """
@@ -359,7 +359,7 @@ def annotate_stations(*station_sets, **kwargs):
             else:
                 print(row['Station_ID'], "skipped")
 
-    if len(text) <= 300:
+    if len(texts) <= 300:
         # dont adjust text if there are over 300 because it takes too long,
         # and at that scale its hard to see the text regardless
         adjust_text(texts)
