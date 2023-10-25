@@ -11,6 +11,7 @@ from matplotlib.lines import Line2D
 
 import cartopy.feature as cfeature
 from adjustText import adjust_text
+from matplotlib_scalebar.scalebar import ScaleBar
 
 
 # ========================================================================= ##
@@ -423,6 +424,10 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
     plt.show()
 
 
+def add_scalebar(ax=plt):
+    ax.add_artist(ScaleBar(1, location='lower right', box_alpha=0.75))
+
+
 def show():
     """
     Wrapper function for calling plt.show() from functions that don't
@@ -455,10 +460,6 @@ def timed_display(seconds=2):
     plt.show(block=False)
     plt.pause(seconds)
     plt.close()
-
-
-def grid():
-    plt.grid(True)
 
 
 def get_ax():

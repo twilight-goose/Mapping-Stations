@@ -32,7 +32,6 @@ def period_test():
     assert Period.check_period(["2022-10-11"]) == ValueError
 
 
-
 def hydat_query_test(points, bbox, period):
     """
 
