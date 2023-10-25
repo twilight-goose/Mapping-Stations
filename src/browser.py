@@ -1,15 +1,9 @@
 import matplotlib.pyplot as plt
 import matplotlib.table as mpl_table
-from matplotlib.lines import Line2D
 from matplotlib_scalebar.scalebar import ScaleBar
 
-import numpy as np
-import cartopy.crs as ccrs
-
 import plot_utils
-from gen_util import find_xy_fields, lambert, geodetic, Can_LCC_wkt, BBox
-
-import pandas as pd
+from gen_util import lambert, geodetic
 
 
 # def legend_pick():

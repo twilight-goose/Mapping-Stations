@@ -1,9 +1,7 @@
-import sys
 import browser
 import load_data
 import gdf_utils
 import plot_utils
-import time
 from gen_util import lambert, geodetic, Can_LCC_wkt, BBox, Timer, Period
 import os
 """
