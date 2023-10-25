@@ -85,14 +85,12 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
 
             if self.event_artist == hydat_artist:
                 data_key_1 = 'hydat_id'
-                data_key_2 = 'STATION_NUMBER'
-                data_key_3 = 'pwqmn_id'
+                data_key_2 = 'pwqmn_id'
                 data = hydat.iloc[self.event_ind]
                 ax2.set_title('HYDAT Station Info')
             elif self.event_artist == pwqmn_artist:
                 data_key_1 = 'pwqmn_id'
-                data_key_2 = 'Location_ID'
-                data_key_3 = 'hydat_id'
+                data_key_2 = 'hydat_id'
                 data = pwqmn.iloc[self.event_ind]
                 ax2.set_title('PWQMN Station Info')
 
@@ -100,8 +98,8 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
                 display_data.append((key, str(data[key])))
 
             for ind, row in edge_df.iterrows():
-                if row[data_key_1] == data[data_key_2]:
-                    display_data.append((f'Match: {row[data_key_3]}', f"{row['dist']} m"))
+                if row[data_key_1] == data['Station_ID']:
+                    display_data.append((f'Match: {row[data_key_2]}', f"{row['dist']} m"))
 
             table = mpl_table.table(ax2, cellText=display_data, loc='upper center')
             table.auto_set_font_size(False)
