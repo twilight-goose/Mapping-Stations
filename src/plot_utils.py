@@ -84,7 +84,7 @@ def add_map_to_plot(extent=None, ax=None, projection=lambert, extent_crs=None,
         try:
             min_x, min_y, max_x, max_y = extent
 
-            size = max([max_x - min_x,max_y - min_y]) * 0.6
+            size = max([max_x - min_x, max_y - min_y]) * 0.6
 
             x0 = (min_x + max_x) / 2 - size
             x1 = (min_x + max_x) / 2 + size
@@ -335,19 +335,24 @@ def configure_legend(legend_dict: dict, ax=plt):
     ax.legend(handles=custom_lines, loc='upper right')
 
 
-def annotate_stations(*station_sets, **kwargs):
+def annotate_stations(*station_sets, adjust=True, ax=plt):
     """
+    Add station id text annotations to a matplotlib plot.
 
-    :param station_sets:
-    :param kwargs:
+    :param adjust: bool (default=True)
+        Whether to adjust the position of the annotations. Turning
+        this off improves efficiency.
+
+    :param ax: (default=matplotlib.pyplot)
+        Axes to add the annotations to.
+
+    :param station_sets: list of DataFrame or GeoDataFrame
+        The DataFrames containing the stations to annotate. Must
+        contain a 'Station_ID' field and a 'geometry' field.
+
     :return:
     """
     texts = []
-
-    try:
-        ax = kwargs['ax']
-    except KeyError:
-        ax = plt
 
     for stations in station_sets:
         stations = stations.drop_duplicates(subset=['Station_ID'])
@@ -359,7 +364,7 @@ def annotate_stations(*station_sets, **kwargs):
             else:
                 print(row['Station_ID'], "skipped")
 
-    if len(texts) <= 300:
+    if len(texts) <= 300 and adjust:
         # dont adjust text if there are over 300 because it takes too long,
         # and at that scale its hard to see the text regardless
         adjust_text(texts)

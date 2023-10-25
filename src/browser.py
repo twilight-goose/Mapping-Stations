@@ -101,7 +101,8 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
                 if row[data_key_1] == data['Station_ID']:
                     display_data.append((f'Match: {row[data_key_2]}', f"{row['dist']} m"))
 
-            table = mpl_table.table(ax2, cellText=display_data, loc='upper center')
+            table = mpl_table.table(ax2, cellText=display_data, loc='upper center',
+                                    colWidths=[0.4, 0.6], cellLoc='left')
             table.auto_set_font_size(False)
             table.set_fontsize(9)
             table.scale(1, 2)

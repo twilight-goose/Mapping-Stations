@@ -1,5 +1,6 @@
 import os.path
 import cartopy.crs as ccrs
+import geopandas as gpd
 
 
 central_lon = -85
@@ -48,7 +49,6 @@ lambert = ccrs.LambertConformal(central_longitude=central_lon,
                                                     stand_parallel_2))
 
 
-
 def find_xy_fields(df) -> [str, str]:
     """
     Searches a pandas DataFrame for specific field names to use as
@@ -85,3 +85,20 @@ def find_xy_fields(df) -> [str, str]:
 
     return x, y
 
+
+def check_geom(data, type_str):
+    """
+    Checks if all geometry in data is of type type_str.
+
+    :param data: GeoDataFrame or GeoSeries
+        The dataset to check.
+
+    :param type_str: string
+        The type of geometry to check for.
+
+    :return: bool
+        True if all geometry in data is of type type_str
+    """
+    if type(data) is gpd.GeoDataFrame:
+        data = data.geometry
+    return list(data.geom_type.values).count(type_str) == data.size

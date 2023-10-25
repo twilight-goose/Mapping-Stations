@@ -1,7 +1,5 @@
-import os
-import math
-from util_classes import BBox, Timer
-from gen_util import find_xy_fields, lambert, geodetic, Can_LCC_wkt
+from util_classes import BBox, Period
+from gen_util import find_xy_fields, lambert, geodetic, Can_LCC_wkt, check_geom
 
 import pandas as pd
 import geopandas as gpd
@@ -232,8 +230,8 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     provided LENGTH_KM field.
 
     :param edges: Geopandas GeoDataFrame
-        The lines/features to assign stations to. Requires that a
-        'LENGTH_KM' field exists.
+        The lines/features to assign stations to. Must contain a
+        LENGTH_KM field.
 
     :param stations: Geopandas GeoDataFrame
         The station points to assign to edges. Requires that a
@@ -277,28 +275,22 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
         If stations doesn't contain a 'Station_ID' field.
     """
     # check inputs
-    if len(stations.groupby(by=stations.geometry.geom_type).groups) != 1 or \
-        stations.geometry.geom_type[0] != 'Point':
+    if not check_geom(stations, 'Point'):
         raise ValueError("Station GeoDataFrame expected to only contain Points.")
-
-    if len(stations.groupby(by=edges.geometry.geom_type).groups) != 1 or \
-        edges.geometry.geom_type[0] != 'LineString':
+    if not check_geom(edges, 'LineString'):
         raise ValueError("Edge GeoDataFrame expected to only contain LineStrings.")
-
     if not ('Station_ID' in stations.columns):
-        raise KeyError('Stations GeoDataFrame does not contain required "Station_ID" field.')
-
+        raise ValueError('Stations GeoDataFrame does not contain required "Station_ID" field.')
     if not ('LENGTH_KM' in edges.columns):
-        raise KeyError('Edges GeoDataFrame does not contain required "LENGTH_KM" field.')
+        raise ValueError('Warning: Edges GeoDataFrame does not contain required "LENGTH_KM" field.')
 
     if stations.crs != Can_LCC_wkt:
         stations = stations.to_crs(crs=Can_LCC_wkt)
     if edges.crs != Can_LCC_wkt:
         edges = edges.to_crs(crs=Can_LCC_wkt)
 
-    edges = edges.assign(unique_ind=edges.index)
-    edges = edges.assign(other=edges.geometry)
-    edges = edges.assign(LENGTH_M=edges['LENGTH_KM'] * 1000)
+    edges = edges.assign(unique_ind=edges.index, other=edges.geometry,
+                         LENGTH_M=edges['LENGTH_KM'] * 1000)
 
     stations = stations.drop_duplicates('Station_ID')
     stations = stations.sjoin_nearest(edges, how='left', max_distance=max_distance)
@@ -329,8 +321,7 @@ def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
 
 
 def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
-               max_distance=10000, max_depth=10, direct_match_dist=350,
-               filter=None):
+               max_distance=10000, max_depth=10, direct_match_dist=350):
     """
     For each station assigned to the network denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -380,7 +371,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         river from origin to candidate is the direct distance between
         the two points. The greater the resolution of the dataset used
         to build the network, the lower this value should be.
-            (HYDAT -> 350; OHN -> 250)
+            (HYDAT -> 350; OHN -> 100)
 
     :return: Pandas DataFrame
         DataFrame with the following columns:
@@ -453,9 +444,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         for u, v, data in edges:
             if type(data[prefix + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
                 series = data[prefix + 'data'].sort_values(
-                    by='dist',ascending=not direction
+                    by='dist', ascending=not direction
                 ).iloc[0]
-                dist  = cum_dist + abs(direction * data['LENGTH_M'] - series['dist'])
+                dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist'])
 
                 if dist < max_distance:
                     return series['Station_ID'], dist, depth, series['geometry'], (u, v)[direction]
@@ -482,47 +473,54 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         matches['pos'].append(_pos)
         matches['seg_apart'].append(depth)
 
+    def on_segment():
+        on_dist = station['geometry'].distance(row['geometry'])
+        if on_dist > direct_match_dist:
+            on_dist = abs(station['dist'] - row['dist'])
+
+        if on_dist < max_distance:
+            pos = 'On-' + ('Up' if station['dist'] > row['dist'] else 'Down')
+
+            add_to_matches(station['Station_ID'], row['Station_ID'],
+                           LineString([station['geometry'], row['geometry']]),
+                           on_dist, pos, 0)
+
+    def off_segment():
+        # Check for candidate stations upstream and downstream
+        down_id, down_dist, down_depth, *point_list = dfs(v, prefix2, 0, data['LENGTH_M'] - station['dist'], 1)
+        up_id, up_dist, up_depth, *point_list2 = dfs(u, prefix2, 1, station['dist'], 1)
+
+        if down_id != -1:
+            point_list.append(station['geometry'])
+            add_to_matches(station['Station_ID'], down_id, LineString(point_list),
+                           down_dist, 'Down', down_depth)
+
+        if up_id != -1:
+            point_list2.append(station['geometry'])
+            add_to_matches(station['Station_ID'], up_id, LineString(point_list2),
+                           up_dist, 'Up', up_depth)
+
+    # ===================================================================== #
     # Instantiate dictionary to store matches
     matches = {prefix1 + 'id': [], prefix2 + 'id' : [], 'path': [],
-               'dist':[], 'pos': [], 'seg_apart': []}
+               'dist': [], 'pos': [], 'seg_apart': []}
 
+    # check each edge for origin stations
     for u, v, data in network.out_edges(data=True):
         pref_1_data = data[prefix1 + 'data']
         pref_2_data = data[prefix2 + 'data']
 
+        # check for the presence of origin station data
         if type(pref_1_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-
+            # for each origin station on the edge
             for ind, station in pref_1_data.iterrows():
                 # Check if there are candidate stations on the same river segment
                 if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-
                     # Add each candidate on the same segment to matches
                     for ind, row in pref_2_data.iterrows():
-
-                        on_dist = station['geometry'].distance(row['geometry'])
-                        if on_dist > direct_match_dist:
-                            on_dist = abs(station['dist'] - row['dist'])
-
-                        if on_dist < max_distance:
-                            pos = 'On-' + 'Up' if station['dist'] > row['dist'] else 'Down'
-
-                            add_to_matches(station['Station_ID'], row['Station_ID'],
-                                           LineString([station['geometry'], row['geometry']]),
-                                           on_dist, pos, 0)
-
-                # Check for candidate stations upstream and downstream
-                down_id, down_dist, down_depth, *point_list = dfs(v, prefix2, 0, data['LENGTH_M'] - station['dist'], 1)
-                up_id, up_dist, up_depth, *point_list2 = dfs(u, prefix2, 1, station['dist'], 1)
-
-                if down_id != -1:
-                    point_list.append(station['geometry'])
-                    add_to_matches(station['Station_ID'], down_id, LineString(point_list),
-                                   down_dist, 'Down', down_depth)
-
-                if up_id != -1:
-                    point_list2.append(station['geometry'])
-                    add_to_matches(station['Station_ID'], up_id, LineString(point_list2),
-                                   up_dist, 'Up', up_depth)
+                        on_segment()
+                # search for candidate stations on connected river segments
+                off_segment()
 
     return pd.DataFrame(data=matches)
 
@@ -566,23 +564,6 @@ def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=False, show=False) ->
         plt.show()
 
     return p_graph
-
-
-def straighten(lines):
-    """
-    Produces a set of lines from the start and end point of
-    each line in liens.
-
-    :param lines: GeoDataFrame
-        The line features to straighten. Must contain only lines.
-
-    :return: GeoDataFrame
-        The straightened lines.
-    """
-    pairs = []
-    for line in lines.geometry:
-        pairs.append(LineString(line.boundary.geoms))
-    return gpd.GeoDataFrame(geometry=pairs, crs=lines.crs)
 
 
 def check_hyriv_network(digraph: nx.DiGraph) -> float:
@@ -642,6 +623,23 @@ def check_hyriv_network(digraph: nx.DiGraph) -> float:
     return ratio
 
 
+def straighten(lines):
+    """
+    Produces a set of lines from the start and end point of
+    each line in liens.
+
+    :param lines: GeoDataFrame
+        The line features to straighten. Must contain only lines.
+
+    :return: GeoDataFrame
+        The straightened lines.
+    """
+    pairs = []
+    for line in lines.geometry:
+        pairs.append(LineString(line.boundary.geoms))
+    return gpd.GeoDataFrame(geometry=pairs, crs=lines.crs)
+
+
 def __draw_network__(p_graph, ax=None, **kwargs):
     """
     Draws a NetworkX Graph object onto an axes.
@@ -657,3 +655,25 @@ def __draw_network__(p_graph, ax=None, **kwargs):
         ax = plt.axes()
     positions = {n: [n[0], n[1]] for n in list(p_graph.nodes)}
     nx.draw(p_graph, pos=positions, ax=ax, node_size=3, **kwargs)
+
+
+def subset_df(df: pd.DataFrame, **kwargs):
+    for key in kwargs.keys():
+        value = kwargs[key]
+
+        # Extents subsetting untested
+        if key.upper() == 'EXTENT':
+            if type(value) in [list, tuple]:
+                minx, miny, maxx, maxy = value
+            elif type(value) is BBox:
+                minx, miny, maxx, maxy = value.to_tuple()
+            df = df.query('@minx <= Longitude <= @maxx and'
+                          '@miny <= Longitude <= @maxy')
+        else:
+            if type(value) in [list, tuple]:
+                mod = 'in'
+            else:
+                mod = '=='
+            df = df.query(f'{key} {mod} @value')
+
+    return df

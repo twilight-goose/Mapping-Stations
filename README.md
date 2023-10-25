@@ -217,7 +217,8 @@ multiple segments some stations will no longer lie on the same segment.
 
 It is noted that the network built from the OHN watercourses dataset follows real-world
 rivers most accurately, containing lines placed near or at the weighted center of rivers
-at a very high resolution. More information and download can be found [here](https://geohub.lio.gov.on.ca/datasets/a222f2996e7c454f9e8d028aa05995d3_26/about)
+at a very high resolution. More information and download can be found [here](https://geohub.lio.gov.on.ca/datasets/a222f2996e7c454f9e8d028aa05995d3_26/about). The 
+shapefile used for the comparison was created on May 2, 2022.
 
 Matches with NA instead of a distance indicate 1 of the following:
 - they are far enough that they would not reasonably be matched with said station for any reason

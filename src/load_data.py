@@ -38,6 +38,7 @@ and saving of files.
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+
 # ========================================================================= ##
 # Generator =============================================================== ##
 # ========================================================================= ##
@@ -199,16 +200,80 @@ def get_monday_files(bbox=None) -> {str: pd.DataFrame}:
     return load_csvs(monday_path, bbox=bbox)
 
 
+def get_hydat_flow(period=None, subset=None):
+    """
+    Retrieves HYDAT station daily flow data based on a period and
+    subset of stations.
+
+    The HYDAT sqlite3 database must contain the following table:
+    - DLY_FLOWS
+
+    DLY_FLOWS must contain STATION_NUMBER and one of the following
+    sets of fields (or another field name compatible with
+    Period.sql_query()):
+    - YEAR and MONTH
+    - YEAR_FROM and YEAR_TO
+    - DATE
+
+    :param period: Tuple/list of length 2 or None
+
+        Tuple/list of (<start date>, <end date>); dates can be either
+        <str> in format "YYYY-MM-DD" or None; If None, all dates
+        after(before) the start(end) date are retrieved.
+
+            or
+
+        None; No date query. Does not filter data by date.
+
+    :param subset: list-like or pandas Series
+        Iterable containing the ids of the stations whose daily flows
+        to retrieve.
+
+    :return: Pandas DataFrame
+        Daily flow data.
+    """
+    Period.check_period(period)
+    timer.start()
+
+    if type(subset) is pd.Series:
+        subset = subset.tolist()
+
+    # create a sqlite3 connection to the hydat data
+    print("Creating a connection to '{0}'".format(hydat_path))
+    conn = sqlite3.connect(hydat_path)
+
+    curs = conn.execute('PRAGMA table_info(DLY_FLOWS)')
+    fields = [field[1] for field in curs.fetchall()]
+
+    query = []
+
+    period_query = Period.sql_query(period, fields)
+    if period_query:
+        query.append(period_query)
+
+    id_query = ' OR '.join([f' STATION_NUMBER == "{s_id}"' for s_id in subset])
+    if id_query:
+        query.append(id_query)
+
+    query = ' AND '.join(query)
+    if query.strip():
+        query = " WHERE " + query
+
+    flow_data = pd.read_sql_query('SELECT * FROM "DLY_FLOWS"' + query, conn)
+    flow_data = flow_data.rename(columns={'STATION_NUMBER': 'Station_ID'})
+    return flow_data
+
+
 def get_hydat_station_data(period=None, bbox=None, sample=False,
                            flow_symbol=None, measure_type=None) -> pd.DataFrame:
     """
-    Retrieves HYDAT station daily flow data based on a bounding box and
-    period. Renames certain data fields to standardize between PWQMN
-    and HYDAT data.
+    Retrieves HYDAT station data based on a bounding box and period.
+    Renames certain data fields to standardize between PWQMN and
+    HYDAT data.
 
     The HYDAT sqlite3 database must contain the following tables:
     - STATIONS
-    - DLY_FLOWS
+    - STN_DATA_RANGE
 
     STATIONS must contain the following fields:
     - STATION_NUMBER
@@ -218,8 +283,8 @@ def get_hydat_station_data(period=None, bbox=None, sample=False,
     - DRAINAGE_AREA_GROSS
     - DRAINAGE_AREA_EFFECT
 
-    DLY_FLOWS must contain STATION_NUMBER and one of the following
-    sets of fields (or another field name compatible with
+    STN_DATA_RANGE must contain STATION_NUMBER and DATA_TYPE, and one
+    of the following sets of fields (or another field name compatible with
     Period.sql_query()):
     - YEAR and MONTH
     - YEAR_FROM and YEAR_TO
@@ -268,19 +333,20 @@ def get_hydat_station_data(period=None, bbox=None, sample=False,
 
     # read station info from the STATIONS table within the database and
     # load that info into the station data dict
-    station_df = pd.read_sql_query("SELECT STATION_NUMBER, STATION_NAME, LATITUDE, LONGITUDE,"
+    station_df = pd.read_sql_query("SELECT STATION_NUMBER, STATION_NAME, LATITUDE, LONGITUDE, "
                                    "DRAINAGE_AREA_GROSS, DRAINAGE_AREA_EFFECT FROM 'STATIONS'" +
                                    bbox_query, conn)
 
-    curs = conn.execute('PRAGMA table_info(DLY_FLOWS)')
+    curs = conn.execute('PRAGMA table_info(STN_DATA_RANGE)')
     fields = [field[1] for field in curs.fetchall()]
     period_query = Period.sql_query(period, fields)
-    period_query = (' WHERE ' if period_query else '') + period_query
+    period_query = (' AND ' if period_query else '') + period_query
 
     print(period_query)
 
-    station_daily_flows = pd.read_sql_query("SELECT * FROM 'DLY_FLOWS'" + period_query, conn)
-    station_df = station_df.merge(station_daily_flows, how='outer', on='STATION_NUMBER')
+    data_range = pd.read_sql_query("SELECT * FROM 'STN_DATA_RANGE' WHERE DATA_TYPE == 'Q'" +
+                                   period_query, conn)
+    station_df = station_df.merge(data_range, how='inner', on='STATION_NUMBER')
     if station_df.empty:
         print("Chosen query resulted in empty GeoDataFrame.")
 
@@ -296,9 +362,16 @@ def get_hydat_station_data(period=None, bbox=None, sample=False,
 
 
 def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.DataFrame:
-    """e
+    """
     Loads the PWQMN data based on selected bbox, period, and variables
     of interest from the file at
+
+    The PWQMN sqlite database must contain a 'DATA' table with the
+    following fields:
+    - Longitude
+    - Latitude
+    - Station_ID
+    - Station_Name
 
     :param period: Tuple/list of length 2 or None
 
@@ -340,6 +413,7 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
     period_query = Period.sql_query(period, fields)
     bbox_query = BBox.sql_query(bbox, "Longitude", "Latitude")
 
+    query = ''
     if bbox_query or period_query:
         connector = "AND" if (bbox_query and period_query) else ""
         query = " ".join([bbox_query, connector, period_query])
@@ -350,7 +424,6 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
         query += f" ORDER BY RANDOM() LIMIT {sample}"
 
     # Load PWQMN data as a DataFrame
-    print(query)
     station_df = pd.read_sql_query("SELECT * FROM 'DATA'" + query, conn)
 
     timer.stop()
@@ -404,4 +477,4 @@ def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
     return {**get_monday_files(),
             'hydat': get_hydat_station_data(period=period, bbox=bbox),
             'pwqmn': get_pwqmn_station_data(period=period, bbox=bbox),
-            'hydroRIVERS': load_hydro_rivers(bbox=bbox)}
+            'hydroRIVERS': load_rivers(bbox=bbox)}

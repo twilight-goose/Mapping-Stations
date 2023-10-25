@@ -168,7 +168,8 @@ class BBox:
         :raises ValueError:
         """
         if type(bbox) is BBox or bbox is None:
-            return BBox.contains_point(bbox, {'lon': series[x_field], 'lat': series[y_field]})
+            return BBox.contains_point(bbox, [series[x_field],
+                                              series[y_field]])
 
         raise ValueError("None or BBox object expected but", type(bbox), "found")
 
@@ -269,7 +270,7 @@ class Period:
                 query.append(f"{f_name} >= {period_start_str}")
             if period.end:
                 query.append(f"{f_name} <= {period_end_str}")
-            return " AND ".join(query)
+            return " OR ".join(query)
 
         # if a list or tuple of <str> is passed as the period,
         # convert it to a period object
