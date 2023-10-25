@@ -19,7 +19,7 @@ Overview:
 # ========================================================================= ##
 
 
-class BBox(Polygon):
+class BBox:
     """
     Class that extends the Shapely.Polygon class to add additional
     functionality specific to this project, such as generating sql
@@ -42,7 +42,7 @@ class BBox(Polygon):
         1: BBox.<function name>(bbox)
         2: <BBox obj>.<function name>()
     """
-    def __new__(cls, min_x=None, max_x=None, min_y=None, max_y=None, crs=ccrs.Geodetic()):
+    def __init__(self, min_x=None, max_x=None, min_y=None, max_y=None, crs=ccrs.Geodetic()):
         """
         Flexible method for instantiating BoundingBox objects.
         Valid argument sets:
@@ -58,9 +58,7 @@ class BBox(Polygon):
                 "- 4 numeric positional arguments in the order: min_x, max_x, min_y, max_y"
             min_x, min_y, max_x, max_y = min_x
 
-        return Polygon.__new__(cls, shell=[(min_x, min_y), (max_x, min_y), (max_x, max_y), (min_x, max_y)])
-
-    def __init__(self, crs=ccrs.Geodetic()):
+        self.shape = Polygon([(min_x, min_y), (max_x, min_y), (max_x, max_y), (min_x, max_y)])
         self.crs = crs
 
     def contains_point(self, cord: list) -> bool:
@@ -76,7 +74,7 @@ class BBox(Polygon):
             True if cord lies within or on the BBox or BBox is None;
             False otherwise
         """
-        return self is None or Polygon.contains(Point(cord))
+        return self is None or self.shape.contains(Point(cord))
 
     def set_ccrs(self, crs):
         """
@@ -107,9 +105,14 @@ class BBox(Polygon):
             Transformed min_x, min_y, max_x, max_y coordinates of the
             BBox.
         """
-        minx, miny, maxx, maxy = crs.transform_point(self.bounds[:2]) + \
-                                 crs.transform_point(self.bounds[2:])
+        bounds = self.bounds
+        minx, miny, maxx, maxy = crs.transform_point(*bounds[:2], self.crs) + \
+                                 crs.transform_point(*bounds[2:], self.crs)
         return BBox([minx, miny, maxx, maxy])
+
+    @property
+    def bounds(self):
+        return self.shape.bounds
 
     @staticmethod
     def sql_query(bbox, x_field, y_field) -> str:
@@ -131,8 +134,7 @@ class BBox(Polygon):
         query = ""
         # For calls from functions where no boundary is declared
         if bbox is not None:
-            min_x, max_x = bbox.bounds[0], bbox.bounds[2]
-            min_y, max_y = bbox.bounds[1], bbox.bounds[3]
+            min_x, min_y, max_x, max_y = bbox.bounds
 
             query = (f"({min_x} <= {x_field} AND {max_x} >= {x_field} AND " +
                      f"{min_y} <= {y_field} AND {max_y} >= {y_field})")
@@ -213,7 +215,7 @@ class Period:
 
         :param period: the period to be checked
 
-        :raises TypeError:
+        :raises ValueError:
 
                 if period is not valid. period is valid if it is either:
 
@@ -226,10 +228,12 @@ class Period:
         """
         if period is not None:
             if hasattr(period, '__iter__') and len(period) != 2:
-                raise TypeError("Period expected 2 values, found", len(period))
+                raise ValueError(f"Period expected 2 values, found {len(period)}.")
             elif type(period) is not list and type(period) is not tuple and \
                 type(period) != Period:
-                raise TypeError("Period of wrong type,", type(period), "found")
+                raise ValueError(f"Period of wrong type, {type(period)} found.")
+            elif period[0] >= period[1]:
+                raise ValueError("Period start date must be the same as or after the end date.")
 
     @staticmethod
     def sql_query(period, fields) -> str:

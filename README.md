@@ -199,7 +199,7 @@ awk -F'"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", ";", $i) } 1' Provincial
 ## Getting Started
 ### Loading Data
 The load_data.py module, as its name implies, is used for the loading of data. This is where
-file path constants can be found and modified, as well as 
+file path constants can be found and modified.
 ```python
 
 

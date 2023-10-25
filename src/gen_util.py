@@ -40,10 +40,6 @@ Can_LCC_wkt = ('PROJCS["Canada_Lambert_Conformal_Conic",'
                     'AXIS["Northing",NORTH],'
                     'AUTHORITY["ESRI","102002"]]')
 
-
-# default save directories within the project scope
-plot_save_dir = os.path.join(proj_path, "plots")
-
 # Coordinate Reference System Constants
 geodetic = ccrs.Geodetic()
 lambert = ccrs.LambertConformal(central_longitude=central_lon,
@@ -53,7 +49,7 @@ lambert = ccrs.LambertConformal(central_longitude=central_lon,
 
 
 
-def find_xy_fields(df: pd.DataFrame) -> [str, str]:
+def find_xy_fields(df) -> [str, str]:
     """
     Searches a pandas DataFrame for specific field names to use as
     longitudinal and latitudinal values.
@@ -62,10 +58,10 @@ def find_xy_fields(df: pd.DataFrame) -> [str, str]:
     returned. If no match is found for X or Y, an empty string
     will be returned. Not case-sensitive.
 
-    :param df: <Pandas DataFrame>
+    :param df: Pandas DataFrame
         The DataFrame to search
 
-    :return: list(<str>, <str>)
+    :return: list-like of strings of length 2
         The result of the search for x and y fields, where each item
         in the list is either the field name or "Failed"
         i.e:

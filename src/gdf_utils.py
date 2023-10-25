@@ -34,6 +34,86 @@ defined by Can_LCC_wkt, and will produce output referenced in this CRS.
 
 
 # ========================================================================= ##
+# Data Conversion ========================================================= ##
+# ========================================================================= ##
+
+
+def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None,
+                      query=None) -> gpd.GeoDataFrame:
+    """
+    Convert a pandas DataFrame to a geopandas GeoDataFrame with point
+    geometry, if possible. Output GeoDataFrame is identical to input
+    DataFrame with the exception of the added 'geometry' field.
+
+    If neither x nor y fields are not provided, the function will
+    search the DataFrame for fields to use with find_xy_fields().
+    Conversion will fail if only 1 of x_field or y_field is provided.
+
+    If x and y fields are not provided, the crs will be assumed to be
+    EPSG:4326. If x and y fields are provided, a CRS must also be
+    provided.
+
+    :param df: pandas DataFrame
+        DataFrame to convert to a GeoDataFrame.
+
+    :param x_field: str (optional)
+        Field to use as longitude/x value. If None, searches df
+        for X and Y fields to use. Required if y_field is provided.
+
+    :param y_field: str (optional)
+        Field to use as latitude/y value. If None, searches df
+        for X and Y fields to use. Required if y_field is provided.
+
+    :param crs: value (optional)
+        Coordinate reference system of the geometry objects. Can be
+        anything accepted by pyproj.CRS.from_user_input().
+        i.e.
+        - WKT String (such as Can_LCC_wkt)
+        - authority string ("EPSG:4326")
+
+    :return: Geopandas GeoDataFrame or -1
+        The resulting GeoDataFrame, or -1 if the conversion failed. If
+        a crs is passed, the GDF will be in that crs. If lat/lon fields
+        are found by find_xy_fields(), crs will be set to EPSG:4326.
+
+    :raises TypeError:
+        If x and y fields are provided, but a CRS is not.
+        If df is not a DataFrame.
+    """
+
+    # Do checks on passed parameters
+    if type(df) != pd.DataFrame:
+        raise TypeError("Pandas DataFrame expected but", type(df), "found")
+    elif (x_field or y_field) and crs is None:
+        raise TypeError("CRS keyword argument missing")
+
+    # Search for X and Y fields, if not provided
+    if not x_field and not y_field:
+        x, y = find_xy_fields(df)
+
+        if x == "Failed" or y == "Failed" or x is None or y is None:
+            print("Couldn't find fields. Check your fields")
+        else:
+            # Lat/lon fields successfully located
+            crs = 4326
+    else:
+        x, y = x_field, y_field
+
+    print(f"Attempting conversion with the following CRS parameter:\n{crs}")
+    try:
+        gdf = gpd.GeoDataFrame(
+            df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=crs)
+        gdf.drop_duplicates(subset=[x, y], inplace=True)
+        gdf.to_crs(Can_LCC_wkt)
+        print("Dataframe successfully converted to geopandas point geodataframe")
+    except KeyError:
+        gdf = -1
+        print("Conversion Failed")
+
+    return gdf
+
+
+# ========================================================================= ##
 # Data Processing ========================================================= ##
 # ========================================================================= ##
 
@@ -121,93 +201,12 @@ def connectors(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
 
 
 # ========================================================================= ##
-# Data Conversion ========================================================= ##
-# ========================================================================= ##
-
-
-def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None,
-                      query=None) -> gpd.GeoDataFrame:
-    """
-    Convert a pandas DataFrame to a geopandas GeoDataFrame with point
-    geometry, if possible. Output GeoDataFrame is identical to input
-    DataFrame with the exception of the added 'geometry' field.
-
-    If neither x nor y fields are not provided, the function will
-    search the DataFrame for fields to use with find_xy_fields().
-    Conversion will fail if only 1 of x_field or y_field is provided.
-
-    If x and y fields are not provided, the crs will be assumed to be
-    EPSG:4326. If x and y fields are provided, a CRS must also be
-    provided.
-
-    :param df: pandas DataFrame
-        DataFrame to convert to a GeoDataFrame.
-
-    :param x_field: str (optional)
-        Field to use as longitude/x value. If None, searches df
-        for X and Y fields to use. Required if y_field is provided.
-
-    :param y_field: str (optional)
-        Field to use as latitude/y value. If None, searches df
-        for X and Y fields to use. Required if y_field is provided.
-
-    :param crs: value (optional)
-        Coordinate reference system of the geometry objects. Can be
-        anything accepted by pyproj.CRS.from_user_input().
-        i.e.
-        - WKT String (such as Can_LCC_wkt)
-        - authority string ("EPSG:4326")
-
-    :return: Geopandas GeoDataFrame or -1
-        The resulting GeoDataFrame, or -1 if the conversion failed. If
-        a crs is passed, the GDF will be in that crs. If lat/lon fields
-        are found by find_xy_fields(), crs will be set to EPSG:4326.
-
-    :raises TypeError:
-        If x and y fields are provided, but a CRS is not.
-        If df is not a DataFrame.
-    """
-
-    # Do checks on passed parameters
-    if type(df) != pd.DataFrame:
-        raise TypeError("Pandas DataFrame expected but", type(df), "found")
-    elif (x_field or y_field) and crs is None:
-        raise TypeError("CRS keyword argument missing")
-
-    # Search for X and Y fields, if not provided
-    if not x_field and not y_field:
-        x, y = find_xy_fields(df)
-
-        if x == "Failed" or y == "Failed" or x is None or y is None:
-            print("Couldn't find fields. Check your fields")
-        else:
-            # Lat/lon fields successfully located
-            crs = 4326
-    else:
-        x, y = x_field, y_field
-
-    print(f"Attempting conversion with the following CRS parameter:\n{crs}")
-    try:
-        if query is not None:
-            df = df.query(query)
-        gdf = gpd.GeoDataFrame(
-            df, geometry=gpd.points_from_xy(df[x], df[y]), crs=crs)
-        gdf.to_crs(Can_LCC_wkt)
-        print("Dataframe successfully converted to geopandas point geodataframe")
-    except KeyError:
-        gdf = -1
-        print("Conversion Failed")
-
-    return gdf
-
-
-# ========================================================================= ##
 # HydroRIVERS ============================================================= ##
 # ========================================================================= ##
 
 
 def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
-                    prefix="", max_distance=1000, filter=None) -> gpd.GeoDataFrame:
+                    prefix="", max_distance=1000) -> gpd.GeoDataFrame:
     """
     Snaps stations to the closest features in edges and assigns
     descriptors to line segments. Uses a solution similar

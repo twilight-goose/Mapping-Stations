@@ -121,7 +121,7 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
     ax = plt.subplot(1, 2, 1, projection=lambert, position=[0.04, 0.08, 0.42, 0.84])
     ax.set_box_aspect(1)
     ax.set_facecolor('white')
-    plot_utils.add_map_to_plot(ax=ax, total_bounds=bbox)
+    plot_utils.add_map_to_plot(ax=ax, extent=bbox)
 
     ax2 = plt.subplot(1, 2, 2, position=[0.52, 0.04, 0.46, 0.92])
     ax2.set_axis_off()

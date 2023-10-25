@@ -17,6 +17,7 @@ from adjustText import adjust_text
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from shapely import Point
+import shapely.errors
 from adjustText import adjust_text
 
 
@@ -24,23 +25,22 @@ from adjustText import adjust_text
 # Script Constants ======================================================== ##
 # ========================================================================= ##
 
-
-
-
+# default save directories within the project scope
+plot_save_dir = os.path.join(proj_path, "plots")
 
 # ========================================================================= ##
 # Data Plotting =========================================================== ##
 # ========================================================================= ##
 
 
-def add_map_to_plot(total_bounds=None, ax=None, projection=lambert, extent_crs=None,
+def add_map_to_plot(extent=None, ax=None, projection=lambert, extent_crs=None,
                     features=(cfeature.COASTLINE, cfeature.STATES, cfeature.LAKES),
                     **kwargs):
     """
     Adds an axes to the current figure, makes it the current Axes, and
     draws a map onto said axes using cartopy.
 
-    :param total_bounds: list-like, BBox, or None (Default)
+    :param extent: list-like, BBox, or None (Default)
         The bounding coordinates to set the extent of the map to.
         If list-like, must contain exactly 4 elements (min_x, min_y,
         max_x, max_y) and bounds are assumed to be latitude/longitude
@@ -75,14 +75,14 @@ def add_map_to_plot(total_bounds=None, ax=None, projection=lambert, extent_crs=N
         plt.figure(figsize=(8, 8))
         ax = plt.axes(projection=projection, **kwargs)
 
-    if type(total_bounds) is BBox:
+    if type(extent) is BBox:
         # cast the bounding coordinates to latitude longitude
-        total_bounds = total_bounds.to_ccrs(geodetic).bounds
+        extent = extent.to_ccrs(geodetic).bounds
 
     # check if the GeoSeries has a valid bounding information
-    if total_bounds is not None:
+    if extent is not None:
         try:
-            min_x, min_y, max_x, max_y = total_bounds
+            min_x, min_y, max_x, max_y = extent
 
             size = max([max_x - min_x,max_y - min_y]) * 0.6
 
@@ -191,7 +191,8 @@ def plot_gdf(gdf: gpd.GeoDataFrame, crs=Can_LCC_wkt, ax=plt, **kwargs):
 
     :return: PathCollection
     """
-    return plot_g_series(gdf.geometry, ax=ax, crs=crs, **kwargs)
+    return plot_g_series(gdf.drop_duplicates(subset=['Station_ID']).geometry,
+                         ax=ax, crs=crs, **kwargs)
 
 
 def plot_df(df: pd.DataFrame, ax=None, crs=Can_LCC_wkt, **kwargs):
@@ -334,24 +335,34 @@ def configure_legend(legend_dict: dict, ax=plt):
     ax.legend(handles=custom_lines, loc='upper right')
 
 
-def annotate_stations(hydat, pwqmn, ax):
+def annotate_stations(*station_sets, **kwargs):
     """
 
-    :param hydat:
-    :param pwqmn:
+    :param stations:
+    :param kwargs:
     :return:
     """
     texts = []
 
-    for ind, row in hydat.to_crs(crs=Can_LCC_wkt).iterrows():
-        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Station_ID'],
-                             fontsize=8))
+    try:
+        ax = kwargs['ax']
+    except KeyError:
+        ax = plt
 
-    for ind, row in pwqmn.to_crs(crs=Can_LCC_wkt).drop_duplicates('Station_ID').iterrows():
-        texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Station_ID'],
-                             fontsize=8))
+    for stations in station_sets:
+        stations = stations.drop_duplicates(subset=['Station_ID'])
 
-    adjust_text(texts)
+        for ind, row in stations.to_crs(crs=Can_LCC_wkt).iterrows():
+            if not row['geometry'].is_empty:
+                texts.append(ax.text(row['geometry'].x, row['geometry'].y, row['Station_ID'],
+                                  fontsize=8))
+            else:
+                print(row['Station_ID'], "skipped")
+
+    if len(text) <= 300:
+        # dont adjust text if there are over 300 because it takes too long,
+        # and at that scale its hard to see the text regardless
+        adjust_text(texts)
 
 
 def plot_match_array(edge_df, add_to_plot=None, shape=None):
@@ -391,7 +402,7 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
         row, col = n // shape[1], n % shape[1]
         ax[row][col].set_box_aspect(1)
         g_series = gpd.GeoSeries(group['path'], crs=Can_LCC_wkt)
-        add_map_to_plot(total_bounds=g_series.total_bounds, ax=ax[row][col], extent_crs=lambert)
+        add_map_to_plot(extent=g_series.total_bounds, ax=ax[row][col], extent_crs=lambert)
         add_grid_to_plot(ax=ax[row][col])
         plot_paths(group, ax=ax[row][col])
 

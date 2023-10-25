@@ -5,8 +5,8 @@ import load_data
 import gdf_utils
 import plot_utils
 import time
-
-
+from gen_util import lambert, geodetic, Can_LCC_wkt
+import os
 """
 
 Overview:
@@ -19,7 +19,7 @@ Overview:
 # ========================================================================= ##
 
 
-def tests():
+def period_test():
     # Test 5 types of period;
     # 1. period = <str> (invalid period)
     # 2. period = None
@@ -27,8 +27,13 @@ def tests():
     # 4. period = [start, None]
     # 5. period = [start, end]
 
-    assert Period.check_period("2022-10-11") == TypeError
-    assert Period.check_period(["2022-10-11"]) == TypeError
+    assert Period.check_period(None) is None
+    assert Period.check_period(['2020-10-11', None]) is None
+    assert Period.check_period([None, '2020-10-11']) is None
+    assert Period.check_period(['2010-10-11', '2009-11-11']) == ValueError
+    assert Period.check_period("2022-10-11") == ValueError
+    assert Period.check_period(["2022-10-11"]) == ValueError
+    assert Period
 
 
 def hydat_query_test(points, bbox, period):
@@ -64,9 +69,7 @@ def pwqmn_query_test(points, bbox, period):
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox, period=period)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
-    ax = plot_utils.add_map_to_plot(
-        total_bounds=bbox.to_ccrs(plot_utils.lambert)
-    )
+    ax = plot_utils.add_map_to_plot(extent=bbox.to_ccrs(plot_utils.lambert))
     plot_utils.plot_gdf(points, ax=ax, zorder=4, color='blue')
     plot_utils.plot_gdf(pwqmn, ax=ax, zorder=5, color='red')
 
@@ -79,17 +82,13 @@ def point_plot_test():
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
-    ax = plot_utils.add_map_to_plot(
-        total_bounds=bbox.to_ccrs(plot_utils.lambert)
-    )
+    ax = plot_utils.add_map_to_plot(extent=bbox.to_ccrs(plot_utils.lambert))
     plot_utils.plot_gdf(pwqmn, ax=ax)
     plot_utils.timed_display()
 
 
 def snap_test(points, edges, bbox):
-    ax = plot_utils.add_map_to_plot(
-        total_bounds=bbox.to_ccrs(plot_utils.lambert)
-    )
+    ax = plot_utils.add_map_to_plot(extent=bbox.to_ccrs(plot_utils.lambert))
     plot_utils.plot_closest(points, edges, ax=ax)
     plot_utils.timed_display()
 
@@ -168,12 +167,11 @@ def network_compare():
                         os.path.join("OHN", "Ontario_Hydro_Network_(OHN)_-_Watercourse.shp"))
 
     ohn_lines = load_data.load_rivers(path=path, bbox=bbox)
-    hydroRIVERS_lines = load_data.load_rivers(bbox=bbox)
-
     ohn_lines = gdf_utils.assign_stations(ohn_lines, hydat, prefix='hydat_')
     ohn_lines = gdf_utils.assign_stations(ohn_lines, pwqmn, prefix='pwqmn_')
     ohn_network = gdf_utils.hyriv_gdf_to_network(ohn_lines)
 
+    hydroRIVERS_lines = load_data.load_rivers(bbox=bbox)
     hydroRIVERS_lines = gdf_utils.assign_stations(hydroRIVERS_lines, hydat, prefix='hydat_')
     hydroRIVERS_lines = gdf_utils.assign_stations(hydroRIVERS_lines, pwqmn, prefix='pwqmn_')
     hydroRIVERS_network = gdf_utils.hyriv_gdf_to_network(hydroRIVERS_lines)
@@ -181,33 +179,31 @@ def network_compare():
     ohn_edge_df = gdf_utils.dfs_search(ohn_network, max_depth=100, direct_match_dist=250)
     hydro_edge_df = gdf_utils.dfs_search(hydroRIVERS_network)
 
-    ohn_edge_df.drop(columns=['path', 'seg_apart'], inplace=True)
-    hydro_edge_df.drop(columns=['path', 'seg_apart'], inplace=True)
-
-    table = hydro_edge_df.merge(ohn_edge_df, how='outer', on=['hydat_id', 'pwqmn_id'],
-                              suffixes=('_hyRivers', '_OHN'))
-    table = table.assign(error=abs(table['dist_hyRivers'] - table['dist_OHN']) / table['dist_OHN'])
-
-    print(table)
+    # table = hydro_edge_df.drop(columns=['path', 'seg_apart']).merge(
+    #     ohn_edge_df.drop(columns=['path', 'seg_apart']),
+    #     how='outer', on=['hydat_id', 'pwqmn_id'], suffixes=('_hyRivers', '_OHN'))
+    # table = table.assign(error=abs(table['dist_hyRivers'] - table['dist_OHN']) / table['dist_OHN'])
+    #
+    # print(table)
 
     from matplotlib import pyplot as plt
     fig = plt.figure(figsize=(14, 7))
 
-    ax = plt.subplot(1, 2, 1, projection=plot_utils.lambert, position=[0.04, 0.08, 0.42, 0.84])
+    ax = plt.subplot(1, 2, 1, projection=lambert, position=[0.04, 0.08, 0.42, 0.84])
     ax.set_box_aspect(1)
     ax.set_facecolor('white')
-    plot_utils.add_map_to_plot(ax=ax, total_bounds=bbox)
+    plot_utils.add_map_to_plot(ax=ax, extent=bbox)
     plot_utils.draw_network(ohn_network, ax=ax)
     plot_utils.plot_paths(ohn_edge_df, ax=ax)
-    plot_utils.annotate_stations(hydat, pwqmn, ax)
+    plot_utils.annotate_stations(hydat, pwqmn, ax=ax)
 
     ax2 = plt.subplot(1, 2, 2, position=[0.52, 0.04, 0.46, 0.92])
     ax2.set_box_aspect(1)
     ax2.set_facecolor('white')
-    plot_utils.add_map_to_plot(ax=ax2, total_bounds=bbox)
+    plot_utils.add_map_to_plot(ax=ax2, extent=bbox)
     plot_utils.draw_network(hydroRIVERS_network, ax=ax2)
     plot_utils.plot_paths(hydro_edge_df, ax=ax2)
-    plot_utils.annotate_stations(hydat, pwqmn, ax2)
+    plot_utils.annotate_stations(hydat, pwqmn, ax=ax2)
 
     plt.show()
 
@@ -215,15 +211,24 @@ def network_compare():
 def main():
     timer = Timer()
 
-    load_data.generate_pwqmn_sql()
-    network_compare()
+    bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
+
+    hydat = load_data.get_hydat_station_data(bbox=bbox)
+    print(hydat.head())
+
+    hydat = gdf_utils.point_gdf_from_df(hydat)
+    ax = plot_utils.add_map_to_plot(extent=bbox)
+    plot_utils.add_grid_to_plot(ax=ax)
+    plot_utils.plot_gdf(hydat, ax=ax)
+    plot_utils.annotate_stations(hydat, ax=ax)
+
+    plot_utils.show()
 
     # hydat = load_data.get_hydat_station_data(period=['2011-05-12', '2011-07-12'])
     # print(hydat.dtypes)
     # print(hydat[['YEAR', 'MONTH']].sort_values(by='MONTH'))
 
     timer.stop()
-
 
 if __name__ == "__main__":
     main()

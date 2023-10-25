@@ -2,6 +2,7 @@ import os.path
 import sqlite3
 import check_files
 from util_classes import BBox, Period, Timer
+from gen_util import find_xy_fields
 
 import pandas as pd
 from geopandas import read_file
@@ -128,7 +129,6 @@ try:
 except FileNotFoundError:
     generate_pwqmn_sql()
 
-hydat_join_f = "STATION_NUMBER"
 timer = Timer()
 
 
@@ -280,7 +280,7 @@ def get_hydat_station_data(period=None, bbox=None, sample=False,
     print(period_query)
 
     station_daily_flows = pd.read_sql_query("SELECT * FROM 'DLY_FLOWS'" + period_query, conn)
-    station_df = station_df.merge(station_daily_flows, how='right', on='STATION_NUMBER')
+    station_df = station_df.merge(station_daily_flows, how='outer', on='STATION_NUMBER')
     if station_df.empty:
         print("Chosen query resulted in empty GeoDataFrame.")
 
