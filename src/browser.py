@@ -138,7 +138,7 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
 
     fig.canvas.mpl_connect('pick_event', browser.on_pick)
 
-    plot_utils.annotate_stations(hydat, pwqmn, ax)
+    plot_utils.annotate_stations(hydat, pwqmn, ax=ax)
 
     legend_dict = {'Symbol': ['line', 'line', 'line', 'point', 'point'],
                    'Colour': ['orange', 'pink', 'purple', 'blue', 'red'],
