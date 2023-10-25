@@ -1,23 +1,16 @@
 import os
-from util_classes import Timer, BBox
+from util_classes import BBox
 from load_data import proj_path
 import gdf_utils
-from gen_util import find_xy_fields, lambert, geodetic, Can_LCC_wkt
+from gen_util import lambert, geodetic, Can_LCC_wkt
 
 import pandas as pd
 import geopandas as gpd
 import numpy as np
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-import matplotlib.gridspec as gspec
 
-from adjustText import adjust_text
-
-import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-from shapely import Point
-import shapely.errors
 from adjustText import adjust_text
 
 

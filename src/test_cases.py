@@ -152,8 +152,8 @@ def plot_array_test():
     hydat = gdf_utils.point_gdf_from_df(hydat)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
-    lines = gdf_utils.assign_stations(lines, hydat, 'STATION_NUMBER', prefix='hydat_')
-    lines = gdf_utils.assign_stations(lines, pwqmn, 'Location_ID', prefix='pwqmn_')
+    lines = gdf_utils.assign_stations(lines, hydat, prefix='hydat_')
+    lines = gdf_utils.assign_stations(lines, pwqmn, prefix='pwqmn_')
 
     network = gdf_utils.hyriv_gdf_to_network(lines)
 
@@ -226,7 +226,7 @@ def network_compare():
 def main():
     timer = Timer()
 
-    network_assign_test()
+    # network_assign_test()
     network_assign_test_ohn()
     # bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
     #

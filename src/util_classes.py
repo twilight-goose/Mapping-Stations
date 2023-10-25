@@ -21,7 +21,9 @@ Overview:
 
 class BBox:
     """
-    Class that extends the Shapely.Polygon class to add additional
+    Class that represents a longitude/latitude bounding box.
+    Functionally a container for a Shapely.Polygon object that
+    that defines the geometry of the bounding box. Adds additional
     functionality specific to this project, such as generating sql
     queries with BBox.sql_query() and support for None value BBoxes.
 
@@ -61,20 +63,20 @@ class BBox:
         self.shape = Polygon([(min_x, min_y), (max_x, min_y), (max_x, max_y), (min_x, max_y)])
         self.crs = crs
 
-    def contains_point(self, cord: list) -> bool:
+    def contains_point(self, point) -> bool:
         """
         Determines if the bounding box of self contains cord
 
         :param self: BBox object or None
 
-        :param cord: dict of string:float
-            Coordinate of the point.
+        :param point: list-like or shapely Point
+            Coordinates of the Point or a point geometry.
 
         :return: bool
             True if cord lies within or on the BBox or BBox is None;
             False otherwise
         """
-        return self is None or self.shape.contains(Point(cord))
+        return self is None or self.shape.contains(Point(point))
 
     def set_ccrs(self, crs):
         """

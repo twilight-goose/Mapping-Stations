@@ -197,13 +197,26 @@ awk -F'"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", ";", $i) } 1' Provincial
 ```
 
 ## Getting Started
-### Loading Data
+### Module Overview
 The load_data.py module, as its name implies, is used for the loading of data. This is where
 file path constants can be found and modified.
-```python
 
+The util_classes.py module contains classes that usually add 
 
-```
+The gen_utils.py module contains code and constants used throughout the other modules, such
+as 'geodetic', 'lambert', and 'Can_LCC_wkt' which defined coordinate systems so they may
+be consistent between scripts.
+
+The gdf_utils.py module contains code used to manipulate data. Functions do not change
+the original passed data, and instead returns copies with the manipulations performed.
+
+The plot_utils.py module contains code used to add elements to matplotlib plots, such
+as maps, grids, data, and custom legends, and do not change data passed to it in any
+way. Outputs from this functions within this script generally only hold relevance for plotting.
+
+The browser.py module contains complex code that creates interactive matplotlib windows.
+Code within browser.py is not useful for performing any operations outside of the script,
+and it's relevance is limited to its exact use case - creating and opening data browsers.
 
 ## Output Accuracy Table
 ### Zone 1: Southern/Central Ontario
