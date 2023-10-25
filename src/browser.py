@@ -3,12 +3,11 @@ import matplotlib.table as mpl_table
 from matplotlib.lines import Line2D
 from matplotlib_scalebar.scalebar import ScaleBar
 
-from util_classes import BBox
 import numpy as np
 import cartopy.crs as ccrs
 
 import plot_utils
-from gen_util import find_xy_fields, lambert, geodetic, Can_LCC_wkt
+from gen_util import find_xy_fields, lambert, geodetic, Can_LCC_wkt, BBox
 
 import pandas as pd
 

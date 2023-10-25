@@ -1,5 +1,4 @@
-from util_classes import BBox, Period
-from gen_util import find_xy_fields, Can_LCC_wkt, check_geom
+from gen_util import find_xy_fields, Can_LCC_wkt, check_geom, BBox, Period
 
 import pandas as pd
 import geopandas as gpd

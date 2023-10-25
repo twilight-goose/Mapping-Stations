@@ -1,8 +1,7 @@
 import os
-from util_classes import BBox
 from load_data import proj_path
 import gdf_utils
-from gen_util import lambert, geodetic, Can_LCC_wkt
+from gen_util import lambert, geodetic, Can_LCC_wkt, BBox
 
 import pandas as pd
 import geopandas as gpd

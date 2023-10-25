@@ -195,17 +195,14 @@ awk -F'"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", ";", $i) } 1' Provincial
 ```commandline
 
 ```
-
-## Getting Started
-### Module Overview
+## Module Overview
 The load_data.py module, as its name implies, is used for the loading of data. This is where
 file path constants can be found and modified.
 
-The util_classes.py module contains classes that usually add 
-
 The gen_utils.py module contains code and constants used throughout the other modules, such
-as 'geodetic', 'lambert', and 'Can_LCC_wkt' which defined coordinate systems so they may
-be consistent between scripts.
+as 'geodetic', 'lambert', and 'Can_LCC_wkt' which define coordinate systems, so they may
+be consistent between scripts. It also contains classes that define and provide structure
+to certain concepts used throught the project.
 
 The gdf_utils.py module contains code used to manipulate data. Functions do not change
 the original passed data, and instead returns copies with the manipulations performed.
@@ -240,7 +237,7 @@ Matches with NA instead of a distance indicate 1 of the following:
 - In HydroRIVERS dist, stations with an NA value did not have a river segment close enough to snap to
 - In % Error, algorithm calculated direct distance between stations for both networks (see above)
 
-@submission 0895cd7
+@submission 0895cd7 {Extent (lat/lon): min_x=-80, max_x=-79, min_y=45, max_y=46}
    hydat_id    pwqmn_id  dist_hyRivers pos_hyRivers     dist_OHN  pos_OHN     error  manual
 0   02DD009  3013302302      43.451882      On-Down    43.451882  On-Down  0.000000    43.1
 1   02EA005  3012400102    6232.601156         Down  7894.037701     Down  0.210467      NA

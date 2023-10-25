@@ -1,8 +1,7 @@
 import os.path
 import sqlite3
 import check_files
-from util_classes import BBox, Period, Timer
-from gen_util import find_xy_fields
+from gen_util import find_xy_fields, BBox, Period, Timer
 
 import pandas as pd
 from geopandas import read_file

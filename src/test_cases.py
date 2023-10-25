@@ -1,11 +1,10 @@
 import sys
-from util_classes import BBox, Timer, Period
 import browser
 import load_data
 import gdf_utils
 import plot_utils
 import time
-from gen_util import lambert, geodetic, Can_LCC_wkt
+from gen_util import lambert, geodetic, Can_LCC_wkt, BBox, Timer, Period
 import os
 """
 
@@ -165,7 +164,7 @@ def plot_array_test():
 def network_compare():
     import os.path
 
-    bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
+    bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
@@ -227,15 +226,8 @@ def main():
     timer = Timer()
 
     # network_assign_test()
-    network_assign_test_ohn()
-    # bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
-    #
-    # hydat = load_data.get_hydat_station_data()
-    # hydat = gdf_utils.subset_df(hydat, Station_ID=['01AD001'])
-    #
-    # hydat_flow = load_data.get_hydat_flow(subset=hydat['Station_ID'])
-    #
-    # hydat = hydat.merge(hydat_flow, on='Station_ID', how='left')
+    # network_assign_test_ohn()
+    network_compare()
     timer.stop()
 
 
