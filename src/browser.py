@@ -60,8 +60,8 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
             # self.text = ax.text(0.05, 0.95, 'selected: none',
             #                     transform=ax.transAxes, va='top')
             self.selected, = ax.plot([0], [0], ms=20, alpha=0.4,
-                                     color='yellow', visible=False, marker='*',
-                                     zorder=6)
+                                     color='yellow', visible=False,
+                                     marker='*', zorder=6)
 
         def on_pick(self, event):
             self.event_artist = event.artist
@@ -120,8 +120,8 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
     ax2.set_box_aspect(1)
     ax2.set_facecolor('white')
 
-    hydat_artist = plot_utils.plot_gdf(hydat, ax=ax, marker='o', picker=True, pickradius=3, color='blue', zorder=5)[0]
-    pwqmn_artist = plot_utils.plot_gdf(pwqmn, ax=ax, marker='o', picker=True, pickradius=3, color='red', zorder=4)[0]
+    hydat_artist = plot_utils.plot_gdf(hydat, ax=ax, picker=True, pickradius=3, color='blue', zorder=5)[0]
+    pwqmn_artist = plot_utils.plot_gdf(pwqmn, ax=ax, picker=True, pickradius=3, color='red', zorder=4)[0]
 
     plot_utils.draw_network(network, ax=ax)
     plot_utils.plot_paths(edge_df, ax=ax)
@@ -135,7 +135,7 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
     legend_elements = [
         {'label': 'HYDAT', 'renderer': hydat_artist},
         {'label': 'PWQMN', 'renderer': pwqmn_artist},
-        {'label': 'On', 'color': 'orange', 'Symbol': 'line'},
+        {'label': 'On', 'color': 'orange', 'symbol': 'line'},
         {'label': 'Downstream', 'color': 'pink', 'symbol': 'line'},
         {'label': 'Upstream', 'color': 'purple', 'symbol': 'line'}
     ]

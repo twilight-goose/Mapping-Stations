@@ -118,7 +118,7 @@ def add_grid_to_plot(ax=None, projection=lambert, **kwargs):
 
 
 def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
-                  **kwargs):
+                  marker="", **kwargs):
     """
     Plot a Geopandas GeoSeries. Does not change the original GeoSeries
     geometry.
@@ -147,8 +147,10 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
 
     try:
         if g_series.geom_type.iat[0] == "Point":
+            if marker == "":
+                marker = "o"
             lines = ax.plot(np.array(g_series.x),
-                            np.array(g_series.y), marker='o',
+                            np.array(g_series.y), marker=marker,
                             lw=0, **kwargs)
         elif g_series.geom_type.iat[0] == "LineString":
             lines = []

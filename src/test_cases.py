@@ -220,9 +220,9 @@ def network_compare():
 def main():
     timer = Timer()
 
-    # network_assign_test()
+    network_assign_test()
     # network_assign_test_ohn()
-    network_compare()
+    # network_compare()
     timer.stop()
 
 
