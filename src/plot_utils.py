@@ -8,7 +8,6 @@ import geopandas as gpd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.path import Path
 
 import cartopy.feature as cfeature
 from adjustText import adjust_text
@@ -141,7 +140,8 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
 
     :return: PathCollection
     """
-    assert type(g_series) == gpd.GeoSeries, f"GeoSeries expected, {type(g_series)} found."
+    if not (type(g_series) is gpd.GeoSeries):
+        raise TypeError(f'GeoSeries expected, {type(g_series)} found.')
 
     g_series = g_series.to_crs(crs=crs)
 
@@ -186,8 +186,11 @@ def plot_gdf(gdf: gpd.GeoDataFrame, crs=Can_LCC_wkt, ax=plt, **kwargs):
 
     :return: PathCollection
     """
-    return plot_g_series(gdf.drop_duplicates(subset=['Station_ID']).geometry,
-                         ax=ax, crs=crs, **kwargs)
+    if not (type(gdf) is gpd.GeoDataFrame):
+        raise TypeError(f'GeoDataFrame expected, {type(gdf)} found.')
+    if 'Station_ID' in gdf.columns:
+        gdf = gdf.drop_duplicates('Station_ID')
+    return plot_g_series(gdf.geometry, ax=ax, crs=crs, **kwargs)
 
 
 def plot_df(df: pd.DataFrame, ax=None, crs=Can_LCC_wkt, **kwargs):
@@ -236,10 +239,7 @@ def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, ax=plt):
     :param other: Geopandas GeoDataFrame
         Candidate geometry.
     """
-    snapped_dict = gdf_utils.connect_points_to_feature(points, other)
-
-    new_points = snapped_dict['new_points']
-    lines = snapped_dict['lines']
+    new_points, lines = gdf_utils.connect_points_to_feature(points, other)
 
     print("plotting connecting lines")
     plot_g_series(lines, ax=ax, zorder=1, color='purple', label='connector')
@@ -344,6 +344,8 @@ def configure_legend(legend_elements: list, ax=plt, loc='upper right',
                 i['marker'] = 'o'
             elif i.get('symbol') == 'line':
                 pass
+            elif i.get('symbol') == 'polygon':
+                pass
             del i['symbol']
             line.set(**i)
         custom_lines.append(line)
@@ -407,39 +409,44 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
                            subplot_kw={'projection': lambert, 'aspect': 'equal'},
                            figsize=(16, 8))
 
-    legend_dict = {'Symbol': ['line', 'line', 'line', 'point', 'point'],
-                  'Colour': ['orange', 'pink', 'purple', 'blue', 'red'],
-                  'Label': ['On', 'Downstream', 'Upstream', 'HYDAT', 'PWQMN']}
+    legend_elements = [
+        {'label': 'HYDAT', 'color': 'blue', 'Symbol': 'point'},
+        {'label': 'PWQMN', 'color': 'red', 'Symbol': 'point'},
+        {'label': 'On', 'color': 'orange', 'Symbol': 'line'},
+        {'label': 'Downstream', 'color': 'pink', 'symbol': 'line'},
+        {'label': 'Upstream', 'color': 'purple', 'symbol': 'line'}
+    ]
 
     plt.subplots_adjust(left=0.02, right=0.96, top=0.96, bottom=0.04)
     right_pad = fig.add_axes([0.91, 0.01, 0.08, 0.96])
     right_pad.set_axis_off()
     right_pad.set_title('HYDAT -> PWQMN')
-    configure_legend(legend_dict, ax=right_pad)
+    configure_legend(legend_elements, ax=right_pad)
 
     n = 0
 
     for ind, group in grouped:
         row, col = n // shape[1], n % shape[1]
-        ax[row][col].set_box_aspect(1)
+        cur_ax = ax[row][col]
+        cur_ax.set_box_aspect(1)
         g_series = gpd.GeoSeries(group['path'], crs=Can_LCC_wkt)
-        add_map_to_plot(extent=g_series.total_bounds, ax=ax[row][col], extent_crs=lambert)
-        add_grid_to_plot(ax=ax[row][col])
-        plot_paths(group, ax=ax[row][col])
+        add_map_to_plot(extent=g_series.total_bounds, ax=cur_ax, extent_crs=lambert)
+        add_grid_to_plot(ax=cur_ax)
+        plot_paths(group, ax=cur_ax)
 
         text = []
         for ind, group_row in group.iterrows():
             start, end = group_row['path'].boundary.geoms
-            ax[row][col].scatter([start.x], [start.y], color='blue', zorder=6, marker='o')
-            text.append(ax[row][col].text(start.x, start.y, group_row['hydat_id']))
+            cur_ax.scatter([start.x], [start.y], color='blue', zorder=6, marker='o')
+            text.append(cur_ax.text(start.x, start.y, group_row['hydat_id']))
 
-        ax[row][col].scatter([end.x], [end.y], color='red', zorder=6, marker='o')
-        text.append(ax[row][col].text(end.x, end.y, group_row['pwqmn_id']))
+        cur_ax.plot([end.x], [end.y], color='red', zorder=6, marker='o')
+        text.append(cur_ax.text(end.x, end.y, group_row['pwqmn_id']))
 
         if add_to_plot is not None:
             for i in add_to_plot:
                 if callable(i):
-                    i(ax=ax[row][col])
+                    i(ax=cur_ax)
 
         n += 1
         adjust_text(text)

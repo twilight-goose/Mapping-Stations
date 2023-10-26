@@ -131,11 +131,11 @@ def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame)
         GeoDataFrame to snap the points to. May be points, lines,
         or polygons, and must have a set CRS.
 
-    :return: dict of string: GeoDataFrame
+    :return: tuple of GeoDataFrame
         Contains the new points on other and the lines connecting the
         original points to the new points (used for checking quality
-        of point snapping). Has 2 keys: 'new_points' & 'lines'. Maintains
-        the same order as points. All lines have only two vertices.
+        of point snapping). Maintains  the same order as points. All
+        lines have only two vertices.
     """
     # Assert that points contains only Point features
     assert len(points.groupby(by=points.geometry.geom_type).groups) == 1,\
@@ -158,7 +158,7 @@ def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame)
     # Potentially find a more efficient solution that doesn't use apply
     new_points = shortest_lines.apply(lambda line: Point(line.coords[1]))
 
-    return {'new_points': new_points, 'lines': shortest_lines}
+    return new_points, shortest_lines
 
 
 def snap_points(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
@@ -179,7 +179,7 @@ def snap_points(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
         Point GeoDataFrame. Consult connect_points_to_feature for more
         information.
     """
-    return connect_points_to_feature(points, other)['new_points']
+    return connect_points_to_feature(points, other)[0]
 
 
 def connectors(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
@@ -194,7 +194,7 @@ def connectors(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
         LineString GeoDataFrame. Consult connect_points_to_feature for
         more information.
     """
-    return connect_points_to_feature(points, other)['lines']
+    return connect_points_to_feature(points, other)[1]
 
 
 # ========================================================================= ##
