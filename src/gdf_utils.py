@@ -473,9 +473,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         matches['seg_apart'].append(depth)
 
     def on_segment():
-        on_dist = station['geometry'].distance(row['geometry'])
-        if on_dist > direct_match_dist:
-            on_dist = abs(station['dist'] - row['dist'])
+        direct_dist = station['geometry'].distance(row['geometry'])
+        segment_dist = abs(station['dist'] - row['dist'])
+        on_dist = max(segment_dist, direct_dist)
 
         if on_dist < max_distance:
             pos = 'On-' + ('Up' if station['dist'] > row['dist'] else 'Down')
@@ -521,7 +521,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                 # search for candidate stations on connected river segments
                 off_segment()
 
-    return pd.DataFrame(data=matches)
+    return gpd.GeoDataFrame(data=matches, geometry='path', crs=Can_LCC_wkt)
 
 
 def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=False, show=False) -> nx.DiGraph:

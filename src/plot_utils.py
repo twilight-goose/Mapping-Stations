@@ -287,8 +287,7 @@ def plot_paths(path_df, ax=None, filter=""):
         else:
             color = 'grey'
         if ind == filter or filter == "":
-            plot_g_series(gpd.GeoSeries(group['path'], crs=Can_LCC_wkt), ax=ax,
-                          color=color, linewidth=3)
+            plot_g_series(group['path'], ax=ax, color=color, linewidth=3)
 
 
 def configure_legend(legend_elements: list, ax=plt, loc='upper right',
@@ -399,37 +398,8 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
 
     :return:
     """
-
-    grouped = edge_df.groupby(by='pwqmn_id')
-
-    if shape is None:
-        cols = np.ceil(np.sqrt(len(grouped.groups.keys()))) + 1
-        rows = np.ceil(len(grouped.groups.keys()) / cols)
-        shape = int(rows), int(cols)
-
-    fig, ax = plt.subplots(nrows=shape[0], ncols=shape[1],
-                           subplot_kw={'projection': lambert, 'aspect': 'equal'},
-                           figsize=(16, 8))
-
-    legend_elements = [
-        {'label': 'HYDAT', 'color': 'blue', 'Symbol': 'point'},
-        {'label': 'PWQMN', 'color': 'red', 'Symbol': 'point'},
-        {'label': 'On', 'color': 'orange', 'Symbol': 'line'},
-        {'label': 'Downstream', 'color': 'pink', 'symbol': 'line'},
-        {'label': 'Upstream', 'color': 'purple', 'symbol': 'line'}
-    ]
-
-    plt.subplots_adjust(left=0.02, right=0.96, top=0.96, bottom=0.04)
-    right_pad = fig.add_axes([0.91, 0.01, 0.08, 0.96])
-    right_pad.set_axis_off()
-    right_pad.set_title('HYDAT -> PWQMN')
-    configure_legend(legend_elements, ax=right_pad)
-
-    n = 0
-
-    for ind, group in grouped:
-        row, col = n // shape[1], n % shape[1]
-        cur_ax = ax[row][col]
+    def plot_subplot(n):
+        cur_ax = ax[n // shape[1]][n % shape[1]]
         cur_ax.set_box_aspect(1)
         g_series = gpd.GeoSeries(group['path'], crs=Can_LCC_wkt)
         add_map_to_plot(extent=g_series.total_bounds, ax=cur_ax, extent_crs=lambert)
@@ -450,13 +420,47 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
                 if callable(i):
                     i(ax=cur_ax)
 
-        n += 1
         adjust_text(text)
+
+    grouped = edge_df.groupby(by='pwqmn_id')
+
+    if shape is None:
+        cols = np.ceil(np.sqrt(len(grouped.groups.keys()))) + 1
+        rows = np.ceil(len(grouped.groups.keys()) / cols)
+        shape = int(rows), int(cols)
+
+    fig, ax = plt.subplots(nrows=shape[0], ncols=shape[1],
+                           subplot_kw={'projection': lambert, 'aspect': 'equal'},
+                           figsize=(16, 8))
+
+    legend_elements = [
+        {'label': 'HYDAT', 'color': 'blue', 'Symbol': 'point'},
+        {'label': 'PWQMN', 'color': 'red', 'Symbol': 'point'},
+        {'label': 'On', 'color': 'orange', 'Symbol': 'line'},
+        {'label': 'Downstream', 'color': 'pink', 'symbol': 'line'},
+        {'label': 'Upstream', 'color': 'purple', 'symbol': 'line'}
+    ]
+    plt.subplots_adjust(left=0.02, right=0.96, top=0.96, bottom=0.04)
+    right_pad = fig.add_axes([0.91, 0.01, 0.08, 0.96])
+    right_pad.set_axis_off()
+    right_pad.set_title('HYDAT -> PWQMN')
+    configure_legend(legend_elements, ax=right_pad)
+
+    n = 0
+    for ind, group in grouped:
+        plot_subplot(n)
+        n += 1
 
     plt.show()
 
 
 def add_scalebar(ax=plt):
+    """
+    Adds a scalebar to ax.
+
+    :param ax:
+    :return:
+    """
     ax.add_artist(ScaleBar(1, location='lower right', box_alpha=0.75))
 
 

@@ -161,20 +161,24 @@ def plot_array_test():
 def network_compare():
     import os.path
 
-    #bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
-    bbox = None
+    bbox = BBox(min_x=-85, max_x=-75, min_y=45, max_y=55)
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
+
     hydat = gdf_utils.point_gdf_from_df(hydat)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
     path = os.path.join(load_data.data_path,
                         os.path.join("OHN", "Ontario_Hydro_Network_(OHN)_-_Watercourse.shp"))
 
+    print('ohn networking')
+
     ohn_lines = load_data.load_rivers(path=path, bbox=bbox)
     ohn_lines = gdf_utils.assign_stations(ohn_lines, hydat, prefix='hydat_')
     ohn_lines = gdf_utils.assign_stations(ohn_lines, pwqmn, prefix='pwqmn_')
     ohn_network = gdf_utils.hyriv_gdf_to_network(ohn_lines)
+
+    print('hydrorivers networking')
 
     hydroRIVERS_lines = load_data.load_rivers(bbox=bbox)
     hydroRIVERS_lines = gdf_utils.assign_stations(hydroRIVERS_lines, hydat, prefix='hydat_')
@@ -184,45 +188,44 @@ def network_compare():
     ohn_edge_df = gdf_utils.dfs_search(ohn_network, max_depth=100, direct_match_dist=100)
     hydro_edge_df = gdf_utils.dfs_search(hydroRIVERS_network)
 
+    print('saving networking')
+
+    ohn_edge_df.to_file('ohn.shp')
+    hydro_edge_df.to_file('hydrorivers.shp')
+
     # from matplotlib import pyplot as plt
-    # fig = plt.figure(figsize=(14, 7))
-    #
-    # ax = plt.subplot(1, 2, 2, projection=lambert, position=[0.02, 0.04, 0.46, 0.92])
+    # fig = plt.figure(figsize=(8, 8))
+    # ax = plot_utils.add_map_to_plot(extent=bbox)
     # ax.set_box_aspect(1)
     # ax.set_facecolor('white')
-    # plot_utils.add_map_to_plot(ax=ax, extent=bbox)
     # plot_utils.add_grid_to_plot(ax=ax)
+    #
     # plot_utils.plot_gdf(hydat, ax=ax, zorder=5, color='blue')
     # plot_utils.plot_gdf(pwqmn, ax=ax, zorder=5, color='red')
-    # plot_utils.draw_network(ohn_network, ax=ax)
-    # plot_utils.plot_paths(ohn_edge_df, ax=ax)
-    # plot_utils.annotate_stations(hydat, pwqmn, ax=ax, adjust=False)
     #
-    # ax2 = plt.subplot(1, 2, 1, projection=lambert, position=[0.52, 0.04, 0.46, 0.92])
-    # ax2.set_box_aspect(1)
-    # ax2.set_facecolor('white')
-    # plot_utils.add_map_to_plot(ax=ax2, extent=bbox)
-    # plot_utils.add_grid_to_plot(ax=ax2)
-    # plot_utils.plot_gdf(hydat, ax=ax2, zorder=5, color='blue')
-    # plot_utils.plot_gdf(pwqmn, ax=ax2, zorder=5, color='red')
-    # plot_utils.draw_network(hydroRIVERS_network, ax=ax2)
-    # plot_utils.plot_paths(hydro_edge_df, ax=ax2)
-    # plot_utils.annotate_stations(hydat, pwqmn, ax=ax2, adjust=False)
+    # plot_utils.plot_g_series(gdf_utils.straighten(ohn_lines), ax=ax)
+    # plot_utils.plot_g_series(gdf_utils.straighten(hydroRIVERS_lines), ax=ax)
+    #
+    # plot_utils.plot_paths(ohn_edge_df, ax=ax)
+    # plot_utils.plot_paths(hydro_edge_df, ax=ax)
+    # plot_utils.annotate_stations(hydat, pwqmn, ax=ax, adjust=False)
+    # plot_utils.show()
 
     ohn_edge_df.drop(columns=['path', 'seg_apart'], inplace=True)
     hydro_edge_df.drop(columns=['path', 'seg_apart'], inplace=True)
     table = hydro_edge_df.merge(ohn_edge_df, how='outer', on=['hydat_id', 'pwqmn_id'],
                                 suffixes=('_hyRivers', '_OHN'))
     table = table.assign(error=abs(table['dist_hyRivers'] - table['dist_OHN']) / table['dist_OHN'])
-    table.to_csv('table.csv')
+
+    table.to_csv('table2.csv')
 
 
 def main():
     timer = Timer()
 
-    network_assign_test()
+    # network_assign_test()
     # network_assign_test_ohn()
-    # network_compare()
+    network_compare()
     timer.stop()
 
 
