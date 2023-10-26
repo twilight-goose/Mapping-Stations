@@ -185,13 +185,8 @@ def network_compare():
     hydroRIVERS_lines = gdf_utils.assign_stations(hydroRIVERS_lines, pwqmn, prefix='pwqmn_')
     hydroRIVERS_network = gdf_utils.hyriv_gdf_to_network(hydroRIVERS_lines)
 
-    ohn_edge_df = gdf_utils.dfs_search(ohn_network, max_depth=100, direct_match_dist=100)
+    ohn_edge_df = gdf_utils.dfs_search(ohn_network, max_depth=100)
     hydro_edge_df = gdf_utils.dfs_search(hydroRIVERS_network)
-
-    print('saving networking')
-
-    ohn_edge_df.to_file('ohn.shp')
-    hydro_edge_df.to_file('hydrorivers.shp')
 
     # from matplotlib import pyplot as plt
     # fig = plt.figure(figsize=(8, 8))

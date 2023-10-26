@@ -320,7 +320,7 @@ def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
 
 
 def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
-               max_distance=10000, max_depth=10, direct_match_dist=350):
+               max_distance=10000, max_depth=10):
     """
     For each station assigned to the network denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -363,14 +363,6 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         station to search for a match. The greater the resolution of the
         dataset used to build the network, the greater this value should
         be. (HYDAT -> 10; OHN -> 100)
-
-    :param direct_match_dist: int (default=350)
-        The maximum distance in CRS units between two stations at which
-        it is assumed the most accurate measure of distance along the
-        river from origin to candidate is the direct distance between
-        the two points. The greater the resolution of the dataset used
-        to build the network, the lower this value should be.
-            (HYDAT -> 350; OHN -> 100)
 
     :return: Pandas DataFrame
         DataFrame with the following columns:
@@ -473,6 +465,12 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         matches['seg_apart'].append(depth)
 
     def on_segment():
+        """
+        Helper function defining algorithm behaviour for stations on
+        the same segment. Distance is measured as either the absolute
+        distance between their geometries or the distance between
+        them along the network - whichever is greater.
+        """
         direct_dist = station['geometry'].distance(row['geometry'])
         segment_dist = abs(station['dist'] - row['dist'])
         on_dist = max(segment_dist, direct_dist)
@@ -485,6 +483,10 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                            on_dist, pos, 0)
 
     def off_segment():
+        """
+        Helper function defining algorithm behaviour for stations not
+        on the same segment.
+        """
         # Check for candidate stations upstream and downstream
         down_id, down_dist, down_depth, *point_list = dfs(v, prefix2, 0, data['LENGTH_M'] - station['dist'], 1)
         up_id, up_dist, up_depth, *point_list2 = dfs(u, prefix2, 1, station['dist'], 1)
