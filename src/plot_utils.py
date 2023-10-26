@@ -8,6 +8,7 @@ import geopandas as gpd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.path import Path
 
 import cartopy.feature as cfeature
 from adjustText import adjust_text
@@ -146,16 +147,17 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
 
     try:
         if g_series.geom_type.iat[0] == "Point":
-            path_collection = ax.scatter(g_series.x, g_series.y, **kwargs)
-
+            lines = ax.plot(np.array(g_series.x),
+                            np.array(g_series.y), marker='o',
+                            lw=0, **kwargs)
         elif g_series.geom_type.iat[0] == "LineString":
-            path_collection = []
+            lines = []
             for geom in g_series:
-                path_collection.append(ax.plot(*geom.xy, **kwargs))
+                lines.append(ax.plot(*geom.xy, **kwargs))
     except IndexError:
         print("Plotting failed. The GeoSeries has no geometry.")
 
-    return path_collection
+    return lines
 
 
 def draw_network(p_graph, **kwargs):
@@ -287,45 +289,66 @@ def plot_paths(path_df, ax=None, filter=""):
                           color=color, linewidth=3)
 
 
-def configure_legend(legend_dict: dict, ax=plt):
+def configure_legend(legend_elements: list, ax=plt, loc='upper right',
+                     **kwargs):
     """
     Configures a custom legend on an Axes object based on information
     provided in a dict.
 
-    :param legend_dict: dict
-        Dictionary object of 3 key/list pairs, where keys are 'Symbol',
-        'Colour', and 'Label', and lists are the same length. Items at
-        index i of each list hold properties of the element to add to
-        the legend.
+    :param legend_elements: list of dict
+        List of dictionaries where each dictionary defines a legend
+        entry and must contain 1 of the following sets of keys:
 
-        Items in legend_dict['Symbol'] must be either 'point' or 'line'.
-        Items in legend_dict['Colour'] must be matplotlib recognized
-            colour values.
-        Items in legend_dict['Label'] must be strings.
+        'label', 'renderer'
+        Where dict['renderer'] contains the output produced by
+        plot_gdf()/plot_g_series() when the data was plotted.
 
-        i.e.
-            legend_dict['Symbol'][3], legend_dict['Colour'][3], and
-            legend_dict['Label'][3] are used to configure the 4th
-            element on the legend.
+        'label', 'symbol', <kwargs>
+        Where dict['symbol'] is one of {'point', 'line', 'patch} and
+        the other entries are keyword arguments to pass to
+        matplotlib.lines.Line2D.set(). For full list of keywords, see:
+        https://matplotlib.org/stable/api/_as_gen/matplotlib.lines.Line2D.html#matplotlib.lines.Line2D.set
 
     :param ax: Axes object
-        Axes to plot the configured custom legend onto.
+        Axes to place the configured custom legend onto.
+
+    :param loc: string (default='upper right')
+        Location in ax to place the legend.
+        Options:
+        - 'upper left', 'upper right', 'lower left', 'lower right'
+        - 'upper center', 'lower center', 'center left', 'center right'
+        - 'center', 'best'
+
+    :param kwargs:
+        Keyword arguments to pass to ax.legend(). For full list of
+        accepted keywords, see:
+        https://matplotlib.org/stable/api/legend_api.html#matplotlib.legend.Legend
 
     :return:
     """
     custom_lines = []
-    for i in range(len(legend_dict['Symbol'])):
-        color = legend_dict['Colour'][i]
-        symbol = legend_dict['Symbol'][i]
-        label = legend_dict['Label'][i]
+    for i in legend_elements:
+        line = Line2D([0], [0])
+        renderer = i.get('renderer')
+        label = i.get('label')
 
-        if symbol == 'line':
-            custom_lines.append(Line2D([0], [0], color=color, label=label, lw=4))
-        elif symbol == 'point':
-            custom_lines.append(Line2D([0], [0], color=color, label=label, marker='o',
-                                       markersize=5))
+        if not (renderer is None):
+            if type(renderer) is list:
+                renderer = renderer[0]
 
-    ax.legend(handles=custom_lines, loc='upper right')
+            line.update_from(renderer)
+            line.set(label=label)
+        else:
+            if i.get('symbol') == 'point':
+                i['lw'] = 0
+                i['marker'] = 'o'
+            elif i.get('symbol') == 'line':
+                pass
+            del i['symbol']
+            line.set(**i)
+        custom_lines.append(line)
+
+    ax.legend(handles=custom_lines, loc=loc, **kwargs)
 
 
 def annotate_stations(*station_sets, adjust=True, ax=plt):

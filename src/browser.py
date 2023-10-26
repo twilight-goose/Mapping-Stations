@@ -120,8 +120,8 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
     ax2.set_box_aspect(1)
     ax2.set_facecolor('white')
 
-    hydat_artist = plot_utils.plot_gdf(hydat, ax=ax, marker='o', picker=True, pickradius=3, color='blue', zorder=5)
-    pwqmn_artist = plot_utils.plot_gdf(pwqmn, ax=ax, marker='o', picker=True, pickradius=3, color='red', zorder=4)
+    hydat_artist = plot_utils.plot_gdf(hydat, ax=ax, marker='o', picker=True, pickradius=3, color='blue', zorder=5)[0]
+    pwqmn_artist = plot_utils.plot_gdf(pwqmn, ax=ax, marker='o', picker=True, pickradius=3, color='red', zorder=4)[0]
 
     plot_utils.draw_network(network, ax=ax)
     plot_utils.plot_paths(edge_df, ax=ax)
@@ -132,10 +132,15 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
 
     plot_utils.annotate_stations(hydat, pwqmn, ax=ax)
 
-    legend_dict = {'Symbol': ['line', 'line', 'line', 'point', 'point'],
-                   'Colour': ['orange', 'pink', 'purple', 'blue', 'red'],
-                   'Label': ['On', 'Downstream', 'Upstream', 'HYDAT', 'PWQMN']}
-    plot_utils.configure_legend(legend_dict, ax=ax)
+    legend_elements = [
+        {'label': 'HYDAT', 'renderer': hydat_artist},
+        {'label': 'PWQMN', 'renderer': pwqmn_artist},
+        {'label': 'On', 'color': 'orange', 'Symbol': 'line'},
+        {'label': 'Downstream', 'color': 'pink', 'symbol': 'line'},
+        {'label': 'Upstream', 'color': 'purple', 'symbol': 'line'}
+    ]
+
+    plot_utils.configure_legend(legend_elements, ax=ax)
 
     ax.set_axis_on()
 
