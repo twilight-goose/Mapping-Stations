@@ -310,7 +310,7 @@ def get_hydat_station_data(period=None, bbox=None, sample=False,
     :return: <pandas DataFrame>
         HYDAT stations within the bounds of BBox that have data in var
         during the period of interest, and available monthly streamflow
-        data (one record per month of data available from each station,
+        data (one record per month of data available Ffrom each station,
         2 columns (flow value, flow symbol) per assumed 31 days of the
         month). Refer to hydat_reference.md DATA_SYMBOLS for
         FLOW_SYMBOL information.

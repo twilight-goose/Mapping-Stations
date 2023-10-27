@@ -215,12 +215,33 @@ def network_compare():
     table.to_csv('table2.csv')
 
 
+def assign_all():
+    timer = Timer()
+    path = os.path.join(
+        load_data.data_path,
+        os.path.join("OHN", "Ontario_Hydro_Network_(OHN)_-_Watercourse.shp")
+    )
+    bbox = BBox(min_x=-95.154826, max_x=-74.343496, min_y=41.681435, max_y=56.859036)
+
+    print('loading rivers')
+    ohn_rivers = load_data.load_rivers(path=path, bbox=bbox)
+    timer.stop()
+    print('loading stations')
+    hydat = load_data.get_hydat_station_data(bbox=bbox)
+    hydat = gdf_utils.point_gdf_from_df(hydat)
+    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
+    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
+    timer.stop()
+    print('assigning stations')
+    ohn_lines = gdf_utils.assign_stations(ohn_rivers, hydat, prefix='hydat_')
+    ohn_lines = gdf_utils.assign_stations(ohn_rivers, pwqmn, prefix='pwqmn_')
+    timer.stop()
+
+
 def main():
     timer = Timer()
 
-    # network_assign_test()
-    # network_assign_test_ohn()
-    network_compare()
+    assign_all()
     timer.stop()
 
 

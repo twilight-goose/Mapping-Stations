@@ -294,18 +294,24 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     stations = stations.drop_duplicates('Station_ID')
     stations = stations.sjoin_nearest(edges, how='left', max_distance=max_distance)
 
-    rel_pos = stations['other'].project(stations.geometry) / stations['other'].length
-    stations = stations.assign(dist=rel_pos * stations['LENGTH_M'])
-    stations = stations[['Station_ID', 'unique_ind', 'dist', 'geometry']]
+    pos_along = stations['other'].project(stations.geometry)
+    rel_pos = pos_along / stations['other'].length
+    stations = stations.assign(dist_along=rel_pos * stations['LENGTH_M'],
+                               dist_from=stations.distance(stations['other'].interpolate(pos_along)))
+    stations = stations[['Station_ID', 'unique_ind', 'dist_along', 'geometry', 'dist_from']]
+
+    # stations.to_csv(prefix + ".csv")
 
     grouped = stations.groupby(by='unique_ind', sort=False)
 
     temp_data = {'unique_ind': [], prefix + 'data': []}
     for ind, data in grouped:
         temp_data['unique_ind'].append(ind)
-        temp_data[prefix + 'data'].append(data[['Station_ID', 'dist', 'geometry']])
+        temp_data[prefix + 'data'].append(data[['Station_ID', 'dist_along', 'geometry',
+                                                'dist_from']])
 
     temp = pd.DataFrame(data=temp_data)
+    temp.to_csv(prefix + 'dist_from.csv')
     return edges.merge(temp, on='unique_ind', how='left')
 
 
@@ -338,7 +344,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
     segment, in meters) derived from 'LENGTH_KM' provided as part of
     the HydroRIVERS data, and edge attributes suffixed with '_data'
     that hold information about the stations encoded to that edge in
-    DataFrames. Said DataFrames MUST contain a 'dist' column.
+    DataFrames. MUST contain a 'dist_along' and 'dist_from' column.
 
     For stations located on the same river segment/network edge,
     distance between matched stations is computed geographically.
@@ -435,9 +441,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         for u, v, data in edges:
             if type(data[prefix + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
                 series = data[prefix + 'data'].sort_values(
-                    by='dist', ascending=not direction
+                    by='dist_along', ascending=not direction
                 ).iloc[0]
-                dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist'])
+                dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist_along'])
 
                 if dist < max_distance:
                     return series['Station_ID'], dist, depth, series['geometry'], (u, v)[direction]
@@ -472,11 +478,11 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         them along the network - whichever is greater.
         """
         direct_dist = station['geometry'].distance(row['geometry'])
-        segment_dist = abs(station['dist'] - row['dist'])
+        segment_dist = abs(station['dist_along'] - row['dist_along'])
         on_dist = max(segment_dist, direct_dist)
 
         if on_dist < max_distance:
-            pos = 'On-' + ('Up' if station['dist'] > row['dist'] else 'Down')
+            pos = 'On-' + ('Up' if station['dist_along'] > row['dist'] else 'Down')
 
             add_to_matches(station['Station_ID'], row['Station_ID'],
                            LineString([station['geometry'], row['geometry']]),
