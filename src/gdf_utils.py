@@ -3,6 +3,7 @@ from gen_util import find_xy_fields, Can_LCC_wkt, check_geom, BBox
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
+from scipy.stats import percentileofscore
 
 from shapely import LineString, Point
 import momepy
@@ -203,7 +204,8 @@ def connectors(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
 
 
 def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
-                    prefix="", max_distance=1000) -> gpd.GeoDataFrame:
+                    prefix="", max_distance=500, save_dist=False, len_f='LENGTH_KM',
+                    len_unit='km') -> gpd.GeoDataFrame:
     """
     Snaps stations to the closest features in edges and assigns
     descriptors to line segments. Uses a solution similar
@@ -216,21 +218,12 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
           start of the edge (u). Has been confirmed to correctly
           measure distance along bent lines.
 
-    To deal with situations of multiple stations being assigned to
-    the same edge feature, station ids and distances are stored in
-    DataFrames.
-
-    To address some potential issues caused by course data resolution,
-    distortions caused by conversions between coordinate systems, and
-    to maintain consistent distances between stations, distances are
-    calculated by finding the relative position along the line in the
-    set crs as a proportion. That proportion is used to determine the
-    distance from the start of the line segment using the HydroRIVERS
-    provided LENGTH_KM field.
+    To accommodate multiple stations being assigned to the same edge
+    feature, station ids and distances are stored in DataFrames.
 
     :param edges: Geopandas GeoDataFrame
-        The lines/features to assign stations to. Must contain a
-        LENGTH_KM field.
+        The lines/features to assign stations to. Must contain the
+        'len_f' field.
 
     :param stations: Geopandas GeoDataFrame
         The station points to assign to edges. Requires that a
@@ -241,10 +234,22 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
         assign more than 1 set of stations to edges. If left blank, may
         cause overlapping columns in output GeoDataFrame.
 
-    :param max_distance: int (default=1000)
+    :param max_distance: int (default=800)
         The maximum distance (in CRS units) within which to assign a
-        station to edges. If int, must be greater than 0. Default
-        1000 (meters; Lambert Conformal Conic units ).
+        station to edges. If int, must be greater than 0. Default is
+        800m because 98% of stations matched to
+
+    :param save_dist: bool
+        If True, saves the per station distances as a .csv file. Used
+        for calculating statistics on station distance distribution.
+
+    :param len_f: string (default='LENGTH_KM')
+        The field to calculate dist_along with. See return value for
+        more information on its usage. If "" is passed, prints a
+        warning message and uses the GeoPandas computed length.
+
+    :param len_unit: string {'km', 'm'} (default='KM')
+        The unit the len_f field is in.
 
     :return: Geopandas GeoDataFrame
         A copy of edges merged that includes selected station related
@@ -256,12 +261,15 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
             - geometry (geometry)
                 Shapely object representing original
                 station location.
-            - dist (float)
-                Distance in meters) from the start of the river segment
-                to the point closest to the station. Calculated by
-                finding the relative position along the line as a
-                proportion and determining the distance using the
-                HydroRIVERS provided length field (LENGTH_KM).
+            - dist_along (float)
+                Distance from the start of the river segment to the
+                point closest to the station. To combat distortions
+                caused by conversions between CRSs, calculated using
+                the relative position of the point and a provided
+                river segment length field (default='LENGTH_KM')
+            - dist_from (float)
+                Distance from the station to the closest point on the
+                matched river segment.
 
         unique_ind (int)
             Used as a unique identifier for joining and merging data.
@@ -288,31 +296,33 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     if edges.crs != Can_LCC_wkt:
         edges = edges.to_crs(crs=Can_LCC_wkt)
 
-    edges = edges.assign(unique_ind=edges.index, other=edges.geometry,
-                         LENGTH_M=edges['LENGTH_KM'] * 1000)
+    if len_f:
+        conversion = {'m': 1, 'km': 1000}[len_unit]
+        edges = edges.assign(LENGTH_M=edges[len_f] * conversion)
 
+    edges = edges.assign(unique_ind=edges.index, other=edges.geometry)
     stations = stations.drop_duplicates('Station_ID')
-    stations = stations.sjoin_nearest(edges, how='left', max_distance=max_distance)
+    stations = stations.sjoin_nearest(edges, how='left', max_distance=max_distance,
+                                      distance_col='dist_from')
 
-    pos_along = stations['other'].project(stations.geometry)
-    rel_pos = pos_along / stations['other'].length
-    stations = stations.assign(dist_along=rel_pos * stations['LENGTH_M'],
-                               dist_from=stations.distance(stations['other'].interpolate(pos_along)))
+    dist_along = stations['other'].project(stations.geometry)
+    if len_f:
+        dist_along = dist_along / stations['other'].length * stations['LENGTH_M']
+
+    stations = stations.assign(dist_along=dist_along)
     stations = stations[['Station_ID', 'unique_ind', 'dist_along', 'geometry', 'dist_from']]
 
-    # stations.to_csv(prefix + ".csv")
+    if save_dist:
+        stations.to_csv(prefix + ".csv")
 
     grouped = stations.groupby(by='unique_ind', sort=False)
 
     temp_data = {'unique_ind': [], prefix + 'data': []}
     for ind, data in grouped:
         temp_data['unique_ind'].append(ind)
-        temp_data[prefix + 'data'].append(data[['Station_ID', 'dist_along', 'geometry',
-                                                'dist_from']])
+        temp_data[prefix + 'data'].append(data)
 
-    temp = pd.DataFrame(data=temp_data)
-    temp.to_csv(prefix + 'dist_from.csv')
-    return edges.merge(temp, on='unique_ind', how='left')
+    return edges.merge(pd.DataFrame(data=temp_data), on='unique_ind', how='left')
 
 
 def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
@@ -328,7 +338,7 @@ def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
 def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                max_distance=10000, max_depth=10):
     """
-    For each station assigned to the network denoted by prefix1,
+    For the station closest to each network edge denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
     using depth-first search. Stations located on the same edge are
     marked, but not counted towards the 1 upstream and 1 downstream
@@ -520,14 +530,14 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         # check for the presence of origin station data
         if type(pref_1_data) in [pd.DataFrame, gpd.GeoDataFrame]:
             # for each origin station on the edge
-            for ind, station in pref_1_data.iterrows():
-                # Check if there are candidate stations on the same river segment
-                if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-                    # Add each candidate on the same segment to matches
-                    for ind, row in pref_2_data.iterrows():
-                        on_segment()
-                # search for candidate stations on connected river segments
-                off_segment()
+            station = pref_1_data.sort_values(by='dist_from', ascending=True).iloc[0]
+            # Check if there are candidate stations on the same river segment
+            if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
+                # Add each candidate on the same segment to matches
+                for ind, row in pref_2_data.iterrows():
+                    on_segment()
+            # search for candidate stations on connected river segments
+            off_segment()
 
     return gpd.GeoDataFrame(data=matches, geometry='path', crs=Can_LCC_wkt)
 

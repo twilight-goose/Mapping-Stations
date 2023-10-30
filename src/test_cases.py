@@ -233,8 +233,8 @@ def assign_all():
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
     timer.stop()
     print('assigning stations')
-    ohn_lines = gdf_utils.assign_stations(ohn_rivers, hydat, prefix='hydat_')
-    ohn_lines = gdf_utils.assign_stations(ohn_rivers, pwqmn, prefix='pwqmn_')
+    ohn_lines = gdf_utils.assign_stations(ohn_rivers, hydat, prefix='hydat_', save_dist=True)
+    ohn_lines = gdf_utils.assign_stations(ohn_rivers, pwqmn, prefix='pwqmn_', save_dist=True)
     timer.stop()
 
 

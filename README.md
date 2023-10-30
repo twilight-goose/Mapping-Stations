@@ -265,7 +265,3 @@ Down = Downstream
 % Error is % error in hydroRIVERS, calculated as (hydroRIVERS - OHN_dist) / OHN_dist * 100
 
 Table produced using test_cases.network_compare()
-
-
-
-
