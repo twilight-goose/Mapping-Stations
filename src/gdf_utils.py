@@ -234,10 +234,11 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
         assign more than 1 set of stations to edges. If left blank, may
         cause overlapping columns in output GeoDataFrame.
 
-    :param max_distance: int (default=800)
+    :param max_distance: int (default=500)
         The maximum distance (in CRS units) within which to assign a
-        station to edges. If int, must be greater than 0. Default is
-        800m because 98% of stations matched to
+        station to edges. If int, must be greater than 0. Default limit
+        of 500 was determined by looking at the distribution of
+        distance from the network.
 
     :param save_dist: bool
         If True, saves the per station distances as a .csv file. Used
@@ -336,7 +337,7 @@ def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
 
 
 def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
-               max_distance=10000, max_depth=10):
+               max_distance=10000, max_depth=10, id_query=None, **query_kwargs):
     """
     For the station closest to each network edge denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -476,7 +477,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         matches[prefix1 + 'id'].append(id1)
         matches[prefix2 + 'id'].append(id2)
         matches['path'].append(path)
-        matches['dist'].append(_dist)
+        matches['dist_along'].append(_dist)
         matches['pos'].append(_pos)
         matches['seg_apart'].append(depth)
 
@@ -492,7 +493,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         on_dist = max(segment_dist, direct_dist)
 
         if on_dist < max_distance:
-            pos = 'On-' + ('Up' if station['dist_along'] > row['dist'] else 'Down')
+            pos = 'On-' + ('Up' if station['dist_along'] > row['dist_along'] else 'Down')
 
             add_to_matches(station['Station_ID'], row['Station_ID'],
                            LineString([station['geometry'], row['geometry']]),
@@ -504,8 +505,12 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         on the same segment.
         """
         # Check for candidate stations upstream and downstream
-        down_id, down_dist, down_depth, *point_list = dfs(v, prefix2, 0, data['LENGTH_M'] - station['dist'], 1)
-        up_id, up_dist, up_depth, *point_list2 = dfs(u, prefix2, 1, station['dist'], 1)
+        down_id, down_dist, down_depth, *point_list = dfs(
+            v, prefix2, 0, data['LENGTH_M'] - station['dist_along'], 1
+        )
+        up_id, up_dist, up_depth, *point_list2 = dfs(
+            u, prefix2, 1, station['dist_along'], 1
+        )
 
         if down_id != -1:
             point_list.append(station['geometry'])
@@ -520,7 +525,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
     # ===================================================================== #
     # Instantiate dictionary to store matches
     matches = {prefix1 + 'id': [], prefix2 + 'id' : [], 'path': [],
-               'dist': [], 'pos': [], 'seg_apart': []}
+               'dist_along': [], 'pos': [], 'seg_apart': []}
 
     # check each edge for origin stations
     for u, v, data in network.out_edges(data=True):
@@ -529,15 +534,17 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
 
         # check for the presence of origin station data
         if type(pref_1_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-            # for each origin station on the edge
-            station = pref_1_data.sort_values(by='dist_from', ascending=True).iloc[0]
-            # Check if there are candidate stations on the same river segment
-            if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-                # Add each candidate on the same segment to matches
-                for ind, row in pref_2_data.iterrows():
-                    on_segment()
-            # search for candidate stations on connected river segments
-            off_segment()
+            mod = "not " if query_kwargs.get('invert', False) else ""
+            if not pref_1_data.query(f'Station_ID {mod}in @id_query').empty:
+                # for each origin station on the edge
+                station = pref_1_data.sort_values(by='dist_along', ascending=True).iloc[0]
+                # Check if there are candidate stations on the same river segment
+                if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
+                    # Add each candidate on the same segment to matches
+                    for ind, row in pref_2_data.iterrows():
+                        on_segment()
+                # search for candidate stations on connected river segments
+                off_segment()
 
     return gpd.GeoDataFrame(data=matches, geometry='path', crs=Can_LCC_wkt)
 

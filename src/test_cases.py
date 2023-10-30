@@ -161,7 +161,8 @@ def plot_array_test():
 def network_compare():
     import os.path
 
-    bbox = BBox(min_x=-85, max_x=-75, min_y=45, max_y=55)
+    bbox = BBox(min_x=-95.154826, max_x=-74.343496, min_y=41.681435, max_y=56.859036)
+
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
 
@@ -241,7 +242,7 @@ def assign_all():
 def main():
     timer = Timer()
 
-    assign_all()
+    network_compare()
     timer.stop()
 
 
