@@ -280,8 +280,6 @@ def get_hydat_remarks(station_ids: list or tuple, period=None):
     conn.close()
 
 
-
-
 def get_hydat_station_data(period=None, bbox=None, sample=False,
                            flow_symbol=None, measure_type=None) -> pd.DataFrame:
     """
