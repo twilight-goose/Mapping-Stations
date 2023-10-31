@@ -35,13 +35,7 @@ python
 import geopandas
 geopandas.show_versions()
 ```
-Once here, do
-```bash
-import geopandas
-geopandas.show_versions()
-```
 If geopandas and python have been correctly installed, you will see something akin to:
-
 ```
 SYSTEM INFO
 -----------
