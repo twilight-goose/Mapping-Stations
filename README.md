@@ -157,7 +157,7 @@ The PWQMN dataset is expected to contain the following fields, and a missing one
 ```
 
 The HYDAT and PWQMN data used in this project were pre-processed by [Juliane Mai](https://github.com/julemai).
-The pre-processed data may be obtainable from the following links:
+The pre-processed data may be obtainable from the following links (you will need to have pop-ups either enabled or set to ask)
 
 Hydat Data: http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip \
 PWQMN Data: http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip \
