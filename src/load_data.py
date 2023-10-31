@@ -200,22 +200,16 @@ def get_monday_files(bbox=None) -> {str: pd.DataFrame}:
     return load_csvs(monday_path, bbox=bbox)
 
 
-def get_hydat_flow(period=None, subset=None):
+def get_hydat_data(tbl_name, period=None, subset=()):
     """
-    Retrieves HYDAT station daily flow data based on a period and
-    subset of stations.
-
-    The HYDAT sqlite3 database must contain the following table:
-    - DLY_FLOWS
-
-    DLY_FLOWS must contain STATION_NUMBER and one of the following
-    sets of fields (or another field name compatible with
-    Period.sql_query()):
-    - YEAR and MONTH
-    - YEAR_FROM and YEAR_TO
-    - DATE
-
-    :param period: Tuple/list of length 2 or None
+    Retrieves HYDAT station data based from the chosen table based on
+    a period and subset of stations.
+    
+    :param tbl_name: str
+        Name of the database table to retrieve. HYDAT.sqlite3 must
+        contain the passed table name
+    
+    :param period: Tuple/list of length 2 or None (default)
 
         Tuple/list of (<start date>, <end date>); dates can be either
         <str> in format "YYYY-MM-DD" or None; If None, all dates
@@ -225,12 +219,15 @@ def get_hydat_flow(period=None, subset=None):
 
         None; No date query. Does not filter data by date.
 
-    :param subset: list-like or pandas Series
-        Iterable containing the ids of the stations whose daily flows
-        to retrieve.
+    :param subset: list-like or pandas Series (default=())
+        Iterable containing the ids of the stations whose data
+        to retrieve. If empty, retrieves data from all stations.
 
     :return: Pandas DataFrame
-        Daily flow data.
+        Hydat database table.
+    
+    :save: tbl_name.csv
+        Saves the table data to a .csv file in the hydat directory.
     """
     Period.check_period(period)
     timer.start()
@@ -242,7 +239,7 @@ def get_hydat_flow(period=None, subset=None):
     print("Creating a connection to '{0}'".format(hydat_path))
     conn = sqlite3.connect(hydat_path)
 
-    curs = conn.execute('PRAGMA table_info(DLY_FLOWS)')
+    curs = conn.execute(f'PRAGMA table_info({tbl_name})')
     fields = [field[1] for field in curs.fetchall()]
 
     query = []
@@ -259,25 +256,21 @@ def get_hydat_flow(period=None, subset=None):
     if query.strip():
         query = " WHERE " + query
 
-    flow_data = pd.read_sql_query('SELECT * FROM "DLY_FLOWS"' + query, conn)
-    flow_data = flow_data.rename(columns={'STATION_NUMBER': 'Station_ID'})
+    data = pd.read_sql_query(f'SELECT * FROM "{tbl_name}"' + query, conn)
+    data = data.rename(columns={'STATION_NUMBER': 'Station_ID'})
+    
+    data.to_csv(os.path.join(data_path, 'Hydat', f"{tbl_name}.csv"))
     
     conn.close()
-    return flow_data
+    return data
 
 
-def get_hydat_remarks(station_ids: list or tuple, period=None):
-    Period.check_period()
-    timer.start()
+def get_hydat_flow(period=None, subset=()):
+    return get_hydat_data(period=period, subset=subset, tbl_name='DLY_FLOWS')
     
-    # create a sqlite3 connection to the hydat data
-    print("Creating a connection to '{0}'".format(hydat_path))
-    conn = sqlite3.connect(hydat_path)
 
-    remarks = pd.read_sql_query('SELECT * FROM "STN_REMARKS"', conn)
-    
-    remarks.to_csv('remarks.csv')
-    conn.close()
+def get_hydat_remarks(period=None, subset=()):
+    return get_hydat_data(period=period, subset=subset, tbl_name='STN_REMARKS')
 
 
 def get_hydat_station_data(period=None, bbox=None, sample=False,
