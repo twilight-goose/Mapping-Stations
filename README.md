@@ -17,14 +17,14 @@ as well, but full functionality is not guaranteed.
 conda create -n env-conda-3.9.18 python=3.9.18
 conda activate env-conda-3.9.18
 
-conda install -n env-conda-3.9.18 -c conda-forge pandas
-conda install -n env-conda-3.9.18 -c conda-forge geopandas
-conda install -n env-conda-3.9.18 -c conda-forge matplotlib
-conda install -n env-conda-3.9.18 -c conda-forge cartopy
-conda install -n env-conda-3.9.18 -c conda-forge momepy
-conda install -n env-conda-3.9.18 -c conda-forge networkx
-conda install -n env-conda-3.9.18 -c conda-forge matplotlib-scalebar
-conda instlal -n env-conda-3.9.18 -c conda-forge adjusttext
+conda install -n env-conda-3.9.18 -c conda-forge pandas=2.1.1
+conda install -n env-conda-3.9.18 -c conda-forge geopandas-0.14.0
+conda install -n env-conda-3.9.18 -c conda-forge matplotlib=3.8.0
+conda install -n env-conda-3.9.18 -c conda-forge cartopy=0.22.0
+conda install -n env-conda-3.9.18 -c conda-forge momepy=0.6.0
+conda install -n env-conda-3.9.18 -c conda-forge networkx=3.1
+conda install -n env-conda-3.9.18 -c conda-forge matplotlib-scalebar0.8.1
+conda instlal -n env-conda-3.9.18 -c conda-forge adjusttext=0.7.3.1
 ```
 
 A number of other dependencies will come with geopandas. You can check the version of each of these dependencies
