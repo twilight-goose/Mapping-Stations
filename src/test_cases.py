@@ -4,16 +4,16 @@ import gdf_utils
 import plot_utils
 from gen_util import lambert, geodetic, Can_LCC_wkt, BBox, Timer, Period, ON_bbox
 import os
-import sys
+# import sys
 
-sys.path.insert(0,
-    os.path.join(
-        os.path.dirname(load_data.proj_path),
-        'Watershed_Delineation',
-        'src',
-        'PySheds')
-)
-import main
+# sys.path.insert(0,
+    # os.path.join(
+        # os.path.dirname(load_data.proj_path),
+        # 'Watershed_Delineation',
+        # 'src',
+        # 'PySheds')
+# )
+# import main
 
 
 """
