@@ -24,6 +24,7 @@ conda install -n env-conda-3.9.18 -c conda-forge cartopy
 conda install -n env-conda-3.9.18 -c conda-forge momepy
 conda install -n env-conda-3.9.18 -c conda-forge networkx
 conda install -n env-conda-3.9.18 -c conda-forge matplotlib-scalebar
+conda instlal -n env-conda-3.9.18 -c conda-forge adjusttext
 ```
 
 A number of other dependencies will come with geopandas. You can check the version of each of these dependencies
