@@ -89,7 +89,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=4326,
     if not x_field and not y_field:
         x_field, y_field = find_xy_fields(df)
 
-    print(f"Attempting conversion with the following CRS parameter:\n{crs}")
+    print(f"Attempting conversion with the following CRS parameter: {crs}")
     try:
         gdf = gpd.GeoDataFrame(
             df.astype(str), geometry=gpd.points_from_xy(df[x_field], df[y_field]), crs=crs)
@@ -291,7 +291,8 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
         conversion = {'m': 1, 'km': 1000}[len_unit]
         edges = edges.assign(LENGTH_M=edges[len_f] * conversion)
     elif not (len_f in edges.columns):
-        print(f'Warning: Edges GeoDataFrame does not contain {len_f} field. GeoPandas computed length will be used.')
+        print(f'Warning: Edges GeoDataFrame does not contain {len_f} field.'
+                'GeoPandas computed length will be used.')
         edges = edges.assign(LENGTH_M=edges.geometry.length)
 
     edges = edges.assign(unique_ind=edges.index, other=edges.geometry)

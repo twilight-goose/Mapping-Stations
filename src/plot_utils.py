@@ -155,7 +155,7 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
         elif g_series.geom_type.iat[0] == "LineString":
             lines = []
             for geom in g_series:
-                lines.append(ax.plot(*geom.xy, **kwargs))
+                lines.append(*ax.plot(*geom.xy, **kwargs))
     except IndexError:
         print("Plotting failed. The GeoSeries has no geometry.")
 

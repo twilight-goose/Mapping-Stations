@@ -261,7 +261,25 @@ def get_hydat_flow(period=None, subset=None):
 
     flow_data = pd.read_sql_query('SELECT * FROM "DLY_FLOWS"' + query, conn)
     flow_data = flow_data.rename(columns={'STATION_NUMBER': 'Station_ID'})
+    
+    conn.close()
     return flow_data
+
+
+def get_hydat_remarks(station_ids: list or tuple, period=None):
+    Period.check_period()
+    timer.start()
+    
+    # create a sqlite3 connection to the hydat data
+    print("Creating a connection to '{0}'".format(hydat_path))
+    conn = sqlite3.connect(hydat_path)
+
+    remarks = pd.read_sql_query('SELECT * FROM "STN_REMARKS"', conn)
+    
+    remarks.to_csv('remarks.csv')
+    conn.close()
+
+
 
 
 def get_hydat_station_data(period=None, bbox=None, sample=False,
@@ -341,9 +359,7 @@ def get_hydat_station_data(period=None, bbox=None, sample=False,
     fields = [field[1] for field in curs.fetchall()]
     period_query = Period.sql_query(period, fields)
     period_query = (' AND ' if period_query else '') + period_query
-
-    print(period_query)
-
+    
     data_range = pd.read_sql_query("SELECT * FROM 'STN_DATA_RANGE' WHERE DATA_TYPE == 'Q'" +
                                    period_query, conn)
     station_df = station_df.merge(data_range, how='inner', on='STATION_NUMBER')

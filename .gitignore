@@ -49,3 +49,5 @@ data/OHN/Ontario_Hydro_Network_(OHN)_-_Watercourse.shp.xml
 *.shp
 *.prj
 *.shx
+data/n40w090_dem.tif
+data/HydroSHEDS_TechDoc_v1_4.pdf
