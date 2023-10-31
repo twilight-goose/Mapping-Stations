@@ -237,8 +237,9 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
 
     :param len_f: string (default='LENGTH_KM')
         The field to calculate dist_along with. See return value for
-        more information on its usage. If "" is passed, prints a
-        warning message and uses the GeoPandas computed length.
+        more information on its usage. If "" is passed or len_f is not
+        found, prints a warning message and uses the GeoPandas
+        computed length.
 
     :param len_unit: string {'km', 'm'} (default='km')
         The unit of the len_f field.
@@ -280,17 +281,18 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
         raise ValueError("Edge GeoDataFrame expected to only contain LineStrings.")
     if not ('Station_ID' in stations.columns):
         raise ValueError('Stations GeoDataFrame does not contain required "Station_ID" field.')
-    if not ('LENGTH_KM' in edges.columns):
-        raise ValueError('Warning: Edges GeoDataFrame does not contain required "LENGTH_KM" field.')
 
     if stations.crs != Can_LCC_wkt:
         stations = stations.to_crs(crs=Can_LCC_wkt)
     if edges.crs != Can_LCC_wkt:
         edges = edges.to_crs(crs=Can_LCC_wkt)
-
+    
     if len_f:
         conversion = {'m': 1, 'km': 1000}[len_unit]
         edges = edges.assign(LENGTH_M=edges[len_f] * conversion)
+    elif not (len_f in edges.columns):
+        print(f'Warning: Edges GeoDataFrame does not contain {len_f} field. GeoPandas computed length will be used.')
+        edges = edges.assign(LENGTH_M=edges.geometry.length)
 
     edges = edges.assign(unique_ind=edges.index, other=edges.geometry)
     stations = stations.drop_duplicates('Station_ID')
@@ -328,7 +330,7 @@ def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
 
 
 def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
-               max_distance=10000, max_depth=10, id_query=None, **query_kwargs):
+               max_distance=5000, max_depth=10, id_query=None, **query_kwargs):
     """
     For the station closest to each network edge denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -363,8 +365,11 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         Prefix denoting the network edge attribute holding candidate
         station data.
 
-    :param max_distance: int (default=10000)
+    :param max_distance: int (default=5000)
         Maximum distance to search for a matching station in CRS units.
+        Default is 5000m because we want matched stations to have
+        similar drainage areas, and even at 5000m drainage area will
+        change significantly.
 
     :param max_depth: int (default=10)
         The maximum number of river segments to traverse from an origin

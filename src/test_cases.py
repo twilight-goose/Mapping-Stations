@@ -2,8 +2,20 @@ import browser
 import load_data
 import gdf_utils
 import plot_utils
-from gen_util import lambert, geodetic, Can_LCC_wkt, BBox, Timer, Period
+from gen_util import lambert, geodetic, Can_LCC_wkt, BBox, Timer, Period, ON_bbox
 import os
+import sys
+
+sys.path.insert(0,
+    os.path.join(
+        os.path.dirname(load_data.proj_path),
+        'Watershed_Delineation',
+        'src',
+        'PySheds')
+)
+import main
+
+
 """
 
 Overview:
@@ -17,57 +29,15 @@ Overview:
 
 
 def period_test():
-    # Test 5 types of period;
-    # 1. period = <str> (invalid period)
-    # 2. period = None
-    # 3. period = [None, date]
-    # 4. period = [start, None]
-    # 5. period = [start, end]
-
+    # Valid periods
     assert Period.check_period(None) is None
     assert Period.check_period(['2020-10-11', None]) is None
     assert Period.check_period([None, '2020-10-11']) is None
+    
+    # invalide periods
     assert Period.check_period(['2010-10-11', '2009-11-11']) == ValueError
     assert Period.check_period("2022-10-11") == ValueError
     assert Period.check_period(["2022-10-11"]) == ValueError
-
-
-def hydat_query_test(points, bbox, period):
-    """
-
-
-    :param points:
-    :param bbox:
-    :param period:
-    :return:
-    """
-    hydat = load_data.get_hydat_station_data(bbox=bbox, period=period)
-    hydat = gdf_utils.point_gdf_from_df(hydat)
-    ax = plot_utils.add_map_to_plot(extent=bbox.to_ccrs(lambert))
-    plot_utils.plot_gdf(points, ax=ax, zorder=4, color='blue')
-    plot_utils.plot_gdf(hydat, ax=ax, zorder=5, color='red')
-
-    plot_utils.timed_display()
-
-
-def pwqmn_query_test(points, bbox, period):
-    """
-    Expected behaviour:
-        Red and blue points. There should be less red points.
-
-    :param points:
-    :param bbox:
-    :param period:
-    :return:
-    """
-    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox, period=period)
-    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
-
-    ax = plot_utils.add_map_to_plot(extent=bbox.to_ccrs(plot_utils.lambert))
-    plot_utils.plot_gdf(points, ax=ax, zorder=4, color='blue')
-    plot_utils.plot_gdf(pwqmn, ax=ax, zorder=5, color='red')
-
-    plot_utils.timed_display()
 
 
 def point_plot_test():
@@ -162,14 +132,10 @@ def network_compare():
     import os.path
 
     bbox = BBox(min_x=-95.154826, max_x=-74.343496, min_y=41.681435, max_y=56.859036)
-    # bbox = BBox(min_x=-82, max_x=-81, min_y=43, max_y=45)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
-
-    # hydat = gdf_utils.subset_df(hydat, Station_ID='02GD014')
-    # pwqmn = gdf_utils.subset_df(pwqmn, Station_ID=4001304402)
-
+    
     hydat = gdf_utils.point_gdf_from_df(hydat)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
@@ -193,24 +159,6 @@ def network_compare():
     ohn_edge_df = gdf_utils.dfs_search(ohn_network, max_depth=100)
     hydro_edge_df = gdf_utils.dfs_search(hydroRIVERS_network)
 
-    # from matplotlib import pyplot as plt
-    # fig = plt.figure(figsize=(8, 8))
-    # ax = plot_utils.add_map_to_plot(extent=bbox)
-    # ax.set_box_aspect(1)
-    # ax.set_facecolor('white')
-    # plot_utils.add_grid_to_plot(ax=ax)
-    #
-    # plot_utils.plot_gdf(hydat, ax=ax, zorder=5, color='blue')
-    # plot_utils.plot_gdf(pwqmn, ax=ax, zorder=5, color='red')
-    #
-    # plot_utils.plot_g_series(gdf_utils.straighten(ohn_lines), ax=ax)
-    # plot_utils.plot_g_series(gdf_utils.straighten(hydroRIVERS_lines), ax=ax)
-    #
-    # plot_utils.plot_paths(ohn_edge_df, ax=ax)
-    # plot_utils.plot_paths(hydro_edge_df, ax=ax)
-    # plot_utils.annotate_stations(hydat, pwqmn, ax=ax, adjust=False)
-    # plot_utils.show()
-
     ohn_edge_df.drop(columns=['path', 'seg_apart'], inplace=True)
     hydro_edge_df.drop(columns=['path', 'seg_apart'], inplace=True)
     table = hydro_edge_df.merge(ohn_edge_df, how='outer', on=['hydat_id', 'pwqmn_id'],
@@ -227,7 +175,7 @@ def assign_all():
         load_data.data_path,
         os.path.join("OHN", "Ontario_Hydro_Network_(OHN)_-_Watercourse.shp")
     )
-    bbox = BBox(min_x=-95.154826, max_x=-74.343496, min_y=41.681435, max_y=56.859036)
+    bbox = ON_bbox
 
     print('loading rivers')
     ohn_rivers = load_data.load_rivers(path=path, bbox=bbox)
@@ -246,8 +194,6 @@ def assign_all():
 
 def main():
     timer = Timer()
-
-    network_compare()
     timer.stop()
 
 

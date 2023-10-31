@@ -500,3 +500,23 @@ def timed_display(seconds=2):
 
 def get_ax():
     return plt.subplot(projection=lambert)
+
+
+# from matplotlib import pyplot as plt
+    # fig = plt.figure(figsize=(8, 8))
+    # ax = plot_utils.add_map_to_plot(extent=bbox)
+    # ax.set_box_aspect(1)
+    # ax.set_facecolor('white')
+    # plot_utils.add_grid_to_plot(ax=ax)
+    #
+    # plot_utils.plot_gdf(hydat, ax=ax, zorder=5, color='blue')
+    # plot_utils.plot_gdf(pwqmn, ax=ax, zorder=5, color='red')
+    #
+    # plot_utils.plot_g_series(gdf_utils.straighten(ohn_lines), ax=ax)
+    # plot_utils.plot_g_series(gdf_utils.straighten(hydroRIVERS_lines), ax=ax)
+    #
+    # plot_utils.plot_paths(ohn_edge_df, ax=ax)
+    # plot_utils.plot_paths(hydro_edge_df, ax=ax)
+    # plot_utils.annotate_stations(hydat, pwqmn, ax=ax, adjust=False)
+    # plot_utils.show()
+    

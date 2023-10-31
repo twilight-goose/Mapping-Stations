@@ -413,3 +413,7 @@ class Timer:
     def stop(self):
         d = datetime.now() - self.s_time
         print("That took {0} seconds and {1} microseconds\n".format(d.seconds, d.microseconds))
+
+
+
+ON_bbox = BBox(min_x=-95.154826, max_x=-74.343496, min_y=41.681435, max_y=56.859036)

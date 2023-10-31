@@ -107,6 +107,7 @@ def generate_pwqmn_sql():
 cwd = os.path.dirname(__file__)
 proj_path = os.path.dirname(cwd)
 data_path = os.path.join(proj_path, "data")
+shp_save_path = os.path.join(data_path, "shapefiles")
 
 
 # Paths to obtain data from
