@@ -161,7 +161,7 @@ The pre-processed data may be obtainable from the following links:
 
 Hydat Data: http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip \
 PWQMN Data: http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip \
-Monday Files: https://github.com/twilight-goose/Mapping-Stations/tree/main/data/MondayFileGallery \
+Monday Files: https://github.com/twilight-goose/Mapping-Stations/tree/main/data/MondayFileGallery
 
 Raw data is available from these links:
 
