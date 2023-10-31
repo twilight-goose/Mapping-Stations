@@ -17,13 +17,14 @@ as well, but full functionality is not guaranteed.
 conda create -n env-conda-3.9.18 python=3.9.18
 conda activate env-conda-3.9.18
 
-conda install -n env-conda-3.9.18 -c conda-forge pandas
-conda install -n env-conda-3.9.18 -c conda-forge geopandas
-conda install -n env-conda-3.9.18 -c conda-forge matplotlib
-conda install -n env-conda-3.9.18 -c conda-forge cartopy
-conda install -n env-conda-3.9.18 -c conda-forge momepy
-conda install -n env-conda-3.9.18 -c conda-forge networkx
-conda install -n env-conda-3.9.18 -c conda-forge matplotlib-scalebar
+conda install -n env-conda-3.9.18 -c conda-forge pandas=2.1.1
+conda install -n env-conda-3.9.18 -c conda-forge geopandas-0.14.0
+conda install -n env-conda-3.9.18 -c conda-forge matplotlib=3.8.0
+conda install -n env-conda-3.9.18 -c conda-forge cartopy=0.22.0
+conda install -n env-conda-3.9.18 -c conda-forge momepy=0.6.0
+conda install -n env-conda-3.9.18 -c conda-forge networkx=3.1
+conda install -n env-conda-3.9.18 -c conda-forge matplotlib-scalebar0.8.1
+conda instlal -n env-conda-3.9.18 -c conda-forge adjusttext=0.7.3.1
 ```
 
 A number of other dependencies will come with geopandas. You can check the version of each of these dependencies
@@ -34,13 +35,7 @@ python
 import geopandas
 geopandas.show_versions()
 ```
-Once here, do
-```bash
-import geopandas
-geopandas.show_versions()
-```
 If geopandas and python have been correctly installed, you will see something akin to:
-
 ```
 SYSTEM INFO
 -----------
@@ -157,11 +152,11 @@ The PWQMN dataset is expected to contain the following fields, and a missing one
 ```
 
 The HYDAT and PWQMN data used in this project were pre-processed by [Juliane Mai](https://github.com/julemai).
-The pre-processed data may be obtainable from the following links:
+The pre-processed data may be obtainable from the following links (you will need to have pop-ups either enabled or set to ask)
 
 Hydat Data: http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip \
 PWQMN Data: http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip \
-Monday Files: https://github.com/twilight-goose/Mapping-Stations/tree/main/data/MondayFileGallery \
+Monday Files: https://github.com/twilight-goose/Mapping-Stations/tree/main/data/MondayFileGallery
 
 Raw data is available from these links:
 
