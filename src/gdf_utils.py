@@ -36,7 +36,7 @@ defined by Can_LCC_wkt, and will produce output referenced in this CRS.
 # ========================================================================= ##
 
 
-def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None,
+def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=4326,
                       query=None) -> gpd.GeoDataFrame:
     """
     Convert a pandas DataFrame to a geopandas GeoDataFrame with point
@@ -62,7 +62,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None,
         Field to use as latitude/y value. If None, searches df
         for X and Y fields to use. Required if y_field is provided.
 
-    :param crs: value (optional)
+    :param crs: value (default=4326)
         Coordinate reference system of the geometry objects. Can be
         anything accepted by pyproj.CRS.from_user_input().
         i.e.
@@ -82,31 +82,23 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=None,
     # Do checks on passed parameters
     if type(df) != pd.DataFrame:
         raise TypeError("Pandas DataFrame expected but", type(df), "found")
-    elif (x_field or y_field) and crs is None:
+    elif x_field or y_field:
         raise TypeError("CRS keyword argument missing")
 
     # Search for X and Y fields, if not provided
     if not x_field and not y_field:
-        x, y = find_xy_fields(df)
-
-        if x == "Failed" or y == "Failed" or x is None or y is None:
-            print("Couldn't find fields. Check your fields")
-        else:
-            # Lat/lon fields successfully located
-            crs = 4326
-    else:
-        x, y = x_field, y_field
+        x_field, y_field = find_xy_fields(df)
 
     print(f"Attempting conversion with the following CRS parameter:\n{crs}")
     try:
         gdf = gpd.GeoDataFrame(
-            df.astype(str), geometry=gpd.points_from_xy(df[x], df[y]), crs=crs)
-        gdf.drop_duplicates(subset=[x, y], inplace=True)
-        gdf.to_crs(Can_LCC_wkt)
+            df.astype(str), geometry=gpd.points_from_xy(df[x_field], df[y_field]), crs=crs)
+        gdf.drop_duplicates(subset=[x_field, y_field], inplace=True)
+        gdf.to_crs(Can_LCC_wkt, inplace=True)
         print("Dataframe successfully converted to geopandas point geodataframe")
     except KeyError:
         gdf = -1
-        print("Conversion Failed")
+        print("Conversion Failed. Check your fields.")
 
     return gdf
 
@@ -150,8 +142,7 @@ def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame)
         other = other.to_crs(crs=Can_LCC_wkt)
 
     # create a unique identifier and a copy of the geometry of other
-    other = other.assign(unique_ind=other.index)
-    other = other.assign(other=other.geometry)
+    other = other.assign(unique_ind=other.index, other=other.geometry)
     closest = points.sjoin_nearest(other, how='left', distance_col='distance')
 
     shortest_lines = closest.geometry.shortest_line(closest['other'])
@@ -234,13 +225,13 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
         assign more than 1 set of stations to edges. If left blank, may
         cause overlapping columns in output GeoDataFrame.
 
-    :param max_distance: int (default=500)
+    :param max_distance: int (default=700)
         The maximum distance (in CRS units) within which to assign a
         station to edges. If int, must be greater than 0. Default limit
-        of 500 was determined by looking at the distribution of
+        of 700 was determined by looking at the distribution of
         distance from the network.
 
-    :param save_dist: bool
+    :param save_dist: bool (default=False)
         If True, saves the per station distances as a .csv file. Used
         for calculating statistics on station distance distribution.
 
@@ -249,8 +240,8 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
         more information on its usage. If "" is passed, prints a
         warning message and uses the GeoPandas computed length.
 
-    :param len_unit: string {'km', 'm'} (default='KM')
-        The unit the len_f field is in.
+    :param len_unit: string {'km', 'm'} (default='km')
+        The unit of the len_f field.
 
     :return: Geopandas GeoDataFrame
         A copy of edges merged that includes selected station related
@@ -381,6 +372,18 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         dataset used to build the network, the greater this value should
         be. (HYDAT -> 10; OHN -> 100)
 
+    :param id_query: list-like of string or None (default)
+        One dimensional array with a list of station ids to include/
+        exclude in matching.
+
+    :param query_kwargs: keyword arguments
+        Additional arguments for the query. As of submission @e251ed9
+        the following are accepted:
+
+        invert: bool
+            If True, ids in id_query are excluded. If False or None,
+            only ids in id_query are included in matching.
+
     :return: Pandas DataFrame
         DataFrame with the following columns:
             - prefix1_id (string)
@@ -454,10 +457,13 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                 series = data[prefix + 'data'].sort_values(
                     by='dist_along', ascending=not direction
                 ).iloc[0]
+
+                direct_dist = station['geometry'].distance(data['geometry'])
                 dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist_along'])
 
                 if dist < max_distance:
-                    return series['Station_ID'], dist, depth, series['geometry'], (u, v)[direction]
+                    return series['Station_ID'], max(direct_dist, dist), depth,\
+                           series['geometry'], (u, v)[direction]
                 return -1, -1, -1
             else:
                 result = *dfs((u, v)[not direction], prefix2, direction,
@@ -477,7 +483,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         matches[prefix1 + 'id'].append(id1)
         matches[prefix2 + 'id'].append(id2)
         matches['path'].append(path)
-        matches['dist_along'].append(_dist)
+        matches['dist'].append(_dist)
         matches['pos'].append(_pos)
         matches['seg_apart'].append(depth)
 
@@ -525,7 +531,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
     # ===================================================================== #
     # Instantiate dictionary to store matches
     matches = {prefix1 + 'id': [], prefix2 + 'id' : [], 'path': [],
-               'dist_along': [], 'pos': [], 'seg_apart': []}
+               'dist': [], 'pos': [], 'seg_apart': []}
 
     # check each edge for origin stations
     for u, v, data in network.out_edges(data=True):
@@ -534,13 +540,14 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
 
         # check for the presence of origin station data
         if type(pref_1_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-            mod = "not " if query_kwargs.get('invert', False) else ""
-            if not pref_1_data.query(f'Station_ID {mod}in @id_query').empty:
+            if not id_query is None:
+                mod = "not " if query_kwargs.get('invert', False) else ""
+                pref_1_data = pref_1_data.query(f'Station_ID {mod}in @id_query')
+            if not pref_1_data.empty:
                 # for each origin station on the edge
                 station = pref_1_data.sort_values(by='dist_along', ascending=True).iloc[0]
                 # Check if there are candidate stations on the same river segment
                 if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-                    # Add each candidate on the same segment to matches
                     for ind, row in pref_2_data.iterrows():
                         on_segment()
                 # search for candidate stations on connected river segments
@@ -682,6 +689,12 @@ def __draw_network__(p_graph, ax=None, **kwargs):
 
 
 def subset_df(df: pd.DataFrame, **kwargs):
+    """
+
+    :param df:
+    :param kwargs:
+    :return:
+    """
     for key in kwargs.keys():
         value = kwargs[key]
 

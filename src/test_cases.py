@@ -162,9 +162,13 @@ def network_compare():
     import os.path
 
     bbox = BBox(min_x=-95.154826, max_x=-74.343496, min_y=41.681435, max_y=56.859036)
+    # bbox = BBox(min_x=-82, max_x=-81, min_y=43, max_y=45)
 
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
+
+    # hydat = gdf_utils.subset_df(hydat, Station_ID='02GD014')
+    # pwqmn = gdf_utils.subset_df(pwqmn, Station_ID=4001304402)
 
     hydat = gdf_utils.point_gdf_from_df(hydat)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
@@ -211,7 +215,8 @@ def network_compare():
     hydro_edge_df.drop(columns=['path', 'seg_apart'], inplace=True)
     table = hydro_edge_df.merge(ohn_edge_df, how='outer', on=['hydat_id', 'pwqmn_id'],
                                 suffixes=('_hyRivers', '_OHN'))
-    table = table.assign(error=abs(table['dist_hyRivers'] - table['dist_OHN']) / table['dist_OHN'])
+    table = table.assign(error=abs(table['dist_hyRivers'] - table['dist_OHN']) /
+                               table['dist_OHN'])
 
     table.to_csv('table2.csv')
 
