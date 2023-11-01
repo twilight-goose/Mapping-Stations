@@ -6,13 +6,13 @@ from gen_util import lambert, geodetic, Can_LCC_wkt, BBox, Timer, Period, ON_bbo
 import os
 import sys
 
-sys.path.insert(0,
-    os.path.join(
-        os.path.dirname(load_data.proj_path),
-        'Watershed_Delineation',
-        'src',
-        'PySheds')
-)
+# sys.path.insert(0,
+    # os.path.join(
+        # os.path.dirname(load_data.proj_path),
+        # 'Watershed_Delineation',
+        # 'src',
+        # 'PySheds')
+# )
 # import main as pyshed_main
 
 
@@ -66,8 +66,10 @@ def network_test(lines):
 def network_compare():
     import os.path
 
-    bbox = BBox(min_x=-95.154826, max_x=-74.343496, min_y=41.681435, max_y=56.859036)
-
+    # bbox = BBox(min_x=-95.154826, max_x=-74.343496, min_y=41.681435, max_y=56.859036)
+    
+    bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
+    
     hydat = load_data.get_hydat_station_data(bbox=bbox)
     pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
     
@@ -101,7 +103,7 @@ def network_compare():
     table = table.assign(error=abs(table['dist_hyRivers'] - table['dist_OHN']) /
                                table['dist_OHN'])
 
-    table.to_csv('table2.csv')
+    table.to_csv(os.path.join(load_data.data_path, 'table2.csv'))
 
 
 def assign_all():
@@ -126,19 +128,76 @@ def assign_all():
     ohn_lines = gdf_utils.assign_stations(ohn_rivers, pwqmn, prefix='pwqmn_', save_dist=True)
     timer.stop()
     
+    
+def drainage_compare():
+    """
+    There is no significant correlation between distance between HYDAT
+    stations and difference in drainage area (see plots/drainage delta
+    vs distance).
+    """
+    timer = Timer()
+    
+    path = os.path.join(
+        load_data.data_path,
+        os.path.join("OHN", "Ontario_Hydro_Network_(OHN)_-_Watercourse.shp")
+    )
+    
+    hydat = load_data.get_hydat_station_data(sample=300, bbox=ON_bbox)
+    hydat = gdf_utils.point_gdf_from_df(hydat)
+    
+    ohn_rivers = load_data.load_rivers(path=path, bbox=ON_bbox)
+    ohn_lines = gdf_utils.assign_stations(ohn_rivers, hydat, prefix='origin_')
+    ohn_lines = gdf_utils.assign_stations(ohn_rivers, hydat, prefix='candidate_')
+    
+    ohn_lines = gdf_utils.hyriv_gdf_to_network(ohn_lines)
+    
+    edge_df = gdf_utils.dfs_search(ohn_lines, max_depth=100, prefix1='origin_',
+                                   prefix2='candidate_')
+                                   
+    edge_df = edge_df.merge(hydat[['Station_ID', 'DRAINAGE_AREA_GROSS', 'DRAINAGE_AREA_EFFECT']],
+                            on_left='origin_id', right_on='Station_ID')
+    edge_df = edge_df.merge(hydat[['Station_ID', 'DRAINAGE_AREA_GROSS', 'DRAINAGE_AREA_EFFECT']],
+                            on_left='candidate_id', right_on='Station_ID', suffixes=('_og', '_cand'))
+    
+    edge_df.to_csv('dist_by_delta_drainage.csv')
+    
+    # Old Algorithm (uses direct distance instead of distance along r)
+    # calcs = {'distance': [],
+             # 'drainage_delta': []}
+    
+    # for ind, origin in hydat.iterrows():
+        # for ind, candy in hydat.iterrows():
+            # calcs['distance'].append(origin.geometry.distance(candy.geometry))
+            # calcs['drainage_delta'].append(abs(float(origin['DRAINAGE_AREA_GROSS']) - \
+                                               # float(candy['DRAINAGE_AREA_GROSS'])))
+    # from pandas import DataFrame
+    # 
+    # calcs.to_csv('dist_by_delta_drainage.csv')
+def hydat_data_test():
+    hydat = load_data.get_hydat_station_data(sample=100)
+    hydat_flow = load_data.get_hydat_flow(subset=hydat['Station_ID'],
+        period=['1975-10-10', '1975-11-11']
+    )
+    
+    drainage_compare()
+    
+    print(hydat_flow)
+
 
 def main():
     timer = Timer()
     
-    network_compare()
+    load_data.hydat_create_data_range()
+
+    # network_compare()
     
-    output = "output"
-    if not os.path.isdir(output):
-        os.mkdir(output)
+    # output = "output"
+    # if not os.path.isdir(output):
+        # os.mkdir(output)
     
-    basins = load_data.get_monday_files()['basins.csv']
-    dem = os.path.join(load_data.data_path, "n40w090_dem.tif")
-    pyshed_main.delineate(dem, output, basins)
+    # basins = load_data.get_monday_files()['basins.csv']
+    # dem = os.path.join(load_data.data_path, "n40w090_dem.tif")
+    # pyshed_main.delineate(dem, output, basins)
     
     timer.stop()
 

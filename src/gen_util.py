@@ -1,6 +1,7 @@
 import cartopy.crs as ccrs
 import geopandas as gpd
 from datetime import datetime
+from datetime import timedelta
 from shapely import Polygon, Point
 
 
@@ -359,7 +360,7 @@ class Period:
                 query.append(f"{f_name} >= {period_start_str}")
             if period.end:
                 query.append(f"{f_name} <= {period_end_str}")
-            return " OR ".join(query)
+            return " AND ".join(query)
 
         # if a list or tuple of <str> is passed as the period,
         # convert it to a period object
@@ -370,7 +371,8 @@ class Period:
         # if no date range is declared, return an empty string
         if period is None or period.is_empty():
             return ""
-
+        
+        # default date formatting
         period_start_str = f"strftime('%Y-%m-%d', '{period.start}')"
         period_end_str = f"strftime('%Y-%m-%d', '{period.end}')"
 
@@ -385,6 +387,7 @@ class Period:
                 end_f = field
             elif field.upper() == 'YEAR' and 'MONTH' in fields:
                 start_f = f"strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01')"
+                # if fields are YEAR and MONTH reformat period strings
                 period_start_str = f"strftime('%Y-%m', '{period.start}')"
                 period_end_str = f"strftime('%Y-%m', '{period.end}')"
 
@@ -395,9 +398,121 @@ class Period:
             query.append(formatter(start_f))
         if end_f:
             query.append(formatter(end_f))
-        query = " OR ".join(query)
+        query = " AND ".join(query)
+        if query:
+            query = f"({query})"
 
         return query
+    
+    @staticmethod
+    def get_periods(dates=None,silent=True):
+
+        """
+            Returns the periods of consecutive dates from a provided list of dates.
+
+
+
+            Definition
+            ----------
+            def get_periods(dates,silent=True):
+
+
+            Input           Format          Description
+            -----           -----           -----------
+            dates           list            List of dates in format YYYY-MM-DD.
+                                            Default: None
+
+            silent          Boolean         If set to True, nothing will be printed to terminal.
+                                            Default: True
+
+
+            Output          Format          Description
+            -----           -----           -----------
+            periods         list(lists)     List of lists containing start and end date of each period of consecutive dates. For example,
+                                            [ [2000-01-01,2000-12-31], [2001-02-01, 2001,12,31] ]
+                                            if dates for January 2001 are missing.
+
+
+            Description
+            -----------
+            Reads data of a station (or list of stations) for one specific variable from a STREAMFLOW dataset.
+
+
+            Restrictions
+            ------------
+            Expected to be dates in format YYYY-MM-DD. Sub-daily dates are not considered.
+
+
+            Examples
+            --------
+
+            Find periods
+
+            >>> dates = ['1991-02-01', '1991-02-02', '1991-02-03', '1991-02-04', '1991-02-05', '1991-02-06', '1991-02-07']
+            >>> periods = get_periods(dates=dates,silent=True)
+            >>> print("periods = {}".format(periods))
+            periods = [['1991-02-01', '1991-02-07']]
+
+            >>> dates = ['1991-02-01', '1991-02-02', '1991-02-03', '1991-02-05', '1991-02-06', '1991-02-07']
+            >>> periods = get_periods(dates=dates,silent=True)
+            >>> print("periods = {}".format(periods))
+            periods = [['1991-02-01', '1991-02-03'], ['1991-02-05', '1991-02-07']]
+
+
+            License
+            -------
+            This file is part of the PWQMN toolbox library which contains scripts to
+            retrieve raw PWQMN data, preprocessing them, run models using these data,
+            or analysing the data in any other shape or form..
+
+            The PWQMN code library is free software: you can redistribute it and/or modify
+            it under the terms of the GNU Lesser General Public License as published by
+            the Free Software Foundation, either version 2.1 of the License, or
+            (at your option) any later version.
+
+            The PWQMN code library is distributed in the hope that it will be useful,
+            but WITHOUT ANY WARRANTY; without even the implied warranty of
+            MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+            GNU Lesser General Public License for more details.
+
+            You should have received a copy of the GNU Lesser General Public License
+            along with The PWQMN code library.
+            If not, see <https://github.com/julemai/PWQMN/blob/main/LICENSE>.
+
+            Copyright 2022-2023 Juliane Mai - juliane.mai@uwaterloo.ca
+
+
+            History
+            -------
+            Written,  Juliane Mai, January 2023
+            Modified, James Wang, November 2023
+        """
+
+        # initialize return
+        periods = []
+
+        # check inputs
+        if dates is None:
+            raise ValueError("get_periods: list of dates in format YYYY-MM-DD needs to be provided.")
+
+        start = None
+        last = None
+        for idates in dates:
+            if start is None:
+                start = idates
+                last = idates
+            else:
+                if datetime.strptime(idates, "%Y-%m-%d") == \
+                        datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
+                    last = idates
+                else:
+                    end = last
+                    periods.append([start,end])
+                    start = idates
+                    last = idates
+        periods.append([start,dates[-1]])
+
+        return periods
 
 
 class Timer:
@@ -413,7 +528,6 @@ class Timer:
     def stop(self):
         d = datetime.now() - self.s_time
         print("That took {0} seconds and {1} microseconds\n".format(d.seconds, d.microseconds))
-
 
 
 ON_bbox = BBox(min_x=-95.154826, max_x=-74.343496, min_y=41.681435, max_y=56.859036)

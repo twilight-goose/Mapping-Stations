@@ -454,6 +454,15 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
     plt.show()
 
 
+def plot_flow_timeseries(flow_data: pd.DataFrame or gpd.GeoDataFrame,
+                         ax=plt, **kwargs):
+    """
+    
+    :param flow_data: DataFrame or GeoDataFrame
+    """
+    
+
+
 def add_scalebar(ax=plt):
     """
     Adds a scalebar to ax.

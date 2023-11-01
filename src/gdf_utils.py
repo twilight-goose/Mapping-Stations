@@ -331,7 +331,7 @@ def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
 
 
 def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
-               max_distance=5000, max_depth=10, id_query=None, **query_kwargs):
+               max_distance=5000, max_depth=10, id_query=None, **kwargs):
     """
     For the station closest to each network edge denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -382,11 +382,11 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         One dimensional array with a list of station ids to include/
         exclude in matching.
 
-    :param query_kwargs: keyword arguments
-        Additional arguments for the query. As of submission @e251ed9
-        the following are accepted:
+    :param kwargs: keyword arguments
+        Additional arguments for the operation. As of submission
+        @e251ed9 the following are accepted:
 
-        invert: bool
+        invert: bool (query keyword)
             If True, ids in id_query are excluded. If False or None,
             only ids in id_query are included in matching.
 
@@ -455,16 +455,17 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         else:
             raise ValueError('Invalid direction')
 
-        if cum_dist >= max_distance or len(edges) == 0 or depth >= max_depth:
+        if (cum_dist >= max_distance) or (len(edges) == 0) or (depth >= max_depth):
             return -1, -1, -1
 
         for u, v, data in edges:
             if type(data[prefix + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
+                
                 series = data[prefix + 'data'].sort_values(
                     by='dist_along', ascending=not direction
                 ).iloc[0]
 
-                direct_dist = station['geometry'].distance(data['geometry'])
+                direct_dist = station['geometry'].distance(series['geometry'])
                 dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist_along'])
 
                 if dist < max_distance:
@@ -481,16 +482,16 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         # This is only run if there are no edges and the function has
         # reached the end of the line
         return -1, -1, -1
-
-    def add_to_matches(id1, id2, path, _dist, _pos, depth):
+    
+    def add_to_matches(id1, id2, path, dist_, pos_, depth):
         """
         Helper function that adds a set of values to a dictionary with specific keys.
         """
         matches[prefix1 + 'id'].append(id1)
         matches[prefix2 + 'id'].append(id2)
         matches['path'].append(path)
-        matches['dist'].append(_dist)
-        matches['pos'].append(_pos)
+        matches['dist'].append(dist_)
+        matches['pos'].append(pos_)
         matches['seg_apart'].append(depth)
 
     def on_segment():
@@ -558,8 +559,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                         on_segment()
                 # search for candidate stations on connected river segments
                 off_segment()
-
-    return gpd.GeoDataFrame(data=matches, geometry='path', crs=Can_LCC_wkt)
+    
+    matches = gpd.GeoDataFrame(data=matches, geometry='path', crs=Can_LCC_wkt)
+    return matches
 
 
 def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=False, show=False) -> nx.DiGraph:
@@ -696,6 +698,18 @@ def __draw_network__(p_graph, ax=None, **kwargs):
 
 def subset_df(df: pd.DataFrame, **kwargs):
     """
+    Subsets a DataFrame (or GeoDataFrame) based on a set of keyword
+    arguments. It is expected that the fields necessary to subset
+    the DataFrame based on each keyword are present.
+    
+    In most cases, the field required to subset the data is the same
+    as the key of the keyword argument, and are case-sensitive. The
+    following keys are case-insensitive and require other fields:
+    
+    |key      |value type      |required fields |
+    |---------|----------------|----------------|
+    extent     list-like        Longitude
+                                Latitude
 
     :param df:
     :param kwargs:
