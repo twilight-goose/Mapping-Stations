@@ -160,8 +160,8 @@ Monday Files: https://github.com/twilight-goose/Mapping-Stations/tree/main/data/
 
 Raw data is available from these links:
 
-Hydat Data: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/
-HydroRIVERS: https://www.hydrosheds.org/products/hydrorivers
+Hydat Data: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/ \
+HydroRIVERS: https://www.hydrosheds.org/products/hydrorivers \
 PWQMN Data: https://greatlakesdatastream.ca/explore/#/dataset/f3877597-9114-4ace-ad6f-e8a68435c0ba/
 
 ### Provincial (Stream) Water Quality Monitoring Network (PWQMN) data
