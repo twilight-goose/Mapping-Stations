@@ -160,21 +160,20 @@ Monday Files: https://github.com/twilight-goose/Mapping-Stations/tree/main/data/
 
 Raw data is available from these links:
 
-Hydat Data: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/
-HydroRIVERS: https://www.hydrosheds.org/products/hydrorivers
+Hydat Data: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/ \
+HydroRIVERS: https://www.hydrosheds.org/products/hydrorivers \
 PWQMN Data: https://greatlakesdatastream.ca/explore/#/dataset/f3877597-9114-4ace-ad6f-e8a68435c0ba/
 
 ### Provincial (Stream) Water Quality Monitoring Network (PWQMN) data
 The following are Juliane's steps for pre-processing the PWQMN data (2023-09-10).
 
 The data need to be manually downloaded through:
-https://greatlakesdatastream.ca/explore/#/dataset/f3877597-9114-4ace-ad6f-e8a68435c0ba/
+https://greatlakesdatastream.ca/explore/#/dataset/f3877597-9114-4ace-ad6f-e8a68435c0ba/ \
 Then click the download button appearing on that website.
 
-Name: `Provincial_Water_Quality_Monitoring_Network_PWQMN.csv` (data)
-Name: `Provincial_Water_Quality_Monitoring_Network_PWQMN_metadata.csv`
+Name: `Provincial_Water_Quality_Monitoring_Network_PWQMN.csv` (data) \
+Name: `Provincial_Water_Quality_Monitoring_Network_PWQMN_metadata.csv` (metadata)
 
-(metadata)
 The datafile is a comma-separated file but several entries contain
 commas themselves. The entry is then in double-quotes, e.g.,
 123,"ABC, DEV 23",345,534.202,"abd,dged,sdg",2,4
