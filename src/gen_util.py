@@ -2,6 +2,7 @@ import cartopy.crs as ccrs
 import geopandas as gpd
 from datetime import datetime
 from datetime import timedelta
+from datetime import date
 from shapely import Polygon, Point
 
 
@@ -105,6 +106,42 @@ def check_geom(data, type_str):
         data = data.geometry
     return list(data.geom_type.values).count(type_str) == data.size
 
+
+def days_overlapped(start1, end1, start2, end2):
+    start = date.fromisoformat(max(start1, start2))
+    end = date.fromisoformat(min(end1, end2))
+    delta = end - start
+    return delta
+
+
+def period_overlap(hydat_periods, pwqmn_periods):
+    # These should each be subsets of the whole period DataFrames that
+    # each contain only periods for a single station
+    p_ind = 0
+    h_ind = 0
+    total_overlap = 0
+    
+    while h_ind < hydat_periods.shape[0] and p_ind < pwqmn_periods.shape[0]:
+        p_row = hydat_periods.iloc[h_ind]
+        h_row = pwqmn_periods.iloc[p_ind]
+        
+        h_start, h_end = h_row['Start'], h_row['End']
+        p_start, p_end = p_row['Start'], p_row['End']
+        
+        if h_end < p_start:
+            h_ind += 1
+        elif p_end < h_start:
+            p_ind += 1
+        else:
+            delta = days_overlapped(h_start, h_end, p_start, p_end).days
+            if delta >= 0:
+                total_overlap += delta + 1
+            if h_end > p_end:
+                p_ind += 1
+            elif h_end < p_end:
+                h_ind += 1
+                
+    print(total_overlap)
 
 # ========================================================================= ##
 # Classes ================================================================= ##
@@ -497,20 +534,18 @@ class Period:
 
         start = None
         last = None
+        
         for idates in dates:
+        
             if start is None:
                 start = idates
-                last = idates
             else:
-                if datetime.strptime(idates, "%Y-%m-%d") == \
+                if datetime.strptime(idates, "%Y-%m-%d") != \
                         datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
-                    last = idates
-                else:
-                    end = last
-                    periods.append([start,end])
+                    periods.append([start, last])
                     start = idates
-                    last = idates
-        periods.append([start,dates[-1]])
+            last = idates
+        periods.append([start, last])
 
         return periods
 

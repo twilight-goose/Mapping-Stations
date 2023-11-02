@@ -106,45 +106,36 @@ def generate_pwqmn_sql():
     return pwqmn_data
 
 
-def pwqmn_create_stations(pwqmn_df=None, conn=None):
+def pwqmn_create_stations(pwqmn_df=None):
     """
     Adds a 'Stations' table in the PWQMN sqlite3 database containing
     only the name, id, and location of each unique station.
     
     :param pwqmn_df: DataFrame or None (default)
-        If provided, data is extracted from the provided DataFrame,
-        and conn must be provided.
+        If provided, data is extracted from the provided DataFrame.
         If None, loads necessary data from the PWQMN database file.
         
-        
-    :param conn: sqlite3 connection or None (default)
-        If provided, uses the existing sqlite3 connection, and pwqmn_df
-        must be provided.
-        If None, creates a connection to the PWQMN database.
-        
-    :return: None
+    :return: DataFrame
+        The created SQL table as a DataFrame.
     
     :raises ValueError:
         If only one of pwqmn_df and conn are provided.
     """
-    if pwqmn_df is None ^ conn is None:
-        raise ValueError('pwqmn_df and conn must both be None or both be provided.')
-        
-    was_None = False
+    conn = sqlite3.connect(pwqmn_sql_path)
     
-    if conn is None:
-        was_none = True
-        conn = sqlite3.connect(pwqmn_sql_path)
+    if pwqmn_data is None:
         pwqmn_data = pd.read_sql_query(
-            "SELECT Station_Name, Station_ID, Latitude, Longitude FROM 'ALL_DATA'", con
-        )
+            "SELECT Station_Name, Station_ID, Latitude, Longitude FROM 'ALL_DATA'", conn)
+    else:
+        pwqmn_data = pwqmn_data[['Station_Name', 'Station_ID', 'Longitude', 'Latitude']]
        
     # Create table with only station id, name, and location
+    
     station_data = pwqmn_data.drop_duplicates(ignore_index=True)
     station_data.to_sql('Stations', connection, index=False, if_exists='replace')
     
-    if was_None:
-        conn.close()
+    conn.close()
+    return station_data
 
 
 def pwqmn_create_data_range(pwqmn_df=None, sample=None):
@@ -207,25 +198,21 @@ def pwqmn_create_data_range(pwqmn_df=None, sample=None):
             start = None
             last = None
             
+            sub_df = sub_df.sort_values(by='Date')
+            
             for ind, row in sub_df.iterrows():
                 date = row['Date']
                 
                 if start is None:
                     start = date
-                    last = date
                 else:
-                    if datetime.strptime(date, "%Y-%m-%d") == \
+                    if datetime.strptime(date, "%Y-%m-%d") != \
                             datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
-                        last = date
-                    else:
-                        end = last
-                        
-                        add_to_output(key[0], key[1], start, end)
-                        
+                        add_to_output(key[0], key[1], start, last)
                         start = date
-                        last = date
+                last = date
             
-            add_to_output(key[0], key[1], start, sub_df.iloc[-1]['Date'])
+            add_to_output(key[0], key[1], start, last)
       
     out_data = pd.DataFrame(out_data)
     out_data.to_sql('Data_Range', conn, index=False, if_exists='replace')
@@ -306,6 +293,24 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
         print("Chosen query resulted in empty GeoDataFrame.")
 
     return station_df
+
+
+def get_pwqmn_data_range(subset=()):
+    conn = sqlite3.connect(pwqmn_sql_path)
+
+    query = "SELECT * FROM 'Data_Range'"
+    
+    if not hasattr(subset, '__iter__'):
+        subset = (subset, )
+    # Station ID query
+    id_query = ', '.join([f'"{s_id}"' for s_id in subset])
+    if id_query:
+        query  += f" WHERE Station_ID in ({id_query})"
+        
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df
+
 
 # ========================================================================= ##
 # Data File Paths ========================================================= ##
@@ -513,7 +518,7 @@ def get_hydat_data_range(*exp, period=None, subset=()):
     return get_hydat_data(*exp, subset=subset, tbl_name='Data_Range')
 
 
-def get_hydat_station_data(period=None, bbox=None, sample=False,
+def get_hydat_station_data(period=None, bbox=None, sample=None,
                            flow_symbol=None) -> pd.DataFrame:
     """
     Retrieves HYDAT station data based on a bounding box and period.
@@ -570,16 +575,14 @@ def get_hydat_station_data(period=None, bbox=None, sample=False,
     timer.start()
 
     # create a sqlite3 connection to the hydat data
-    print("Creating a connection to '{0}'".format(hydat_path))
+    print(f"Creating a connection to '{hydat_path}'")
     conn = sqlite3.connect(hydat_path)
-
+            
     # generate a sql query from the bbox bounding box
     bbox_query = BBox.sql_query(bbox, "LONGITUDE", "LATITUDE")
-    bbox_query = (' WHERE ' if bbox_query else "") + bbox_query
-
-    if sample > 0:
-        bbox_query += f" ORDER BY RANDOM() LIMIT {sample}"
-
+    if bbox_query:
+        bbox_query = ' WHERE ' + bbox_query
+    
     # read station info from the STATIONS table within the database and
     # load that info into the station data dict
     station_df = pd.read_sql_query("SELECT STATION_NUMBER, STATION_NAME, LATITUDE, LONGITUDE, "
@@ -588,8 +591,13 @@ def get_hydat_station_data(period=None, bbox=None, sample=False,
 
     curs = conn.execute('PRAGMA table_info(STN_DATA_RANGE)')
     fields = [field[1] for field in curs.fetchall()]
+    
     period_query = Period.sql_query(period, fields)
-    period_query = (' AND ' if period_query else '') + period_query
+    if period_query:
+        period_query = ' AND ' + period_query
+        
+    if not (sample is None):
+        period_query += f" ORDER BY RANDOM() LIMIT {sample}"
     
     data_range = pd.read_sql_query("SELECT * FROM 'STN_DATA_RANGE' WHERE DATA_TYPE == 'Q'" +
                                    period_query, conn)
@@ -627,6 +635,8 @@ def hydat_create_data_range():
         
         start = None
         last = None
+        
+        sub_df = sub_df.sort_values(by=['YEAR', 'MONTH'])
         
         for ind, row in sub_df.iterrows():
             year = row['YEAR']

@@ -3,6 +3,7 @@ import load_data
 import gdf_utils
 import plot_utils
 from gen_util import lambert, geodetic, Can_LCC_wkt, BBox, Timer, Period, ON_bbox
+from gen_util import period_overlap
 import os
 import sys
 
@@ -188,7 +189,18 @@ def main():
     timer = Timer()
     
     load_data.hydat_create_data_range()
-    print(load_data.get_hydat_data_range())
+    load_data.pwqmn_create_data_range()
+    
+    hydat = load_data.get_hydat_station_data(sample=1)
+    pwqmn = load_data.get_pwqmn_station_data(sample=1)
+    
+    hydat_dr = load_data.get_hydat_data_range(subset=hydat['Station_ID'].iloc[0])
+    pwqmn_dr = load_data.get_pwqmn_data_range(subset=pwqmn['Station_ID'].iloc[0])
+    
+    print(hydat_dr)
+    print(pwqmn_dr)
+    
+    period_overlap(hydat_dr, pwqmn_dr)
 
     # network_compare()
     
