@@ -5,6 +5,8 @@ from gen_util import find_xy_fields, BBox, Period, Timer
 
 import pandas as pd
 from geopandas import read_file
+from datetime import datetime
+from datetime import timedelta
 
 
 """
@@ -145,27 +147,50 @@ def pwqmn_create_stations(pwqmn_df=None, conn=None):
         conn.close()
 
 
-def pwqmn_create_data_range(pwqmn_df=None, conn=None):
+def pwqmn_create_data_range(pwqmn_df=None, sample=None):
     """
-    Adds a 'Data_Range' table in the PWQMN sqlite3 database.
+    Adds a 'Data_Range' table in the PWQMN sqlite3 database. The table
+    stores periods where either Nitrogen or Phosphurus data is 
+    available for each station using a start and end date.
     
+    Fields: Station_ID, Variable, Start, End
+    
+    Date processing code writter by Juliane Mai, January 2023
+    Modified by James Wang, November 2023
+    
+    :param pwqmn_df: DataFrame or GeoDataFrame or None (default)
+        Loaded PWQMN data. Provide it if PWQMN data was previously
+        loaded to save time reloading it.
+    
+    :param sample: positive non-zero int or None (default)
+        For testing/debugging purposes only to drastically reduce
+        runtime to allow for faster testing. Only provide a sample
+        if pwqmn_df and conn were not provided
+    
+    :return: DataFrame
+        The created SQL table as a DataFrame
     """
     def categorize(x):
         if x in ["Nitrite", "Inorganic nitrogen (nitrate and nitrite)",
-                 "Total Nitrogen; mixed forms", "Kjeldahl nitrogen",
-                 "Nitrate"]:
-            return 'N'
-        elif x in ["Total Phosphorus; mixed forms", "Orthophosphate"]:
-            return 'P'
+                 "Total Nitrogen; mixed forms", "Kjeldahl nitrogen", "Nitrate"] or \
+           x in ["Total Phosphorus; mixed forms", "Orthophosphate"]:
+            return 'N_or_P'
         else:
             return 'Other'
-
-    was_None = False
     
-    if conn is None:
-        was_none = True
-        conn = sqlite3.connect(pwqmn_sql_path)
-        pwqmn_data = pd.read_sql_query("SELECT * FROM 'ALL_DATA'", conn)
+    def add_to_output(st_id, var, start, end):
+        out_data['Station_ID'].append(st_id)
+        out_data['Variable'].append(var)
+        out_data['Start'].append(start)
+        out_data['End'].append(end)
+                        
+    conn = sqlite3.connect(pwqmn_sql_path)
+    
+    if pwqmn_df is None:
+        query = "SELECT Station_ID, Variable, Date FROM 'ALL_DATA'"
+        if sample is not None and sample > 0:
+            query += f" ORDER BY RANDOM() LIMIT {sample}"
+        pwqmn_data = pd.read_sql_query(query, conn)
     
     pwqmn_data['Date'] = pd.to_datetime(pwqmn_data['Date'])
     pwqmn_data['Date'] = pwqmn_data['Date'].dt.strftime("%Y-%m-%d")
@@ -175,24 +200,38 @@ def pwqmn_create_data_range(pwqmn_df=None, conn=None):
     pwqmn_data['Variable'] = pwqmn_data['Variable'].apply(categorize)
     
     grouped = pwqmn_data.groupby(by=['Station_ID', 'Variable'])
-    data = {'Station_ID': [], 'Variable': [], 'Start': [], 'End': []}
+    out_data = {'Station_ID': [], 'Variable': [], 'Start': [], 'End': []}
     
     for key, sub_df in grouped:
-        periods = Period.get_periods(sub_df['Date'].to_list())
-        for period in periods:
-            data['Station_ID'].append(key[0])
-            data['Variable'].append(key[1])
-            data['Start'].append(period[0])
-            data['End'].append(period[1])
+        if key[1] != 'Other':
+            start = None
+            last = None
+            
+            for ind, row in sub_df.iterrows():
+                date = row['Date']
+                
+                if start is None:
+                    start = date
+                    last = date
+                else:
+                    if datetime.strptime(date, "%Y-%m-%d") == \
+                            datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
+                        last = date
+                    else:
+                        end = last
+                        
+                        add_to_output(key[0], key[1], start, end)
+                        
+                        start = date
+                        last = date
+            
+            add_to_output(key[0], key[1], start, sub_df.iloc[-1]['Date'])
       
-    data = pd.DataFrame(data)
-    data.to_sql('Data_Range', conn, index=False, if_exists='replace')
+    out_data = pd.DataFrame(out_data)
+    out_data.to_sql('Data_Range', conn, index=False, if_exists='replace')
     
-    if was_None:
-        conn.close()
-    
-    print(data)
-    return data
+    conn.close()
+    return out_data
 
 
 def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.DataFrame:
@@ -370,7 +409,7 @@ def get_monday_files(bbox=None) -> {str: pd.DataFrame}:
     return load_csvs(monday_path, bbox=bbox)
 
 
-def get_hydat_data(tbl_name, period=None, subset=(), to_csv=False, **kwargs):
+def get_hydat_data(tbl_name, *expr, period=None, subset=(), to_csv=False):
     """
     Retrieves HYDAT station data from the chosen table based on
     a period (if applicable) and subset of stations (if applicable).
@@ -400,8 +439,9 @@ def get_hydat_data(tbl_name, period=None, subset=(), to_csv=False, **kwargs):
         If True, saves the table <tbl_name>.csv. If False, does
         nothing.
     
-    :param kwargs: optional keyword arguments
-        Additional data filters to apply to the SQL query.
+    :param expr: list-like of str (optional)
+        SQL query expressions in string form to add to the SQL query.
+        No checks are performed on these expressions, so be careful.
 
     :return: Pandas DataFrame
         Hydat database table.
@@ -436,7 +476,10 @@ def get_hydat_data(tbl_name, period=None, subset=(), to_csv=False, **kwargs):
     id_query = ', '.join([f'"{s_id}"' for s_id in subset])
     if id_query and 'STATION_NUMBER' in fields:
         query.append(f"STATION_NUMBER in ({id_query})")
-
+    
+    for exp in expr:
+        query.append(f"({exp})")
+    
     query = ' AND '.join(query)
     if query.strip():
         query = " WHERE " + query
@@ -451,14 +494,23 @@ def get_hydat_data(tbl_name, period=None, subset=(), to_csv=False, **kwargs):
     return data
 
 
-def get_hydat_flow(period=None, subset=(), **kwargs):
+def get_hydat_flow(*exp, period=None, subset=()):
     return get_hydat_data(period=period, subset=subset, tbl_name='DLY_FLOWS',
-                          **kwargs)
-    
+                          *exp)
+ 
 
-def get_hydat_remarks(period=None, subset=(), **kwargs):
+def get_hydat_remarks(*exp, period=None, subset=()):
     return get_hydat_data(period=period, subset=subset, tbl_name='STN_REMARKS',
-                          **kwargs)
+                          *exp)
+                          
+                          
+def get_hydat_data_range(*exp, period=None, subset=()):
+    if period:
+        start_expr = f"strftime('%Y-%m-%d', Start') >= strftime('%Y-%m-%d', '{period.start})"
+        end_expr = f"strftime('%Y-%m-%d', End') <==strftime('%Y-%m-%d', '{period.end})"
+        exp.append(start_expr)
+        exp.append(end_expr)
+    return get_hydat_data(*exp, subset=subset, tbl_name='Data_Range')
 
 
 def get_hydat_station_data(period=None, bbox=None, sample=False,
@@ -557,6 +609,11 @@ def get_hydat_station_data(period=None, bbox=None, sample=False,
 
 
 def hydat_create_data_range():
+    def add_to_output(st_id, start, end):
+        out_data['Station_ID'].append(st_id)
+        out_data['Start'].append(start)
+        out_data['End'].append(end)
+        
     dly_flows = get_hydat_flow()
     
     days_by_month = [
@@ -567,7 +624,6 @@ def hydat_create_data_range():
     out_data = {'Station_ID': [], 'Start': [], 'End': []}
     
     for st_id, sub_df in grouped:
-        periods = []
         
         start = None
         last = None
@@ -577,28 +633,42 @@ def hydat_create_data_range():
             month = row['MONTH']
             days_in_month = days_by_month[month - 1]
             
-            min_ind = 11
-            max_ind = min_ind + days_in_month * 2
-            
-            for i in range(min_ind, max_ind, 2):
-                date = f"{year}-{month}-{i - min_ind + 1}"
+            if row['FULL_MONTH']:
+                date = f"{year}-{month}-{1}"
                 
                 if start is None:
                     start = date
-                    last = date
-                else:
-                    if datetime.strptime(date, "%Y-%m-%d") == \
-                            datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
+                    
+                elif datetime.strptime(date, "%Y-%m-%d") != \
+                        datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
+
+                    add_to_output(st_id, start, last)
+                    start = date
+                    
+                last = f"{year}-{month}-{days_in_month}"
+            else:
+                for i in range(days_in_month):
+                    if row.iloc[11 + i * 2]:
+                        date = f"{year}-{month}-{i + 1}"
+                    
+                        if start is None:
+                            start = date
+                            
+                        elif datetime.strptime(date, "%Y-%m-%d") != \
+                                datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
+                            add_to_output(st_id, start, last)
+                            start = date
+                            
                         last = date
-                    else:
-                        end = last
-                        periods.append([start,end])
-                        start = date
-                        last = date
-            periods.append([start,dates[-1]])
+            
+        add_to_output(st_id, start, last)
         
-        
-        
+    out_data = pd.DataFrame(data=out_data)
+    conn = sqlite3.connect(hydat_path)
+    out_data.to_sql('Data_Range', conn, index=False, if_exists='replace')
+    conn.close()
+    return out_data
+    
 
 def load_rivers(path=hydroRIVERS_path, sample=None, bbox=None):
     """

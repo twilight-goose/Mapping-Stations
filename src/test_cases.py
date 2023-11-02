@@ -188,6 +188,7 @@ def main():
     timer = Timer()
     
     load_data.hydat_create_data_range()
+    print(load_data.get_hydat_data_range())
 
     # network_compare()
     
