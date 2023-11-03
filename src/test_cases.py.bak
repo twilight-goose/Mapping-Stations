@@ -188,6 +188,8 @@ def hydat_data_test():
 def main():
     timer = Timer()
     
+    load_data.pwqmn_create_data_range()
+    
     hydat = load_data.get_hydat_station_data(sample=10)
     pwqmn = load_data.get_pwqmn_station_data(sample=10)
     

@@ -205,10 +205,10 @@ def pwqmn_create_data_range(pwqmn_data=None, sample=None):
                 str_date = datetime.strptime(date, "%Y-%m-%d")
                 str_last = datetime.strptime(last, "%Y-%m-%d")
                 if  str_date != str_last + timedelta(days=1) and str_date != str_last:
-                    add_to_output(key[0], start, last)
+                    add_to_output(key, start, last)
                     start = date
             last = date
-        add_to_output(key[0], start, last)
+        add_to_output(key, start, last)
       
     out_data = pd.DataFrame(out_data)
     out_data.to_sql('Data_Range', conn, index=False, if_exists='replace')
