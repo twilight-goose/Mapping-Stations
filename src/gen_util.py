@@ -394,10 +394,17 @@ class Period:
         def formatter(f_name):
             query = []
             if period.start:
-                query.append(f"{f_name} >= {period_start_str}")
+                query.append(f"{period_start_str} <= {f_name}")
             if period.end:
                 query.append(f"{f_name} <= {period_end_str}")
-            return " AND ".join(query)
+            return f'({" AND ".join(query)})'
+        
+        def formatter_2(start_f, end_f):
+            query = []
+            if period.start and period.end:
+                query.append(f"({period_start_str} BETWEEN {start_f} AND {end_f})")
+                query.append(f"({period_end_str} BETWEEN {start_f} AND {end_f})")
+            return f'({" OR ".join(query)})'
 
         # if a list or tuple of <str> is passed as the period,
         # convert it to a period object
@@ -408,25 +415,26 @@ class Period:
         # if no date range is declared, return an empty string
         if period is None or period.is_empty():
             return ""
-        
-        # default date formatting
-        period_start_str = f"strftime('%Y-%m-%d', '{period.start}')"
-        period_end_str = f"strftime('%Y-%m-%d', '{period.end}')"
 
         # if the period has at least one valid bound, begin
         # building the query
         start_f, end_f = "", ""
-
+        time_fmt_str = '%Y-%m-%d'
+        
         for field in fields:
-            if field.upper() == 'YEAR_FROM' or field.upper() == 'DATE':
+            if field.upper() in ['DATE', 'START']:
                 start_f = field
-            elif field.upper() == 'YEAR_TO':
+            if field.upper() in ['YEAR_TO', 'END']:
                 end_f = field
             elif field.upper() == 'YEAR' and 'MONTH' in fields:
+                time_fmt_str = '%Y-%m'
                 start_f = f"strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01')"
-                # if fields are YEAR and MONTH reformat period strings
-                period_start_str = f"strftime('%Y-%m', '{period.start}')"
-                period_end_str = f"strftime('%Y-%m', '{period.end}')"
+            elif field.upper() == 'YEAR_FROM':
+                start_f = field
+                time_fmt_str = '%Y'
+            
+        period_start_str = f"strftime('{time_fmt_str}', '{period.start}')"
+        period_end_str = f"strftime('{time_fmt_str}', '{period.end}')"
 
         # Construct the SQL query, based on the period bounds and
         # identified date fields
@@ -435,10 +443,14 @@ class Period:
             query.append(formatter(start_f))
         if end_f:
             query.append(formatter(end_f))
-        query = " AND ".join(query)
+        if start_f and end_f:
+            query.append(formatter_2(start_f, end_f))
+            
+        query = " OR ".join(query)
+        
         if query:
-            query = f"({query})"
-
+            query = f"{query}"
+        
         return query
     
     @staticmethod

@@ -41,6 +41,26 @@ and saving of files.
 
 
 # ========================================================================= ##
+# ID Query Builder ======================================================== ##
+# ========================================================================= ##
+
+
+def id_query_from_subset(subset, fields):
+    if 'Station_ID' in fields:
+        id_field = 'Station_ID'
+    elif 'STATION_NUMBER' in fields:
+        id_field = 'STATION_NUMBER'
+    
+    if not hasattr(subset, '__iter__'):
+        subset = (subset, )
+    
+    id_list_str = ', '.join([f'"{st_id}"' for st_id in subset])
+    if id_list_str:
+        return f'{id_field} in ({id_list_str})'
+    return ""
+    
+
+# ========================================================================= ##
 # Generator =============================================================== ##
 # ========================================================================= ##
 
@@ -185,8 +205,6 @@ def pwqmn_create_data_range(pwqmn_data=None, sample=None):
     pwqmn_data['Date'] = pd.to_datetime(pwqmn_data['Date'])
     pwqmn_data['Date'] = pwqmn_data['Date'].dt.strftime("%Y-%m-%d")
     
-    # print("\n".join(i for i in pwqmn_data['Variable'].unique()))
-    
     pwqmn_data['Variable'] = pwqmn_data['Variable'].apply(categorize)
     pwqmn_data = pwqmn_data.query('Variable != "Other"')
     grouped = pwqmn_data.groupby(by=['Station_ID'])
@@ -217,7 +235,8 @@ def pwqmn_create_data_range(pwqmn_data=None, sample=None):
     return out_data
 
 
-def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.DataFrame:
+def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None,
+                           subset=()) -> pd.DataFrame:
     """
     Loads the PWQMN data based on selected bbox, period, and variables
     of interest from the file at
@@ -243,11 +262,13 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
         BBox object defining area of interest. If None, doesn't
         filter by a bounding box.
 
-    :param var:
-
     :param sample: <positive nonzero int> or None
         Number of (random) stations to read from PWQMN database. If
         None, do not sample and retrieve entire database.
+        
+    :param subset: list-like or pandas Series (default=())
+        Iterable containing the ids of the stations whose data
+        to retrieve.
 
     :return: <pandas DataFrame>
         PWQMN station data.
@@ -268,40 +289,41 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None) -> pd.Da
     # generate a database query from period and bbox
     period_query = Period.sql_query(period, fields)
     bbox_query = BBox.sql_query(bbox, "Longitude", "Latitude")
+    id_query = id_query_from_subset(subset, fields)
 
-    query = ''
-    if bbox_query or period_query:
-        connector = "AND" if (bbox_query and period_query) else ""
-        query = " ".join([bbox_query, connector, period_query])
-        if query.strip():
-            query = ' WHERE ' + query
+    query = []
+    if bbox_query:
+        query.append(bbox_query)
+    
+    if period_query:
+        query.append(period_query)
+        
+    if id_query:
+        query.append(id_query)
+        
+    query = ' AND '.join(query)
+
+    if query.strip():
+        query = ' WHERE ' + query
 
     if sample is not None and sample > 0:
         query += f" ORDER BY RANDOM() LIMIT {sample}"
-
+    
     # Load PWQMN data as a DataFrame
     station_df = pd.read_sql_query("SELECT * FROM 'ALL_DATA'" + query, conn)
-
-    timer.stop()
     conn.close()
 
     if station_df.empty:
         print("Chosen query resulted in empty GeoDataFrame.")
-
+    
+    timer.stop()
     return station_df
 
 
 def get_pwqmn_data_range(subset=()):
     conn = sqlite3.connect(pwqmn_sql_path)
 
-    query = "SELECT * FROM 'Data_Range'"
-    
-    if not hasattr(subset, '__iter__'):
-        subset = (subset, )
-    # Station ID query
-    id_query = ', '.join([f'"{s_id}"' for s_id in subset])
-    if id_query:
-        query  += f" WHERE Station_ID in ({id_query})"
+    query = "SELECT * FROM 'Data_Range'" + id_query_from_subset(subset)
         
     df = pd.read_sql_query(query, conn)
     conn.close()
@@ -344,7 +366,7 @@ timer = Timer()
 
 
 # ========================================================================= ##
-# Loaders ================================================================= ##
+# CSV Loaders ============================================================= ##
 # ========================================================================= ##
 
 
@@ -408,106 +430,136 @@ def get_monday_files(bbox=None) -> {str: pd.DataFrame}:
     """
     print("Loading monday.com file gallery")
     return load_csvs(monday_path, bbox=bbox)
+    
+    
+# ========================================================================= ##
+# HYDAT Loaders =========================================================== ##
+# ========================================================================= ##
 
 
-def get_hydat_data(tbl_name, period=None, subset=(), to_csv=False):
+def get_hydat_data(tbl_name, get_fields='*', to_csv=False, **q_kwargs):
     """
     Retrieves HYDAT station data from the chosen table based on
-    a period (if applicable) and subset of stations (if applicable).
+    a set of fields to retrieve and a set of queries.
     
     :param tbl_name: str
         Name of the database table to retrieve. HYDAT.sqlite3 must
         contain the passed table name.
-    
-    :param period: Tuple/list of length 2 or None (default)
-
-        Tuple/list of (<start date>, <end date>); dates can be either
-        <str> in format "YYYY-MM-DD" or None; If None, all dates
-        after(before) the start(end) date are retrieved.
-
-            or
-
-        None; No date query. Does not filter data by date.
-
-    :param subset: list-like or pandas Series (default=())
-        Iterable containing the ids of the stations whose data
-        to retrieve. If empty, retrieves data from all stations.
-        This only applies to tables containing a 'STATION_NUMBER'
-        field. If a subset value is provided for a table without
-        a 'STATION_NUMBER' field, an error will occur.
-    
-    :param to_csv: bool (default=False)
-        If True, saves the table <tbl_name>.csv. If False, does
+            
+    :param get_fields: string or list of string (default='*')
+        The names of the fields to extract from the table. By default
+        retrieves all columns from the table.
+            
+    :param to_csv: bool or string (default=False)
+        If string, saves the table to <to_csv>.csv. If False, does
         nothing.
     
-    :param expr: list-like of str (optional)
-        SQL query expressions in string form to add to the SQL query.
-        No checks are performed on these expressions, so be careful.
+    :param q_kwargs: keyword arguments (optional)
+        Additional keyword arguments to apply to the query.
+        Potential q_kwargs:
+        
+            period: Tuple/list of length 2
 
+                Tuple/list of (<start date>, <end date>); dates can be either
+                <str> in format "YYYY-MM-DD" or None; If None, all dates
+                after(before) the start(end) date are retrieved.
+
+            subset: string or list-like/Series of string
+            
+                Iterable containing the ids of the stations whose data
+                to retrieve.
+            
+            bbox: BBox
+                BBox object defining area of interest.
+            
+            sample: <positive nonzero int> or None
+                Number of (random) stations to read from the table.
+                
+            other: value or list of values
+                Where the keyword is the field name, and the passed
+                value is either a single value or list of values
+                which the field will be queryed against.
+            
     :return: Pandas DataFrame
-        Hydat database table.
+        Hydat database table of rows for which all provided query
+        arguments are true.
     
     :save: tbl_name.csv
         Saves the table data to <tbl_name>.csv in the hydat
         directory (if to_csv == True).
     """
-    Period.check_period(period)
     timer.start()
 
-    if type(subset) is pd.Series:
-        subset = subset.tolist()
-    elif type(subset) is str:
-        subset = (subset,)
-
     # create a sqlite3 connection to the hydat data
-    print(f"Creating a connection to '{hydat_path}'")
-    conn = sqlite3.connect(hydat_path)
+    conn = sqlite3.connect(hydat_path) 
 
     curs = conn.execute(f'PRAGMA table_info({tbl_name})')
     fields = [field[1] for field in curs.fetchall()]
 
     query = []
+    sample = q_kwargs.get('sample')
+
+    # Add all query arguments passed to the sql query
+    for key in q_kwargs:
+        q_part = ""
+        
+        if key == 'bbox':
+            if ('LONGITUDE' in fields) and ('LATITUDE' in fields):
+                q_part = BBox.sql_query(q_kwargs['bbox'], "LONGITUDE", "LATITUDE")
+            else:
+                print("BBox provided but no lat/lon fields found. Skipping BBox query.")
+        elif key == 'period':
+            q_part = Period.sql_query(q_kwargs['period'], fields)
+        elif key == 'subset':
+            q_part = id_query_from_subset(q_kwargs['subset'], fields)
+        elif type(q_kwargs[key]) is str:
+            q_part = f'{key} == "{q_kwargs[key]}"'
+        elif hasattr(q_kwargs[key], '__iter__'):
+            lst = []
+            for i in q_kwargs[key]:
+                if type(i) is str:
+                    lst.append(f'"{i}"')
+                else:
+                    lst.append(i)
+            q_part = f'{key} in ({", ".join(lst)})'
+        
+        if q_part:
+            query.append(q_part)
     
-    # Period query
-    period_query = Period.sql_query(period, fields)
-    if period_query:
-        query.append(period_query)
+    if query:
+        query = " WHERE " + ' AND '.join(query)
+    else:
+        query = ""
+        
+    if sample is not None:
+        query += f" ORDER BY RANDOM() LIMIT {sample}"
+   
+    if hasattr(get_fields, '__iter__'):
+        get_fields = ', '.join(get_fields)
     
-    # Station ID query
-    id_query = ', '.join([f'"{s_id}"' for s_id in subset])
-    if id_query and 'Station_ID' in fields:
-        query.append(f"Station_ID in ({id_query})")
-    
-    query = ' AND '.join(query)
-    if query.strip():
-        query = " WHERE " + query
-    
-    data = pd.read_sql_query(f'SELECT * FROM "{tbl_name}"' + query, conn)
-    
+    data = pd.read_sql_query(f'SELECT {get_fields} FROM "{tbl_name}"' + query, conn)
     if to_csv:
-        data.to_csv(os.path.join(data_path, 'Hydat', f"{tbl_name}.csv"))
-    
-    timer.stop()
+        data.to_csv(os.path.join(data_path, 'Hydat', f"{to_csv}.csv"))
+
     conn.close()
     return data
 
 
-def get_hydat_flow(period=None, subset=()):
-    return get_hydat_data('DLY_FLOWS', period=period, subset=subset)
+def get_hydat_flow(**q_kwargs) -> pd.DataFrame:
+    return get_hydat_data('DLY_FLOWS', **q_kwargs)
  
 
-def get_hydat_remarks(period=None, subset=()):
-    return get_hydat_data('STN_REMARKS', period=period, subset=subset)
+def get_hydat_remarks(**q_kwargs) -> pd.DataFrame:
+    return get_hydat_data('STN_REMARKS', **q_kwargs)
                           
                           
-def get_hydat_data_range(period=None, subset=()):
-    return get_hydat_data('Data_Range', period=period, subset=subset)
+def get_hydat_data_range(**q_kwargs) -> pd.DataFrame:
+    return get_hydat_data('Data_Range', **q_kwargs)
 
 
-def get_hydat_station_data(period=None, bbox=None, sample=None,
-                           flow_symbol=None) -> pd.DataFrame:
+def get_hydat_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
     """
-    Retrieves HYDAT station data based on a bounding box and period.
+    Retrieves HYDAT station data that has discharge (Q) values.
     Renames certain data fields to standardize between PWQMN and
     HYDAT data.
 
@@ -524,90 +576,74 @@ def get_hydat_station_data(period=None, bbox=None, sample=None,
     - DRAINAGE_AREA_EFFECT
 
     STN_DATA_RANGE must contain STATION_NUMBER and DATA_TYPE, and one
-    of the following sets of fields (or another field name compatible with
-    Period.sql_query()):
+    of the following sets of fields (or another field name compatible
+    with Period.sql_query()):
     - YEAR and MONTH
     - YEAR_FROM and YEAR_TO
     - DATE
-
-    :param period: Tuple/list of length 2 or None
-
-        Tuple/list of (<start date>, <end date>); dates can be either
-        <str> in format "YYYY-MM-DD" or None; If None, all dates
-        after(before) the start(end) date are retrieved.
-
-            or
-
-        None; No date query. Does not filter data by date.
-
-    :param bbox: BBox or None (default)
-        BBox object defining area of interest. If None, doesn't
-        filter by a bounding box.
-
-    :param sample: <positive nonzero int> or None
-        Number of (random) stations to read from HYDAT database. If
-        None, do not sample and retrieve entire database.
-
+    
+    :param q_kwargs: keyword arguments (optional)
+        See get_hydat_data() for potential accepted query arguments and
+        more information on passing query keywords.
+    
     :return: <pandas DataFrame>
-        HYDAT stations within the bounds of BBox that have data in var
-        during the period of interest, and available monthly streamflow
-        data (one record per month of data available Ffrom each station,
+        HYDAT stations passing all query arguments (see q_kwargs for
+        more informatio) with available monthly streamflow
+        data (one record per month of data available from each station,
         2 columns (flow value, flow symbol) per assumed 31 days of the
         month). Refer to hydat_reference.md DATA_SYMBOLS for
         FLOW_SYMBOL information.
     """
-    # check period validity
-    Period.check_period(period)
-    timer.start()
-
-    # create a sqlite3 connection to the hydat data
-    print(f"Creating a connection to '{hydat_path}'")
-    conn = sqlite3.connect(hydat_path)
-            
-    # generate a sql query from the bbox bounding box
-    bbox_query = BBox.sql_query(bbox, "LONGITUDE", "LATITUDE")
-    if bbox_query:
-        bbox_query = ' WHERE ' + bbox_query
+    fields = ['STATION_NUMBER', 'STATION_NAME', 'LATITUDE', 'LONGITUDE',
+              'DRAINAGE_AREA_GROSS', 'DRAINAGE_AREA_EFFECT']
     
-    # read station info from the STATIONS table within the database and
-    # load that info into the station data dict
-    station_df = pd.read_sql_query("SELECT STATION_NUMBER, STATION_NAME, LATITUDE, LONGITUDE, "
-                                   "DRAINAGE_AREA_GROSS, DRAINAGE_AREA_EFFECT FROM 'STATIONS'" +
-                                   bbox_query, conn)
-
-    curs = conn.execute('PRAGMA table_info(STN_DATA_RANGE)')
-    fields = [field[1] for field in curs.fetchall()]
+    sample = q_kwargs.get('sample')
+    if sample is not None:
+        del q_kwargs['sample']
     
-    period_query = Period.sql_query(period, fields)
-    if period_query:
-        period_query = ' AND ' + period_query
-        
-    if not (sample is None):
-        period_query += f" ORDER BY RANDOM() LIMIT {sample}"
+    stations = get_hydat_data('STATIONS', get_fields=fields, to_csv=False, **q_kwargs)
+    data_range = get_hydat_data_range(to_csv=False, **q_kwargs)
+    data_range.drop_duplicates(subset=['Station_ID'], inplace=True)
     
-    data_range = pd.read_sql_query("SELECT * FROM 'STN_DATA_RANGE' WHERE DATA_TYPE == 'Q'" +
-                                   period_query, conn)
-    station_df = station_df.merge(data_range, how='inner', on='STATION_NUMBER')
-    if station_df.empty:
+    stations = stations.merge(data_range, how='inner', left_on='STATION_NUMBER',
+                              right_on='Station_ID')
+    stations = stations.drop(columns=['Start', 'End', 'Station_ID'])
+    
+    if stations.empty:
         print("Chosen query resulted in empty GeoDataFrame.")
 
-    station_df.rename(columns={'LONGITUDE': 'Longitude', 'LATITUDE': 'Latitude',
+    stations.rename(columns={'LONGITUDE': 'Longitude', 'LATITUDE': 'Latitude',
                                'STATION_NUMBER': 'Station_ID', 'STATION_NAME': 'Station_Name'},
                       inplace=True)
-
-    # close the sqlite3 connection
-    conn.close()
-    # return the data
-    timer.stop()
-    return station_df
+    if sample:
+        stations = stations.sample(n=min(sample, stations.shape[0]))
+    if to_csv:
+        stations.to_csv(os.path.join(data_path, 'Hydat', f"{to_csv}.csv"))
+    
+    return stations
 
 
 def hydat_create_data_range():
+
     def add_to_output(st_id, start, end):
         out_data['Station_ID'].append(st_id)
         out_data['Start'].append(start)
         out_data['End'].append(end)
-        
+    
+    def date_comparison():
+        if start is None:
+            start = date
+            
+        elif datetime.strptime(date, "%Y-%m-%d") != \
+                datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
+
+            add_to_output(st_id, start, last)
+            start = date
+            
+    def is_leap(year):
+        return (year % 4 == 0) and (year % 100 != 0 or year % 400 == 0)
+    
+    
     dly_flows = get_hydat_flow()
     
     days_by_month = [
@@ -629,35 +665,18 @@ def hydat_create_data_range():
             month = row['MONTH']
             days_in_month = days_by_month[month - 1]
             
-            if month == 2 and (year % 4 == 0) and (year % 100 != 0 or year % 400 == 0):
+            if month == 2 and is_leap(year):
                 days_in_month += 1
             
             if row['FULL_MONTH']:
                 date = f"{year}-{month}-{1}"
-                
-                if start is None:
-                    start = date
-                    
-                elif datetime.strptime(date, "%Y-%m-%d") != \
-                        datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
-
-                    add_to_output(st_id, start, last)
-                    start = date
-                    
+                date_comparison()
                 last = f"{year}-{month}-{days_in_month}"
             else:
                 for i in range(days_in_month):
                     if row.iloc[11 + i * 2]:
                         date = f"{year}-{month}-{i + 1}"
-                    
-                        if start is None:
-                            start = date
-                            
-                        elif datetime.strptime(date, "%Y-%m-%d") != \
-                                datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
-                            add_to_output(st_id, start, last)
-                            start = date
-                            
+                        date_comparison()
                         last = date
             
         add_to_output(st_id, start, last)

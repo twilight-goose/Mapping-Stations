@@ -39,7 +39,50 @@ def period_test():
     assert Period.check_period(['2010-10-11', '2009-11-11']) == ValueError
     assert Period.check_period("2022-10-11") == ValueError
     assert Period.check_period(["2022-10-11"]) == ValueError
-
+    
+    
+def hydat_load_test():
+    subset = ['02LA019', '02KF009', '02KF004', '04MC001']
+    period = ['1999-07-10', '1999-10-11']
+    bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
+    sample = 10
+    
+    hydat = load_data.get_hydat_stations(to_csv='test_1', subset=subset)
+    assert subset.sort() == hydat['Station_ID'].to_list().sort()
+    
+    d_range = load_data.get_hydat_data_range(sample=sample, period=period)
+    from datetime import datetime
+    
+    for ind, row in d_range.iterrows():
+        start = datetime.strptime(row['Start'], '%Y-%m-%d')
+        end = datetime.strptime(row['End'], '%Y-%m-%d')
+        
+        if (start <=  datetime.strptime(period[0], '%Y-%m-%d') <= end) or \
+                (start <= datetime.strptime(period[1], '%Y-%m-%d') <= end):
+            pass
+        else:
+            print(start)
+            print(end)
+    
+    hydat = load_data.get_hydat_stations(to_csv='test_2', period=period)
+    assert hydat.shape == (1294, 6)
+    
+    hydat = load_data.get_hydat_stations(to_csv='test_3', bbox=bbox)
+    assert hydat.shape == (9, 6)
+    
+    hydat = load_data.get_hydat_stations(to_csv='test_4', sample=sample)
+    assert hydat.shape == (10, 6)
+    
+    hydat = load_data.get_hydat_stations(to_csv='test_5', bbox=bbox, period=period)
+    assert hydat.shape == (3, 6)
+    assert hydat['Station_ID'].to_list() == ["02EB006","02EB011","02EB012"]
+    
+    hydat = load_data.get_hydat_stations(to_csv='test_6', bbox=bbox, period=period,
+                                         sample=sample)
+    assert hydat.shape == (3, 6)
+    print( hydat['Station_ID'].sort_values().to_list())
+    assert hydat['Station_ID'].sort_values().to_list() == ["02EB006","02EB011","02EB012"]
+    
 
 def point_plot_test():
     bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
@@ -174,6 +217,8 @@ def drainage_compare():
     # from pandas import DataFrame
     # 
     # calcs.to_csv('dist_by_delta_drainage.csv')
+    
+    
 def hydat_data_test():
     hydat = load_data.get_hydat_station_data(sample=100)
     hydat_flow = load_data.get_hydat_flow(subset=hydat['Station_ID'],
@@ -190,9 +235,6 @@ def main():
     
     hydat = load_data.get_hydat_station_data(sample=10)
     pwqmn = load_data.get_pwqmn_station_data(sample=10)
-    
-    print(hydat)
-    print(pwqmn)
     
     hydat_dr = load_data.get_hydat_data_range(subset=hydat['Station_ID'].iloc[0])
     pwqmn_dr = load_data.get_pwqmn_data_range(subset=pwqmn['Station_ID'].iloc[0])
@@ -216,4 +258,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    hydat_load_test()

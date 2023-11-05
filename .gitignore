@@ -56,3 +56,9 @@ data/shapefiles/pwqmn.shp.xml
 data/Hydat/DLY_FLOWS.csv
 data/Hydat/STN_REMARKS.csv
 data/Hydat/STN_REMARKS.csv.xml
+*.bak
+*.bak
+*.bak
+src/load_data.py.bak
+src/test_cases.py.bak
+src/load_data.py.bak
