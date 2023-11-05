@@ -68,6 +68,9 @@ def hydat_load_test():
     assert hydat.shape == (1294, 6)
     
     hydat = load_data.get_hydat_stations(to_csv='test_3', bbox=bbox)
+    assert hydat['Station_ID'].to_list() == \
+        ["02EA001","02EB005","02EB006","02EB009","02EB010",
+         "02EB011","02EB012","02EB103","02EB105"]
     assert hydat.shape == (9, 6)
     
     hydat = load_data.get_hydat_stations(to_csv='test_4', sample=sample)
@@ -80,7 +83,6 @@ def hydat_load_test():
     hydat = load_data.get_hydat_stations(to_csv='test_6', bbox=bbox, period=period,
                                          sample=sample)
     assert hydat.shape == (3, 6)
-    print( hydat['Station_ID'].sort_values().to_list())
     assert hydat['Station_ID'].sort_values().to_list() == ["02EB006","02EB011","02EB012"]
     
 

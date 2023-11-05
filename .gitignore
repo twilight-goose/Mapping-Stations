@@ -62,3 +62,5 @@ data/Hydat/STN_REMARKS.csv.xml
 src/load_data.py.bak
 src/test_cases.py.bak
 src/load_data.py.bak
+*.bak
+src/test_cases.py.bak
