@@ -86,6 +86,13 @@ def hydat_load_test():
                                          sample=sample)
     assert hydat.shape == (3, 6)
     assert hydat['Station_ID'].sort_values().to_list() == ["02EB006","02EB011","02EB012"]
+        
+    period2 = [None, '1999-07-10']
+    period3 = ['1999-07-10', None]
+    
+    hydat = load_data.get_hydat_stations(to_csv='test_7', period=period2)
+    
+    hydat = load_data.get_hydat_stations(to_csv='test_8', period=period3)
     
 
 def point_plot_test():
@@ -237,7 +244,7 @@ def hydat_data_test():
 def main():
     timer = Timer()
     
-    hydat = load_data.get_hydat_stations(sample=10)
+    hydat = load_data.get_hydat_stations(period=[], sample=10)
     pwqmn = load_data.get_pwqmn_stations(sample=10)
     
     hydat_dr = load_data.get_hydat_data_range(subset=hydat['Station_ID'].iloc[0])
@@ -262,4 +269,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    hydat_load_test()

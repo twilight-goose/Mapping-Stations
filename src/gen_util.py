@@ -360,7 +360,7 @@ class Period:
             elif type(period) is not list and type(period) is not tuple and \
                 type(period) != Period:
                 raise ValueError(f"Period of wrong type, {type(period)} found.")
-            elif period[0] >= period[1]:
+            elif not (period[0] is None) and not (period[1] is None) and period[0] >= period[1]:
                 raise ValueError("Period start date must be the same as or after the end date.")
 
     @staticmethod
