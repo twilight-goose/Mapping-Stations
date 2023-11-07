@@ -51,7 +51,7 @@ def id_query_from_subset(subset, fields):
     elif 'STATION_NUMBER' in fields:
         id_field = 'STATION_NUMBER'
     
-    if not hasattr(subset, '__iter__'):
+    if not hasattr(subset, '__iter__') or type(subset) is str:
         subset = (subset, )
     
     id_list_str = ', '.join([f'"{st_id}"' for st_id in subset])
@@ -158,6 +158,14 @@ def pwqmn_create_stations(pwqmn_data=None):
     return station_data
 
 
+
+var = [
+        "Nitrite", "Inorganic nitrogen (nitrate and nitrite)",
+        "Total Nitrogen; mixed forms", "Kjeldahl nitrogen", "Nitrate",
+        "Total Phosphorus; mixed forms", "Orthophosphate"
+    ]
+    
+    
 def pwqmn_create_data_range(pwqmn_data=None, sample=None):
     """
     Adds a 'Data_Range' table in the PWQMN sqlite3 database. The table
@@ -182,34 +190,36 @@ def pwqmn_create_data_range(pwqmn_data=None, sample=None):
         The created SQL table as a DataFrame
     """
     def categorize(x):
-        if x in ["Nitrite", "Inorganic nitrogen (nitrate and nitrite)",
-                 "Total Nitrogen; mixed forms", "Kjeldahl nitrogen", "Nitrate"] or \
-           x in ["Total Phosphorus; mixed forms", "Orthophosphate"]:
+        if x in var:
             return 'N_or_P'
         else:
             return 'Other'
     
     def add_to_output(st_id, start, end):
         out_data['Station_ID'].append(st_id)
-        out_data['Start'].append(start)
-        out_data['End'].append(end)
+        out_data['P_Start'].append(start)
+        out_data['P_End'].append(end)
                         
     conn = sqlite3.connect(pwqmn_sql_path)
     
     if pwqmn_data is None:
         query = "SELECT Station_ID, Variable, Date FROM 'ALL_DATA'"
+        
+        if var:
+            part = ', '.join(f"'{v}'" for v in var)
+            query += f" WHERE Variable IN ({part})"
+            
         if sample is not None and sample > 0:
             query += f" ORDER BY RANDOM() LIMIT {sample}"
+            
         pwqmn_data = pd.read_sql_query(query, conn)
     
     pwqmn_data['Date'] = pd.to_datetime(pwqmn_data['Date'])
     pwqmn_data['Date'] = pwqmn_data['Date'].dt.strftime("%Y-%m-%d")
     
-    pwqmn_data['Variable'] = pwqmn_data['Variable'].apply(categorize)
-    pwqmn_data = pwqmn_data.query('Variable != "Other"')
     grouped = pwqmn_data.groupby(by=['Station_ID'])
     
-    out_data = {'Station_ID': [], 'Start': [], 'End': []}
+    out_data = {'Station_ID': [], 'P_Start': [], 'P_End': []}
     
     for key, sub_df in grouped:
         dates = sub_df['Date'].sort_values().to_list()
@@ -222,9 +232,11 @@ def pwqmn_create_data_range(pwqmn_data=None, sample=None):
             else:
                 str_date = datetime.strptime(date, "%Y-%m-%d")
                 str_last = datetime.strptime(last, "%Y-%m-%d")
+                
                 if  str_date != str_last + timedelta(days=1) and str_date != str_last:
                     add_to_output(key[0], start, last)
                     start = date
+                    
             last = date
         add_to_output(key[0], start, last)
       
@@ -235,11 +247,12 @@ def pwqmn_create_data_range(pwqmn_data=None, sample=None):
     return out_data
 
 
-def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None,
+def get_pwqmn_stations(period=None, bbox=None, sample=None,
                            subset=()) -> pd.DataFrame:
     """
     Loads the PWQMN data based on selected bbox, period, and variables
-    of interest from the file at
+    of interest from the PWQMN database (variables of interest declared
+    above as the vars list).
 
     The PWQMN sqlite database must contain a 'ALL_DATA' table with the
     following fields:
@@ -300,17 +313,20 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None,
         
     if id_query:
         query.append(id_query)
-        
-    query = ' AND '.join(query)
-
-    if query.strip():
-        query = ' WHERE ' + query
-
+    
+    if var:
+        part = ', '.join(f"'{v}'" for v in var)
+        query.append(f'Variable IN ({part})')
+    
+    if query:
+        query = ' WHERE ' + ' AND '.join(query)
+    
     if sample is not None and sample > 0:
         query += f" ORDER BY RANDOM() LIMIT {sample}"
     
     # Load PWQMN data as a DataFrame
-    station_df = pd.read_sql_query("SELECT * FROM 'ALL_DATA'" + query, conn)
+    station_df = pd.read_sql_query("SELECT DISTINCT Station_ID, Station_Name,"
+                                   " Latitude, Longitude FROM 'ALL_DATA'" + query, conn)
     conn.close()
 
     if station_df.empty:
@@ -322,8 +338,11 @@ def get_pwqmn_station_data(period=None, bbox=None, var=(), sample=None,
 
 def get_pwqmn_data_range(subset=()):
     conn = sqlite3.connect(pwqmn_sql_path)
-
-    query = "SELECT * FROM 'Data_Range'" + id_query_from_subset(subset)
+    
+    id_query = id_query_from_subset(subset, ['Station_ID'])
+    if id_query:
+        id_query = ' WHERE ' + id_query
+    query = "SELECT * FROM 'Data_Range'" + id_query
         
     df = pd.read_sql_query(query, conn)
     conn.close()
@@ -537,6 +556,7 @@ def get_hydat_data(tbl_name, get_fields='*', to_csv=False, **q_kwargs):
     if hasattr(get_fields, '__iter__'):
         get_fields = ', '.join(get_fields)
     
+    print(query)
     data = pd.read_sql_query(f'SELECT {get_fields} FROM "{tbl_name}"' + query, conn)
     if to_csv:
         data.to_csv(os.path.join(data_path, 'Hydat', f"{to_csv}.csv"))
@@ -607,7 +627,7 @@ def get_hydat_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
     
     stations = stations.merge(data_range, how='inner', left_on='STATION_NUMBER',
                               right_on='Station_ID')
-    stations = stations.drop(columns=['Start', 'End', 'Station_ID'])
+    stations = stations.drop(columns=['P_Start', 'P_End', 'Station_ID'])
     
     if stations.empty:
         print("Chosen query resulted in empty GeoDataFrame.")
@@ -627,16 +647,14 @@ def hydat_create_data_range():
 
     def add_to_output(st_id, start, end):
         out_data['Station_ID'].append(st_id)
-        out_data['Start'].append(start)
-        out_data['End'].append(end)
+        out_data['P_Start'].append(start)
+        out_data['P_End'].append(end)
     
     def date_comparison():
         if start is None:
             start = date
-            
         elif datetime.strptime(date, "%Y-%m-%d") != \
                 datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
-
             add_to_output(st_id, start, last)
             start = date
             
@@ -650,8 +668,8 @@ def hydat_create_data_range():
         31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
     ]
     
-    grouped = dly_flows.groupby('Station_ID')
-    out_data = {'Station_ID': [], 'Start': [], 'End': []}
+    grouped = dly_flows.groupby('STATION_NUMBER')
+    out_data = {'Station_ID': [], 'P_Start': [], 'P_End': []}
     
     for st_id, sub_df in grouped:
         
@@ -662,21 +680,37 @@ def hydat_create_data_range():
         
         for ind, row in sub_df.iterrows():
             year = row['YEAR']
-            month = row['MONTH']
-            days_in_month = days_by_month[month - 1]
+            month = f"{row['MONTH']:02}"
+            days_in_month = days_by_month[int(month) - 1]
             
-            if month == 2 and is_leap(year):
+            if int(month) == 2 and is_leap(year):
                 days_in_month += 1
             
             if row['FULL_MONTH']:
-                date = f"{year}-{month}-{1}"
-                date_comparison()
+                date = f"{year}-{month}-0{1}"
+                
+                if start is None:
+                    start = date
+                elif datetime.strptime(date, "%Y-%m-%d") != \
+                        datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
+                    add_to_output(st_id, start, last)
+                    start = date
+                    
                 last = f"{year}-{month}-{days_in_month}"
             else:
                 for i in range(days_in_month):
                     if row.iloc[11 + i * 2]:
-                        date = f"{year}-{month}-{i + 1}"
-                        date_comparison()
+                        date = f"{year}-{month}-{(i + 1):02}"
+                        try:
+                            if start is None:
+                                start = date
+                            elif datetime.strptime(date, "%Y-%m-%d") != \
+                                    datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
+                                add_to_output(st_id, start, last)
+                                start = date
+                        except ValueError:
+                            print(date)
+                            return
                         last = date
             
         add_to_output(st_id, start, last)

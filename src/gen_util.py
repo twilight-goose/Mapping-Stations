@@ -125,8 +125,8 @@ def period_overlap(hydat_periods, pwqmn_periods):
         p_row = hydat_periods.iloc[h_ind]
         h_row = pwqmn_periods.iloc[p_ind]
         
-        h_start, h_end = h_row['Start'], h_row['End']
-        p_start, p_end = p_row['Start'], p_row['End']
+        h_start, h_end = h_row['P_Start'], h_row['P_End']
+        p_start, p_end = p_row['P_Start'], p_row['P_End']
         
         if h_end < p_start:
             h_ind += 1
@@ -392,39 +392,35 @@ class Period:
             query string.
         """
         def formatter(f_name):
-            query = []
-            if period.start:
-                query.append(f"{period_start_str} <= {f_name}")
-            if period.end:
-                query.append(f"{f_name} <= {period_end_str}")
-            return f'({" AND ".join(query)})'
+            return f"({p_start_str} <= {f_name} AND {f_name} <= {p_end_str})"
         
-        def formatter_2(start_f, end_f):
-            query = []
-            if period.start and period.end:
-                query.append(f"({period_start_str} BETWEEN {start_f} AND {end_f})")
-                query.append(f"({period_end_str} BETWEEN {start_f} AND {end_f})")
-            return f'({" OR ".join(query)})'
+        def formatter_2():
+            return f"({start_f} <= {p_start_str} AND {p_start_str} <= {end_f}) OR " + \
+                   f"({start_f} <= {p_end_str} AND {p_end_str} <= {end_f})"
+
 
         # if a list or tuple of <str> is passed as the period,
         # convert it to a period object
         if type(period) == list or type(period) == tuple:
             Period.check_period(period)
             period = Period(start=period[0], end=period[1])
-
+        
         # if no date range is declared, return an empty string
         if period is None or period.is_empty():
             return ""
-
+        
+        p_start = period.start if not (period.start is None) else "0000-01-01"
+        p_end = period.end if not (period.end is None) else "9999-12-31"
+       
         # if the period has at least one valid bound, begin
         # building the query
         start_f, end_f = "", ""
         time_fmt_str = '%Y-%m-%d'
         
         for field in fields:
-            if field.upper() in ['DATE', 'START']:
+            if field.upper() in ['DATE', 'P_START']:
                 start_f = field
-            if field.upper() in ['YEAR_TO', 'END']:
+            if field.upper() in ['YEAR_TO', 'P_END']:
                 end_f = field
             elif field.upper() == 'YEAR' and 'MONTH' in fields:
                 time_fmt_str = '%Y-%m'
@@ -433,8 +429,8 @@ class Period:
                 start_f = field
                 time_fmt_str = '%Y'
             
-        period_start_str = f"strftime('{time_fmt_str}', '{period.start}')"
-        period_end_str = f"strftime('{time_fmt_str}', '{period.end}')"
+        p_start_str = f"strftime('{time_fmt_str}', '{p_start}')"
+        p_end_str = f"strftime('{time_fmt_str}', '{p_end}')"
 
         # Construct the SQL query, based on the period bounds and
         # identified date fields
@@ -444,13 +440,9 @@ class Period:
         if end_f:
             query.append(formatter(end_f))
         if start_f and end_f:
-            query.append(formatter_2(start_f, end_f))
-            
+            query.append(formatter_2())
+    
         query = " OR ".join(query)
-        
-        if query:
-            query = f"{query}"
-        
         return query
     
     @staticmethod

@@ -49,23 +49,25 @@ def hydat_load_test():
     
     hydat = load_data.get_hydat_stations(to_csv='test_1', subset=subset)
     assert subset.sort() == hydat['Station_ID'].to_list().sort()
+
+    hydat = load_data.get_hydat_stations(to_csv='test_2', period=period)
+    assert hydat.shape == (1770, 6)
     
-    d_range = load_data.get_hydat_data_range(sample=sample, period=period)
+    d_range = load_data.get_hydat_data_range(period=period)
+    
     from datetime import datetime
-    
     for ind, row in d_range.iterrows():
-        start = datetime.strptime(row['Start'], '%Y-%m-%d')
-        end = datetime.strptime(row['End'], '%Y-%m-%d')
+        start = row['P_Start']
+        end = row['P_End']
         
-        if (start <=  datetime.strptime(period[0], '%Y-%m-%d') <= end) or \
-                (start <= datetime.strptime(period[1], '%Y-%m-%d') <= end):
+        if (start <= period[0] <= end) or \
+           (start <= period[1] <= end) or \
+           (period[0] <= start <= period[1]) or \
+           (period[0] <= end <= period[1]):
             pass
         else:
-            print(start)
-            print(end)
-    
-    hydat = load_data.get_hydat_stations(to_csv='test_2', period=period)
-    assert hydat.shape == (1294, 6)
+            # If functions correctly, nothing is outputted
+            print(start, end)
     
     hydat = load_data.get_hydat_stations(to_csv='test_3', bbox=bbox)
     assert hydat['Station_ID'].to_list() == \
@@ -89,7 +91,7 @@ def hydat_load_test():
 def point_plot_test():
     bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
 
-    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
+    pwqmn = load_data.get_pwqmn_stations(bbox=bbox)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
     ax = plot_utils.add_map_to_plot(extent=bbox.to_ccrs(plot_utils.lambert))
@@ -116,8 +118,8 @@ def network_compare():
     
     bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
     
-    hydat = load_data.get_hydat_station_data(bbox=bbox)
-    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
+    hydat = load_data.get_hydat_stations(bbox=bbox)
+    pwqmn = load_data.get_pwqmn_stations(bbox=bbox)
     
     hydat = gdf_utils.point_gdf_from_df(hydat)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
@@ -164,9 +166,9 @@ def assign_all():
     ohn_rivers = load_data.load_rivers(path=path, bbox=bbox)
     timer.stop()
     print('loading stations')
-    hydat = load_data.get_hydat_station_data(bbox=bbox)
+    hydat = load_data.get_hydat_stations(bbox=bbox)
     hydat = gdf_utils.point_gdf_from_df(hydat)
-    pwqmn = load_data.get_pwqmn_station_data(bbox=bbox)
+    pwqmn = load_data.get_pwqmn_stations(bbox=bbox)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
     timer.stop()
     print('assigning stations')
@@ -188,7 +190,7 @@ def drainage_compare():
         os.path.join("OHN", "Ontario_Hydro_Network_(OHN)_-_Watercourse.shp")
     )
     
-    hydat = load_data.get_hydat_station_data(sample=300, bbox=ON_bbox)
+    hydat = load_data.get_hydat_stations(sample=300, bbox=ON_bbox)
     hydat = gdf_utils.point_gdf_from_df(hydat)
     
     ohn_rivers = load_data.load_rivers(path=path, bbox=ON_bbox)
@@ -222,7 +224,7 @@ def drainage_compare():
     
     
 def hydat_data_test():
-    hydat = load_data.get_hydat_station_data(sample=100)
+    hydat = load_data.get_hydat_stations(sample=100)
     hydat_flow = load_data.get_hydat_flow(subset=hydat['Station_ID'],
         period=['1975-10-10', '1975-11-11']
     )
@@ -235,8 +237,8 @@ def hydat_data_test():
 def main():
     timer = Timer()
     
-    hydat = load_data.get_hydat_station_data(sample=10)
-    pwqmn = load_data.get_pwqmn_station_data(sample=10)
+    hydat = load_data.get_hydat_stations(sample=10)
+    pwqmn = load_data.get_pwqmn_stations(sample=10)
     
     hydat_dr = load_data.get_hydat_data_range(subset=hydat['Station_ID'].iloc[0])
     pwqmn_dr = load_data.get_pwqmn_data_range(subset=pwqmn['Station_ID'].iloc[0])
@@ -260,4 +262,4 @@ def main():
 
 
 if __name__ == "__main__":
-    hydat_load_test()
+    main()
