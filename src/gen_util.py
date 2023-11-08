@@ -122,8 +122,8 @@ def period_overlap(hydat_periods, pwqmn_periods):
     total_overlap = 0
     
     while h_ind < hydat_periods.shape[0] and p_ind < pwqmn_periods.shape[0]:
-        p_row = hydat_periods.iloc[h_ind]
-        h_row = pwqmn_periods.iloc[p_ind]
+        h_row = hydat_periods.iloc[h_ind]
+        p_row = pwqmn_periods.iloc[p_ind]
         
         h_start, h_end = h_row['P_Start'], h_row['P_End']
         p_start, p_end = p_row['P_Start'], p_row['P_End']

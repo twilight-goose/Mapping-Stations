@@ -556,7 +556,6 @@ def get_hydat_data(tbl_name, get_fields='*', to_csv=False, **q_kwargs):
     if hasattr(get_fields, '__iter__'):
         get_fields = ', '.join(get_fields)
     
-    print(query)
     data = pd.read_sql_query(f'SELECT {get_fields} FROM "{tbl_name}"' + query, conn)
     if to_csv:
         data.to_csv(os.path.join(data_path, 'Hydat', f"{to_csv}.csv"))

@@ -67,7 +67,7 @@ def hydat_load_test():
             pass
         else:
             # If functions correctly, nothing is outputted
-            print(start, end)
+            print("wrong period:", start, end)
     
     hydat = load_data.get_hydat_stations(to_csv='test_3', bbox=bbox)
     assert hydat['Station_ID'].to_list() == \
@@ -91,8 +91,37 @@ def hydat_load_test():
     period3 = ['1999-07-10', None]
     
     hydat = load_data.get_hydat_stations(to_csv='test_7', period=period2)
+    assert hydat.shape == (6048, 6)
     
+    d_range = load_data.get_hydat_data_range(period=period2)
+    
+    from datetime import datetime
+    for ind, row in d_range.iterrows():
+        start = row['P_Start']
+        end = row['P_End']
+        
+        if start <= period2[1]:
+            pass
+        else:
+            # If functions correctly, nothing is outputted
+            print("wrong period:", start, end)
+            
     hydat = load_data.get_hydat_stations(to_csv='test_8', period=period3)
+    assert hydat.shape == (2418, 6)
+    
+    
+    d_range = load_data.get_hydat_data_range(period=period3)
+    
+    from datetime import datetime
+    for ind, row in d_range.iterrows():
+        start = row['P_Start']
+        end = row['P_End']
+        
+        if period3[0] <= end:
+            pass
+        else:
+            # If functions correctly, nothing is outputted
+            print("wrong period:", start, end)
     
 
 def point_plot_test():
@@ -244,7 +273,7 @@ def hydat_data_test():
 def main():
     timer = Timer()
     
-    hydat = load_data.get_hydat_stations(period=[], sample=10)
+    hydat = load_data.get_hydat_stations(sample=10)
     pwqmn = load_data.get_pwqmn_stations(sample=10)
     
     hydat_dr = load_data.get_hydat_data_range(subset=hydat['Station_ID'].iloc[0])
