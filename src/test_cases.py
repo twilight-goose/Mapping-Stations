@@ -1,3 +1,4 @@
+import pytest
 import browser
 import load_data
 import gdf_utils
@@ -23,25 +24,93 @@ Overview:
 
 """
 
+# ========================================================================= ##
+# gen_util tests ========================================================== ##
+# ========================================================================= ##
+
+
+def test_bbox():
+    bbox1 = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
+    bbox2 = BBox(-80, -79.5, 45, 45.5)
+    
+    assert bbox1.bounds == bbox2.bounds == bbox1.to_tuple() == bbox2.to_tuple()
+    
+    assert bbox1.contains_point((-79.9, 45.2)) == True
+    assert bbox1.contains_point((-89, 45.2)) == False
+    assert bbox1.contains_point((-80, 45)) == False
+    
+    assert bbox1.sql_query('X', 'Y') == "(-80.0 <= X AND -79.5 >= X AND 45.0 <= Y AND 45.5 >= Y)"
+    assert bbox2.sql_query('X', 'Y') == "(-80.0 <= X AND -79.5 >= X AND 45.0 <= Y AND 45.5 >= Y)"
+    
+    
+def test_period():
+    period1 = ['2020-10-11', None]
+    period2 = [None, '2020-10-11']
+    period3 = ['2020-09-11', '2020-10-11']
+    
+    assert Period.check_period(period1) is None
+    assert Period.check_period(period2) is None
+    assert Period.check_period(period3) is None
+    
+    # invalid periods
+    pytest.raises(ValueError, Period.check_period, ['2010-10-11', '2009-11-11'])
+    pytest.raises(ValueError, Period.check_period, "2022-10-11")
+    pytest.raises(ValueError, Period.check_period, ["2022-10-11"])
+    pytest.raises(ValueError, Period.check_period, ["", "", ""])
+    
+    assert Period.sql_query(period1, ['DATE']) == \
+        "(strftime('%Y-%m-%d', '2020-10-11') <= DATE AND DATE <= strftime('%Y-%m-%d', '9999-12-31'))"
+    assert Period.sql_query(period1, ['YEAR_FROM', 'YEAR_TO']) == \
+        "(strftime('%Y', '2020-10-11') <= YEAR_FROM AND YEAR_FROM <= strftime('%Y', '9999-12-31')) OR " + \
+        "(strftime('%Y', '2020-10-11') <= YEAR_TO AND YEAR_TO <= strftime('%Y', '9999-12-31')) OR " + \
+        "(YEAR_FROM <= strftime('%Y', '2020-10-11') AND strftime('%Y', '2020-10-11') <= YEAR_TO) OR " + \
+        "(YEAR_FROM <= strftime('%Y', '9999-12-31') AND strftime('%Y', '9999-12-31') <= YEAR_TO)"
+    assert Period.sql_query(period1, ['YEAR', 'MONTH']) == \
+        "(strftime('%Y-%m', '2020-10-11') <= " + \
+        "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') AND " + \
+        "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') <= " + \
+        "strftime('%Y-%m', '9999-12-31'))"
+        
+    assert Period.sql_query(period2, ['DATE']) == \
+        "(strftime('%Y-%m-%d', '0000-01-01') <= DATE AND DATE <= strftime('%Y-%m-%d', '2020-10-11'))"
+    assert Period.sql_query(period2, ['YEAR_FROM', 'YEAR_TO']) == \
+        "(strftime('%Y', '0000-01-01') <= YEAR_FROM AND YEAR_FROM <= strftime('%Y', '2020-10-11')) OR " + \
+        "(strftime('%Y', '0000-01-01') <= YEAR_TO AND YEAR_TO <= strftime('%Y', '2020-10-11')) OR " + \
+        "(YEAR_FROM <= strftime('%Y', '0000-01-01') AND strftime('%Y', '0000-01-01') <= YEAR_TO) OR " + \
+        "(YEAR_FROM <= strftime('%Y', '2020-10-11') AND strftime('%Y', '2020-10-11') <= YEAR_TO)"
+    assert Period.sql_query(period2, ['YEAR', 'MONTH']) == \
+        "(strftime('%Y-%m', '0000-01-01') <= " + \
+        "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') AND " + \
+        "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') <= " + \
+        "strftime('%Y-%m', '2020-10-11'))"
+        
+    assert Period.sql_query(period3, ['DATE']) == \
+        "(strftime('%Y-%m-%d', '2020-09-11') <= DATE AND DATE <= strftime('%Y-%m-%d', '2020-10-11'))"
+    assert Period.sql_query(period3, ['YEAR_FROM', 'YEAR_TO']) == \
+        "(strftime('%Y', '2020-09-11') <= YEAR_FROM AND YEAR_FROM <= strftime('%Y', '2020-10-11')) OR " + \
+        "(strftime('%Y', '2020-09-11') <= YEAR_TO AND YEAR_TO <= strftime('%Y', '2020-10-11')) OR " + \
+        "(YEAR_FROM <= strftime('%Y', '2020-09-11') AND strftime('%Y', '2020-09-11') <= YEAR_TO) OR " + \
+        "(YEAR_FROM <= strftime('%Y', '2020-10-11') AND strftime('%Y', '2020-10-11') <= YEAR_TO)"
+    assert Period.sql_query(period3, ['YEAR', 'MONTH']) == \
+        "(strftime('%Y-%m', '2020-09-11') <= " + \
+        "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') AND " + \
+        "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') <= " + \
+        "strftime('%Y-%m', '2020-10-11'))"
+        
+    dates = ['1991-02-01', '1991-02-02', '1991-02-03', '1991-02-04', '1991-02-05', '1991-02-06', '1991-02-07']
+    periods = Period.get_periods(dates=dates,silent=True)
+    assert periods == [['1991-02-01', '1991-02-07']]
+
+    dates = ['1991-02-01', '1991-02-02', '1991-02-03', '1991-02-05', '1991-02-06', '1991-02-07']
+    periods = Period.get_periods(dates=dates,silent=True)
+    assert periods == [['1991-02-01', '1991-02-03'], ['1991-02-05', '1991-02-07']]
 
 # ========================================================================= ##
 # License ================================================================= ##
 # ========================================================================= ##
-
-
-def period_test():
-    # Valid periods
-    assert Period.check_period(None) is None
-    assert Period.check_period(['2020-10-11', None]) is None
-    assert Period.check_period([None, '2020-10-11']) is None
-    
-    # invalide periods
-    assert Period.check_period(['2010-10-11', '2009-11-11']) == ValueError
-    assert Period.check_period("2022-10-11") == ValueError
-    assert Period.check_period(["2022-10-11"]) == ValueError
     
     
-def hydat_load_test():
+def test_hydat_load():
     subset = ['02LA019', '02KF009', '02KF004', '04MC001']
     period = ['1999-07-10', '1999-10-11']
     bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
@@ -51,23 +120,9 @@ def hydat_load_test():
     assert subset.sort() == hydat['Station_ID'].to_list().sort()
 
     hydat = load_data.get_hydat_stations(to_csv='test_2', period=period)
-    assert hydat.shape == (1770, 6)
-    
     d_range = load_data.get_hydat_data_range(period=period)
-    
-    from datetime import datetime
-    for ind, row in d_range.iterrows():
-        start = row['P_Start']
-        end = row['P_End']
-        
-        if (start <= period[0] <= end) or \
-           (start <= period[1] <= end) or \
-           (period[0] <= start <= period[1]) or \
-           (period[0] <= end <= period[1]):
-            pass
-        else:
-            # If functions correctly, nothing is outputted
-            print("wrong period:", start, end)
+    Period.check_data_range(period, d_range)
+    assert hydat.shape == (1770, 6)
     
     hydat = load_data.get_hydat_stations(to_csv='test_3', bbox=bbox)
     assert hydat['Station_ID'].to_list() == \
@@ -91,38 +146,16 @@ def hydat_load_test():
     period3 = ['1999-07-10', None]
     
     hydat = load_data.get_hydat_stations(to_csv='test_7', period=period2)
-    assert hydat.shape == (6048, 6)
-    
     d_range = load_data.get_hydat_data_range(period=period2)
-    
-    from datetime import datetime
-    for ind, row in d_range.iterrows():
-        start = row['P_Start']
-        end = row['P_End']
-        
-        if start <= period2[1]:
-            pass
-        else:
-            # If functions correctly, nothing is outputted
-            print("wrong period:", start, end)
-            
+    Period.check_data_range(period2, d_range)
+    assert hydat.shape == (6048, 6)
+
     hydat = load_data.get_hydat_stations(to_csv='test_8', period=period3)
-    assert hydat.shape == (2418, 6)
-    
-    
     d_range = load_data.get_hydat_data_range(period=period3)
+    Period.check_data_range(period3, d_range)
     
-    from datetime import datetime
-    for ind, row in d_range.iterrows():
-        start = row['P_Start']
-        end = row['P_End']
-        
-        if period3[0] <= end:
-            pass
-        else:
-            # If functions correctly, nothing is outputted
-            print("wrong period:", start, end)
-    
+    assert hydat.shape == (2418, 6)
+
 
 def point_plot_test():
     bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
@@ -276,10 +309,10 @@ def main():
     hydat = load_data.get_hydat_stations(sample=10)
     pwqmn = load_data.get_pwqmn_stations(sample=10)
     
-    hydat_dr = load_data.get_hydat_data_range(subset=hydat['Station_ID'].iloc[0])
-    pwqmn_dr = load_data.get_pwqmn_data_range(subset=pwqmn['Station_ID'].iloc[0])
+    hydat_dr = load_data.get_hydat_data_range(subset="11AC066")
+    pwqmn_dr = load_data.get_pwqmn_data_range(subset="8002201802")
     
-    print(hydat_dr)
+    print(hydat_dr.to_string())
     print(pwqmn_dr)
     
     period_overlap(hydat_dr, pwqmn_dr)
@@ -298,4 +331,4 @@ def main():
 
 
 if __name__ == "__main__":
-    hydat_load_test()
+    main()

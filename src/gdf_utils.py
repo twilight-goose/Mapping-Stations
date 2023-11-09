@@ -723,7 +723,7 @@ def subset_df(df: pd.DataFrame, **kwargs):
             if type(value) in [list, tuple]:
                 minx, miny, maxx, maxy = value
             elif type(value) is BBox:
-                minx, miny, maxx, maxy = value.to_tuple()
+                minx, miny, maxx, maxy = value.bounds
             df = df.query('@minx <= Longitude <= @maxx and'
                           '@miny <= Longitude <= @maxy')
         else:

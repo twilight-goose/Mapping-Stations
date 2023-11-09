@@ -60,6 +60,50 @@ def id_query_from_subset(subset, fields):
     return ""
     
 
+def build_sql_query(fields, **q_kwargs):
+    query = []
+    sample = q_kwargs.get('sample')
+
+    # Add all query arguments passed to the sql query
+    for key in q_kwargs:
+        q_part = ""
+        
+        if key == 'bbox':
+            x, y = find_xy_fields(fields)
+            
+            if x != "Failed" and y != "Failed" and x and y:
+                q_part = BBox.sql_query(q_kwargs['bbox'], x, y)
+            else:
+                print("BBox provided but no lat/lon fields found. Skipping BBox query.")
+        elif key == 'period':
+            q_part = Period.sql_query(q_kwargs['period'], fields)
+        elif key == 'subset':
+            q_part = id_query_from_subset(q_kwargs['subset'], fields)
+        elif key == 'sample':
+            pass
+        elif type(q_kwargs[key]) is str:
+            q_part = f'{key} == "{q_kwargs[key]}"'
+        elif hasattr(q_kwargs[key], '__iter__'):
+            lst = []
+            for i in q_kwargs[key]:
+                if type(i) is str:
+                    lst.append(f'"{i}"')
+                else:
+                    lst.append(i)
+            q_part = f'{key} in ({", ".join(lst)})'
+        
+        if q_part:
+            query.append(q_part)
+
+    query = ' AND '.join(query)
+    if query:
+        query = ' WHERE ' + query
+    
+    if sample is not None and sample > 0:
+        query += f" ORDER BY RANDOM() LIMIT {sample}"
+    
+    return query
+    
 # ========================================================================= ##
 # Generator =============================================================== ##
 # ========================================================================= ##
@@ -158,7 +202,6 @@ def pwqmn_create_stations(pwqmn_data=None):
     return station_data
 
 
-
 var = [
         "Nitrite", "Inorganic nitrogen (nitrate and nitrite)",
         "Total Nitrogen; mixed forms", "Kjeldahl nitrogen", "Nitrate",
@@ -247,8 +290,19 @@ def pwqmn_create_data_range(pwqmn_data=None, sample=None):
     return out_data
 
 
-def get_pwqmn_stations(period=None, bbox=None, sample=None,
-                           subset=()) -> pd.DataFrame:
+def get_pwqmn_data(**q_kwargs) -> pd.DataFrame:
+    # create a sqlite3 connection to the pwqmn data
+    print("Creating a connection to '{0}'".format(pwqmn_sql_path))
+    conn = sqlite3.connect(pwqmn_sql_path)
+
+    # generate a sql query from bbox and period
+    curs = conn.execute('PRAGMA table_info(ALL_DATA)')
+    fields = [field[1] for field in curs.fetchall()]
+    
+    
+    
+
+def get_pwqmn_stations(**q_kwargs) -> pd.DataFrame:
     """
     Loads the PWQMN data based on selected bbox, period, and variables
     of interest from the PWQMN database (variables of interest declared
@@ -286,9 +340,6 @@ def get_pwqmn_stations(period=None, bbox=None, sample=None,
     :return: <pandas DataFrame>
         PWQMN station data.
     """
-
-    # Check that period is valid
-    Period.check_period(period)
     timer.start()
 
     # create a sqlite3 connection to the pwqmn data
@@ -298,31 +349,11 @@ def get_pwqmn_stations(period=None, bbox=None, sample=None,
     # generate a sql query from bbox and period
     curs = conn.execute('PRAGMA table_info(ALL_DATA)')
     fields = [field[1] for field in curs.fetchall()]
-
-    # generate a database query from period and bbox
-    period_query = Period.sql_query(period, fields)
-    bbox_query = BBox.sql_query(bbox, "Longitude", "Latitude")
-    id_query = id_query_from_subset(subset, fields)
-
-    query = []
-    if bbox_query:
-        query.append(bbox_query)
     
-    if period_query:
-        query.append(period_query)
-        
-    if id_query:
-        query.append(id_query)
-    
-    if var:
-        part = ', '.join(f"'{v}'" for v in var)
-        query.append(f'Variable IN ({part})')
-    
-    if query:
-        query = ' WHERE ' + ' AND '.join(query)
-    
-    if sample is not None and sample > 0:
-        query += f" ORDER BY RANDOM() LIMIT {sample}"
+    if not q_kwargs.get('var') is None:
+        var += q_kwargs.get(var)
+        del q_kwargs['var']
+    query = build_sql_query(Variable=var, **q_kwargs)
     
     # Load PWQMN data as a DataFrame
     station_df = pd.read_sql_query("SELECT DISTINCT Station_ID, Station_Name,"
@@ -515,45 +546,9 @@ def get_hydat_data(tbl_name, get_fields='*', to_csv=False, **q_kwargs):
     curs = conn.execute(f'PRAGMA table_info({tbl_name})')
     fields = [field[1] for field in curs.fetchall()]
 
-    query = []
-    sample = q_kwargs.get('sample')
-
-    # Add all query arguments passed to the sql query
-    for key in q_kwargs:
-        q_part = ""
-        
-        if key == 'bbox':
-            if ('LONGITUDE' in fields) and ('LATITUDE' in fields):
-                q_part = BBox.sql_query(q_kwargs['bbox'], "LONGITUDE", "LATITUDE")
-            else:
-                print("BBox provided but no lat/lon fields found. Skipping BBox query.")
-        elif key == 'period':
-            q_part = Period.sql_query(q_kwargs['period'], fields)
-        elif key == 'subset':
-            q_part = id_query_from_subset(q_kwargs['subset'], fields)
-        elif type(q_kwargs[key]) is str:
-            q_part = f'{key} == "{q_kwargs[key]}"'
-        elif hasattr(q_kwargs[key], '__iter__'):
-            lst = []
-            for i in q_kwargs[key]:
-                if type(i) is str:
-                    lst.append(f'"{i}"')
-                else:
-                    lst.append(i)
-            q_part = f'{key} in ({", ".join(lst)})'
-        
-        if q_part:
-            query.append(q_part)
-    
-    if query:
-        query = " WHERE " + ' AND '.join(query)
-    else:
-        query = ""
-        
-    if sample is not None:
-        query += f" ORDER BY RANDOM() LIMIT {sample}"
+    query = build_sql_query(fields, **q_kwargs)
    
-    if hasattr(get_fields, '__iter__'):
+    if type(get_fields) in (list, tuple):
         get_fields = ', '.join(get_fields)
     
     data = pd.read_sql_query(f'SELECT {get_fields} FROM "{tbl_name}"' + query, conn)
@@ -643,7 +638,8 @@ def get_hydat_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
 
 
 def hydat_create_data_range():
-
+    """
+    """
     def add_to_output(st_id, start, end):
         out_data['Station_ID'].append(st_id)
         out_data['P_Start'].append(start)

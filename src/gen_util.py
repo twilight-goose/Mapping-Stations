@@ -1,5 +1,6 @@
 import cartopy.crs as ccrs
 import geopandas as gpd
+from pandas import DataFrame
 from datetime import datetime
 from datetime import timedelta
 from datetime import date
@@ -52,17 +53,18 @@ lambert = ccrs.LambertConformal(central_longitude=central_lon,
                                                     stand_parallel_2))
 
 
-def find_xy_fields(df) -> [str, str]:
+def find_xy_fields(fields) -> [str, str]:
     """
-    Searches a pandas DataFrame for specific field names to use as
-    longitudinal and latitudinal values.
+    Searches a list, tuple, or pandas DataFrame for specific field
+    names to use as longitudinal and latitudinal values.
 
     If more than 1 match is found for X or Y, "Failed" will be
     returned. If no match is found for X or Y, an empty string
     will be returned. Not case-sensitive.
 
-    :param df: Pandas DataFrame
-        The DataFrame to search
+    :param fields: Pandas DataFrame or list-like of str
+        The object to search. If a Pandas DataFrame is passed,
+        column values will be used.
 
     :return: list-like of strings of length 2
         The result of the search for x and y fields, where each item
@@ -77,9 +79,11 @@ def find_xy_fields(df) -> [str, str]:
 
     # initiate x and y
     x, y = "", ""
-
+    
+    if type(fields) is DataFrame:
+        fields = df.columns.values
     # Iterate through dataframe field names
-    for field in df.columns.values:
+    for field in fields:
         # Check if the field matches one of the X or Y field names
         if field.upper() in ["LON", "LONG", "LONGITUDE", "X"]:
             x = _(x, field)
@@ -154,7 +158,7 @@ class BBox:
     Functionally a container for a Shapely.Polygon object that
     that defines the geometry of the bounding box. Adds additional
     functionality specific to this project, such as generating sql
-    queries with BBox.sql_query() and support for None value BBoxes.
+    queries with BBox.sql_query().
 
     Static methods can be called through (1) BBox objects or (2) by
     referencing the class with BBox.<function name> and passing the
@@ -174,15 +178,10 @@ class BBox:
         Flexible method for instantiating BoundingBox objects.
         Valid argument sets:
 
-        1. None; Creates an empty BBox Object
-        2. 4 keyword arguments in any order;
+        1. 4 keyword arguments in any order;
         3. 4 positional arguments in the following order:  min_x, max_x, min_y, max_y
         """
-        if hasattr(min_x, '__iter__'):
-            assert len(min_x) != 2,\
-                "Iterable with len 2 is not a valid input. Valid inputs are: \n" \
-                "- None \n- 4 numeric keyword arguments \n" \
-                "- 4 numeric positional arguments in the order: min_x, max_x, min_y, max_y"
+        if type(min_x) is list or type(min_x) is tuple:
             min_x, min_y, max_x, max_y = min_x
 
         self.shape = Polygon([(min_x, min_y), (max_x, min_y), (max_x, max_y), (min_x, max_y)])
@@ -190,7 +189,7 @@ class BBox:
 
     def contains_point(self, point) -> bool:
         """
-        Determines if the bounding box of self contains cord
+        Determines if the bounding box of self contains cord.
 
         :param self: BBox object or None
 
@@ -198,10 +197,9 @@ class BBox:
             Coordinates of the Point or a point geometry.
 
         :return: bool
-            True if cord lies within or on the BBox or BBox is None;
-            False otherwise
+            True if cord lies within the BBox; False otherwise.
         """
-        return self is None or self.shape.contains(Point(point))
+        return self.shape.contains(Point(point))
 
     def set_ccrs(self, crs):
         """
@@ -240,9 +238,8 @@ class BBox:
     @property
     def bounds(self):
         return self.shape.bounds
-
-    @staticmethod
-    def sql_query(bbox, x_field, y_field) -> str:
+    
+    def sql_query(self, x_field, y_field) -> str:
         """
         Translates the bounding box into a SQL query string.
 
@@ -260,45 +257,13 @@ class BBox:
         """
         query = ""
         # For calls from functions where no boundary is declared
-        if bbox is not None:
-            min_x, min_y, max_x, max_y = bbox.bounds
+        if self is not None:
+            min_x, min_y, max_x, max_y = self.bounds
 
             query = (f"({min_x} <= {x_field} AND {max_x} >= {x_field} AND " +
                      f"{min_y} <= {y_field} AND {max_y} >= {y_field})")
 
         return query
-
-    @staticmethod
-    def filter_df(series, bbox, x_field: str, y_field: str):
-        """
-        A wrapper function for passing BBox.contains_point to
-        <pandas DataFrame>.apply() for the purpose of filtering a
-        DataFrame.
-
-        Scans a row
-
-        :param series: Pandas Series
-            The series/row to be scanned
-
-        :param bbox: BBox or None (default)
-            BBox object defining area of interest. If None, doesn't
-            filter by a bounding box.
-
-        :param x_field: string
-            The name of the x_field of the series
-
-        :param y_field: string
-            The name of the y_field of the series
-
-        :return: bool
-
-        :raises ValueError:
-        """
-        if type(bbox) is BBox or bbox is None:
-            return BBox.contains_point(bbox, [series[x_field],
-                                              series[y_field]])
-
-        raise ValueError("None or BBox object expected but", type(bbox), "found")
 
     def to_tuple(self):
         """
@@ -306,8 +271,6 @@ class BBox:
 
         :return:
         """
-        if self is None:
-            return None
         return self.bounds
 
 
@@ -334,6 +297,10 @@ class Period:
 
     def is_empty(self):
         return self.start is None and self.end is None
+        
+    @staticmethod
+    def from_list(period):
+        return Period(start=period[0], end=period[1])
 
     @staticmethod
     def check_period(period):
@@ -355,20 +322,19 @@ class Period:
                     None
         """
         if period is not None:
-            if hasattr(period, '__iter__') and len(period) != 2:
+            if type(period) in (list, tuple) and len(period) != 2:
                 raise ValueError(f"Period expected 2 values, found {len(period)}.")
             elif type(period) is not list and type(period) is not tuple and \
-                type(period) != Period:
+                 type(period) != Period:
                 raise ValueError(f"Period of wrong type, {type(period)} found.")
             elif not (period[0] is None) and not (period[1] is None) and period[0] >= period[1]:
                 raise ValueError("Period start date must be the same as or after the end date.")
 
-    @staticmethod
     def sql_query(period, fields) -> str:
         """
         Given a list of fields, generates an SQL query based on period
         and identified date fields. Searches for "DATE", "YEAR_FROM",
-        and "YEAR_TO".
+        "YEAR_TO", "YEAR", and "MONTH".
 
         :param period: The period to be checked
 
@@ -397,17 +363,12 @@ class Period:
         def formatter_2():
             return f"({start_f} <= {p_start_str} AND {p_start_str} <= {end_f}) OR " + \
                    f"({start_f} <= {p_end_str} AND {p_end_str} <= {end_f})"
-
-
+                   
         # if a list or tuple of <str> is passed as the period,
         # convert it to a period object
         if type(period) == list or type(period) == tuple:
             Period.check_period(period)
             period = Period(start=period[0], end=period[1])
-        
-        # if no date range is declared, return an empty string
-        if period is None or period.is_empty():
-            return ""
         
         p_start = period.start if not (period.start is None) else "0000-01-01"
         p_end = period.end if not (period.end is None) else "9999-12-31"
@@ -552,6 +513,32 @@ class Period:
         periods.append([start, last])
 
         return periods
+        
+    @staticmethod
+    def check_data_range(period, dates):
+        n = 0
+        for ind, row in dates.iterrows():
+            start = row['P_Start']
+            end = row['P_End']
+            
+            if not (period[0] is None) and not (period [1] is None):
+                if not ((start <= period[0] <= end) or \
+                        (start <= period[1] <= end) or \
+                        (period[0] <= start <= period[1]) or \
+                        (period[0] <= end <= period[1])):
+                    print("date range out of period:", start, end)
+                    n+=1
+            elif period[0] is None:
+                if not (start <= period[1]):
+                    print("date range out of period:", start, end)
+                    n+=1
+            elif period[1] is None:
+                if not (period[0] <= end):
+                    # If functions correctly, nothing is outputted
+                    print("date range out of period:", start, end)
+                    n+=1
+                    
+        print(f"{n} date ranges were incorrect")
 
 
 class Timer:
