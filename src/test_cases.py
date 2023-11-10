@@ -105,6 +105,23 @@ def test_period():
     periods = Period.get_periods(dates=dates,silent=True)
     assert periods == [['1991-02-01', '1991-02-03'], ['1991-02-05', '1991-02-07']]
 
+
+def test_build_sql():
+    period = ['2010-10-11', '2011-11-11']
+    bbox = BBox(-80, -79.5, 45, 45.5)
+    sample = 5
+    subset = ["2A", "4N", "9K", "i8"]
+    
+    query = load_data.build_sql_query(fields=['name', 'Station_ID', 'X', 'Y', 'Date'],
+                            subset=subset, period=period, bbox=bbox, sample=sample,
+                            var=['v','q'], car='merc')
+                            
+    assert query == ' WHERE Station_ID in ("2A", "4N", "9K", "i8") AND ' + \
+        "(strftime('%Y-%m-%d', '2010-10-11') <= Date AND Date <= strftime('%Y-%m-%d', '2011-11-11'))" + \
+        ' AND (-80.0 <= X AND -79.5 >= X AND 45.0 <= Y AND 45.5 >= Y) AND var in ("v", "q")' + \
+        ' AND (car == "merc") ORDER BY RANDOM() LIMIT 5'
+    
+    
 # ========================================================================= ##
 # License ================================================================= ##
 # ========================================================================= ##
@@ -305,15 +322,10 @@ def hydat_data_test():
 
 def main():
     timer = Timer()
+    load_data.generate_pwqmn_sql()
     
-    hydat = load_data.get_hydat_stations(sample=10)
-    pwqmn = load_data.get_pwqmn_stations(sample=10)
-    
-    hydat_dr = load_data.get_hydat_data_range(subset="11AC066")
-    pwqmn_dr = load_data.get_pwqmn_data_range(subset="8002201802")
-    
-    print(hydat_dr.to_string())
-    print(pwqmn_dr)
+    pwqmn = load_data.get_pwqmn_stations(subset=psubset)
+    pwqmn.to_csv('psubset.csv')
     
     period_overlap(hydat_dr, pwqmn_dr)
 

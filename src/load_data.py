@@ -46,10 +46,34 @@ and saving of files.
 
 
 def id_query_from_subset(subset, fields):
+    """
+    Creates a SQL expression that queries ID.
+    
+    :param subset: string or list-like/Series of string
+        The ID to retrieve or a list, tuple, or Series of IDs.
+    
+    :param fields: list-like of string
+        List of fields available for the query. This can be a list
+        created by reading from the sql table using:
+        
+        >>> curs = conn.execute('PRAGMA table_info(table_name)')
+        >>> fields = [field[1] for field in curs.fetchall()]
+        
+        Or a user defined list containing all or only the necessary
+        fields.
+        i.e
+        >>> fields = ['Station_ID', 'Station_Name']\
+        
+    :return: string
+        The created sql query string.
+    """
     if 'Station_ID' in fields:
         id_field = 'Station_ID'
     elif 'STATION_NUMBER' in fields:
         id_field = 'STATION_NUMBER'
+    else:
+        raise ValueError("No ID field found. To add a query for an id field"
+                         "include it as a q_kwarg.")
     
     if not hasattr(subset, '__iter__') or type(subset) is str:
         subset = (subset, )
@@ -61,6 +85,47 @@ def id_query_from_subset(subset, fields):
     
 
 def build_sql_query(fields, **q_kwargs):
+    """
+    Builds and returns a SQL query in the form of a string containing
+    all valid provided query keyword arguments.
+    
+    :param fields: str or list-like of str or None (default)
+        Fields of the sql table to read from. Used to build the
+        period, bbox, and id subset expressions of the query.
+        To read all field names of a table use:
+        >>> curs = conn.execute('PRAGMA table_info(table_name)')
+        >>> fields = [field[1] for field in curs.fetchall()]
+        
+    
+    :param q_kwargs: additional keyword arguments
+        Additional keyword arguments to apply to the query.
+        Potential q_kwargs key + type:
+        
+        period: Tuple/list of length 2 or Period object
+            Tuple/list of (<start date>, <end date>); dates can be 
+            either <str> in format "YYYY-MM-DD" or None; If None, all 
+            dates after(before) the start(end) date are retrieved.
+
+        subset: string or list-like/Series of string
+             The ID to retrieve or a list, tuple, or Series of IDs.
+             
+        bbox: BBox object
+            BBox object defining area of interest.
+        
+        sample: <positive nonzero int>
+            Number of (random) stationsz to read from the table.
+            
+        other: value or list of values
+            Where the keyword is the field name, and the passed
+            value is either a single value or list of values
+            with which the field will be queryed.
+            
+            examples:
+            brand="Adidas" will add 'brand == "Adidas"' to the
+                query expression.
+            brand=["Adidas", "Nike", "Puma"] will add
+                'brand in ("Adidas", "Nike", "Puma")'
+    """
     query = []
     sample = q_kwargs.get('sample')
 
@@ -81,16 +146,19 @@ def build_sql_query(fields, **q_kwargs):
             q_part = id_query_from_subset(q_kwargs['subset'], fields)
         elif key == 'sample':
             pass
-        elif type(q_kwargs[key]) is str:
-            q_part = f'{key} == "{q_kwargs[key]}"'
-        elif hasattr(q_kwargs[key], '__iter__'):
-            lst = []
-            for i in q_kwargs[key]:
-                if type(i) is str:
-                    lst.append(f'"{i}"')
-                else:
-                    lst.append(i)
-            q_part = f'{key} in ({", ".join(lst)})'
+        else:
+            if key not in fields:
+                print(f"{key} field not found in list of fields. Skiping...")
+            elif type(q_kwargs[key]) is str:
+                q_part = f'({key} == "{q_kwargs[key]}")'
+            elif hasattr(q_kwargs[key], '__iter__'):
+                lst = []
+                for i in q_kwargs[key]:
+                    if type(i) is str:
+                        lst.append(f'"{i}"')
+                    else:
+                        lst.append(i)
+                q_part = f'{key} in ({", ".join(lst)})'
         
         if q_part:
             query.append(q_part)
@@ -108,14 +176,15 @@ def build_sql_query(fields, **q_kwargs):
 # Generator =============================================================== ##
 # ========================================================================= ##
 
+
 def generate_pwqmn_sql():
     """
     Creates a sqlite3 database from PWQMN data.
 
     Creates a connection to the sql database (if it doesn't exist it
-    is created), reads a specified set of columns from the PWQMN data,
-    then writes it to the sql database as the 'DATA' table. If a 'DATA'
-    table exists already, that table is overwritten by the new data.
+    is created), reads all columns from the PWQMN data, then writes it
+    to the sql database as the 'ALL_DATA' table. If a 'ALL_DATA' table 
+    exists already, that table is overwritten by the new data.
 
     Renames certain fields to standardize the column names between PWQMN
     and HYDAT data.
@@ -127,20 +196,6 @@ def generate_pwqmn_sql():
 
     # read fields of interest, and set data types for mixed type fields
     pwqmn_data = pd.read_csv(pwqmn_path,
-                             usecols=['MonitoringLocationName',
-                                      'MonitoringLocationID',
-                                      'MonitoringLocationLongitude',
-                                      'MonitoringLocationLatitude',
-                                      'ActivityStartDate',
-                                      'CharacteristicName',
-                                      'SampleCollectionEquipmentName',
-                                      'ResultSampleFraction',
-                                      'ResultValue',
-                                      'ResultUnit',
-                                      'ResultValueType',
-                                      'ResultDetectionCondition',
-                                      'ResultDetectionQuantitationLimitMeasure',
-                                      'ResultDetectionQuantitationLimitUnit'],
                              dtype={'MonitoringLocationLongitude': float,
                                     'MonitoringLocationLatitude': float,
                                     'ResultSampleFraction': str,
@@ -170,92 +225,39 @@ def generate_pwqmn_sql():
     return pwqmn_data
 
 
-def pwqmn_create_stations(pwqmn_data=None):
-    """
-    Adds a 'Stations' table in the PWQMN sqlite3 database containing
-    only the name, id, and location of each unique station.
-    
-    :param pwqmn_df: DataFrame or None (default)
-        If provided, data is extracted from the provided DataFrame.
-        If None, loads necessary data from the PWQMN database file.
-        
-    :return: DataFrame
-        The created SQL table as a DataFrame.
-    
-    :raises ValueError:
-        If only one of pwqmn_df and conn are provided.
-    """
-    conn = sqlite3.connect(pwqmn_sql_path)
-    
-    if pwqmn_data is None:
-        pwqmn_data = pd.read_sql_query(
-            "SELECT Station_Name, Station_ID, Latitude, Longitude FROM 'ALL_DATA'", conn)
-    else:
-        pwqmn_data = pwqmn_data[['Station_Name', 'Station_ID', 'Longitude', 'Latitude']]
-       
-    # Create table with only station id, name, and location
-    
-    station_data = pwqmn_data.drop_duplicates(ignore_index=True)
-    station_data.to_sql('Stations', conn, index=False, if_exists='replace')
-    
-    conn.close()
-    return station_data
-
-
-var = [
-        "Nitrite", "Inorganic nitrogen (nitrate and nitrite)",
+interest_var = ["Nitrite", "Inorganic nitrogen (nitrate and nitrite)",
         "Total Nitrogen; mixed forms", "Kjeldahl nitrogen", "Nitrate",
-        "Total Phosphorus; mixed forms", "Orthophosphate"
-    ]
-    
-    
-def pwqmn_create_data_range(pwqmn_data=None, sample=None):
+        "Total Phosphorus; mixed forms", "Orthophosphate"]
+
+
+def pwqmn_create_data_range():
     """
     Adds a 'Data_Range' table in the PWQMN sqlite3 database. The table
     stores periods where either Nitrogen or Phosphurus data is 
-    available for each station using a start and end date.
+    available for each pwqmn station using a start and end date.
     
-    Fields: Station_ID, Variable, Start, End
+    Table Name: Data_Range
+    Fields: Station_ID, Start, End
     
     Date processing code writter by Juliane Mai, January 2023
-    Modified by James Wang, November 2023
-    
-    :param pwqmn_df: DataFrame or GeoDataFrame or None (default)
-        Loaded PWQMN data. Provide it if PWQMN data was previously
-        loaded to save time reloading it.
-    
-    :param sample: positive non-zero int or None (default)
-        For testing/debugging purposes only to drastically reduce
-        runtime to allow for faster testing. Only provide a sample
-        if pwqmn_df and conn were not provided
+    Modified by James Wang, November 2023sample
     
     :return: DataFrame
-        The created SQL table as a DataFrame
+        The created SQL table as a DataFrame. Modifies the database at
+        pwqmn_sql_path.
     """
-    def categorize(x):
-        if x in var:
-            return 'N_or_P'
-        else:
-            return 'Other'
     
     def add_to_output(st_id, start, end):
         out_data['Station_ID'].append(st_id)
         out_data['P_Start'].append(start)
         out_data['P_End'].append(end)
-                        
+
     conn = sqlite3.connect(pwqmn_sql_path)
+    curs = conn.execute('PRAGMA table_info(ALL_DATA)')
+    fields = [field[1] for field in curs.fetchall()]
     
-    if pwqmn_data is None:
-        query = "SELECT Station_ID, Variable, Date FROM 'ALL_DATA'"
-        
-        if var:
-            part = ', '.join(f"'{v}'" for v in var)
-            query += f" WHERE Variable IN ({part})"
-            
-        if sample is not None and sample > 0:
-            query += f" ORDER BY RANDOM() LIMIT {sample}"
-            
-        pwqmn_data = pd.read_sql_query(query, conn)
+    query = build_sql_query(fields, Variable=interest_var)
+    pwqmn_data = pd.read_sql_query("SELECT Station_ID, Date FROM ALL_DATA" + query, conn)
     
     pwqmn_data['Date'] = pd.to_datetime(pwqmn_data['Date'])
     pwqmn_data['Date'] = pwqmn_data['Date'].dt.strftime("%Y-%m-%d")
@@ -290,23 +292,77 @@ def pwqmn_create_data_range(pwqmn_data=None, sample=None):
     return out_data
 
 
-def get_pwqmn_data(**q_kwargs) -> pd.DataFrame:
+def get_pwqmn_data(tbl_name, to_csv=False, get_fields="*", **q_kwargs) -> pd.DataFrame:
+    """
+    Retrieves data from a table in the PWQMN sqlite3 database.
+    
+    :param tbl_name: str
+        Name of the table to read from the pwqmn dataset.
+    
+    :param to_csv: str or False (default)
+        If False, don't save the output DataFrame to a csv file. If
+        string, save the output station subset to
+        "PWQMN_cleaned/{to_csv}.csv"
+    
+    :param get_fields: str of list-like of str (default="*")
+        The field(s) to read from the sqlite table. Defaults to "*"
+        which retrieves all fields from the table.
+    
+    :param q_kwargs: additional keyword arguments
+        Additional keyword arguments to apply to the query.
+        Potential q_kwargs key + type:
+        
+        period: Tuple/list of length 2 or Period object
+            Tuple/list of (<start date>, <end date>); dates can be 
+            either <str> in format "YYYY-MM-DD" or None; If None, all 
+            dates after(before) the start(end) date are retrieved.
+
+        subset: string or list-like/Series of string
+             The ID to retrieve or a list, tuple, or Series of IDs.
+             
+        bbox: BBox object
+            BBox object defining area of interest. If table does not
+            have fields
+        
+        sample: <positive nonzero int>
+            Number of (random) stationsz to read from the table.
+            
+        other: value or list of values
+            Where the keyword is the field name, and the passed
+            value is either a single value or list of values
+            with which the field will be queryed.
+            
+            examples:
+            brand="Adidas" will add 'brand == "Adidas"' to the
+                query expression.
+            brand=["Adidas", "Nike", "Puma"] will add
+                'brand in ("Adidas", "Nike", "Puma")'
+    """
     # create a sqlite3 connection to the pwqmn data
     print("Creating a connection to '{0}'".format(pwqmn_sql_path))
     conn = sqlite3.connect(pwqmn_sql_path)
 
     # generate a sql query from bbox and period
-    curs = conn.execute('PRAGMA table_info(ALL_DATA)')
+    curs = conn.execute(f'PRAGMA table_info({tbl_name})')
     fields = [field[1] for field in curs.fetchall()]
     
+    query = build_sql_query(fields, **q_kwargs)
     
+    if type(get_fields) in (list, tuple):
+        get_fields = ', '.join(get_fields)
+    
+    data = pd.read_sql_query(f'SELECT {get_fields} FROM "{tbl_name}"' + query, conn)
+    if to_csv:
+        data.to_csv(os.path.join(data_path, 'PWQMN_cleaned', f"{to_csv}.csv"))
+
+    conn.close()
+    return data
     
 
-def get_pwqmn_stations(**q_kwargs) -> pd.DataFrame:
+def get_pwqmn_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
     """
-    Loads the PWQMN data based on selected bbox, period, and variables
-    of interest from the PWQMN database (variables of interest declared
-    above as the vars list).
+    Loads a list of PWQMN stations with Nitrogen or Phosphorus data 
+    from the PWQMN database according to a set of query arguments.
 
     The PWQMN sqlite database must contain a 'ALL_DATA' table with the
     following fields:
@@ -314,70 +370,73 @@ def get_pwqmn_stations(**q_kwargs) -> pd.DataFrame:
     - Latitude
     - Station_ID
     - Station_Name
-
-    :param period: Tuple/list of length 2 or None
-
-        Tuple/list of (<start date>, <end date>); dates can be either
-        <str> in format "YYYY-MM-DD" or None; If None, all dates
-        after(before) the start(end) date are retrieved.
-
-            or
-
-        None; No date query. Does not filter data by date.
-
-    :param bbox: BBox or None (default)
-        BBox object defining area of interest. If None, doesn't
-        filter by a bounding box.
-
-    :param sample: <positive nonzero int> or None
-        Number of (random) stations to read from PWQMN database. If
-        None, do not sample and retrieve entire database.
+    
+    :param to_csv: str or False (default)
+        If False, don't save the output DataFrame to a csv file. If
+        string, save the output station subset to
+        "PWQMN_cleaned/{to_csv}.csv"
+    
+    :param q_kwargs: additional keyword arguments
+        Additional keyword arguments to apply to the query.
+        Potential q_kwargs key + type:
         
-    :param subset: list-like or pandas Series (default=())
-        Iterable containing the ids of the stations whose data
-        to retrieve.
+        period: Tuple/list of length 2 or Period object
+            Tuple/list of (<start date>, <end date>); dates can be 
+            either <str> in format "YYYY-MM-DD" or None; If None, all 
+            dates after(before) the start(end) date are retrieved.
+
+        subset: string or list-like/Series of string
+             The ID to retrieve or a list, tuple, or Series of IDs.
+             
+        bbox: BBox object
+            BBox object defining area of interest.
+        
+        sample: <positive nonzero int>
+            Number of (random) stationsz to read from the table.
+            
+        other: value or list of values
+            Where the keyword is the field name, and the passed
+            value is either a single value or list of values
+            with which the field will be queryed.
+            
+            examples:
+            brand="Adidas" will add 'brand == "Adidas"' to the
+                query expression.
+            brand=["Adidas", "Nike", "Puma"] will add
+                'brand in ("Adidas", "Nike", "Puma")'
 
     :return: <pandas DataFrame>
-        PWQMN station data.
+        PWQMN stations (ID, Name, Lat, Lon) with variables of interest.
     """
     timer.start()
 
     # create a sqlite3 connection to the pwqmn data
     print("Creating a connection to '{0}'".format(pwqmn_sql_path))
-    conn = sqlite3.connect(pwqmn_sql_path)
-
-    # generate a sql query from bbox and period
-    curs = conn.execute('PRAGMA table_info(ALL_DATA)')
-    fields = [field[1] for field in curs.fetchall()]
     
-    if not q_kwargs.get('var') is None:
-        var += q_kwargs.get(var)
-        del q_kwargs['var']
-    query = build_sql_query(Variable=var, **q_kwargs)
-    
-    # Load PWQMN data as a DataFrame
-    station_df = pd.read_sql_query("SELECT DISTINCT Station_ID, Station_Name,"
-                                   " Latitude, Longitude FROM 'ALL_DATA'" + query, conn)
-    conn.close()
+    station_df = get_pwqmn_data("ALL_DATA", get_fields=['Station_ID', 
+                                'Station_Name', 'Latitude', 'Longitude'],
+                                to_csv=False, Variable=interest_var, 
+                                **q_kwargs)
+    station_df.drop_duplicates(subset=['Station_ID'], inplace=True)
 
     if station_df.empty:
         print("Chosen query resulted in empty GeoDataFrame.")
+    else:
+        if to_csv:
+            station_df.to_csv()
     
     timer.stop()
     return station_df
 
 
-def get_pwqmn_data_range(subset=()):
-    conn = sqlite3.connect(pwqmn_sql_path)
+def get_pwqmn_data_range(to_csv=False, **q_kwargs):
+    """
+    Retrieves the data ranges of PWQMN stations with variables of
+    interest according to query arguments.
     
-    id_query = id_query_from_subset(subset, ['Station_ID'])
-    if id_query:
-        id_query = ' WHERE ' + id_query
-    query = "SELECT * FROM 'Data_Range'" + id_query
-        
-    df = pd.read_sql_query(query, conn)
-    conn.close()
-    return df
+    
+    """
+    return get_pwqmn_data('Data_Range', to_csv=to_csv, **q_kwargs)
 
 
 # ========================================================================= ##
@@ -504,31 +563,34 @@ def get_hydat_data(tbl_name, get_fields='*', to_csv=False, **q_kwargs):
         If string, saves the table to <to_csv>.csv. If False, does
         nothing.
     
-    :param q_kwargs: keyword arguments (optional)
+    :param q_kwargs: additional keyword arguments
         Additional keyword arguments to apply to the query.
-        Potential q_kwargs:
+        Potential q_kwargs key + type:
         
-            period: Tuple/list of length 2
+        period: Tuple/list of length 2 or Period object
+            Tuple/list of (<start date>, <end date>); dates can be 
+            either <str> in format "YYYY-MM-DD" or None; If None, all 
+            dates after(before) the start(end) date are retrieved.
 
-                Tuple/list of (<start date>, <end date>); dates can be either
-                <str> in format "YYYY-MM-DD" or None; If None, all dates
-                after(before) the start(end) date are retrieved.
-
-            subset: string or list-like/Series of string
+        subset: string or list-like/Series of string
+             The ID to retrieve or a list, tuple, or Series of IDs.
+             
+        bbox: BBox object
+            BBox object defining area of interest.
+        
+        sample: <positive nonzero int>
+            Number of (random) stationsz to read from the table.
             
-                Iterable containing the ids of the stations whose data
-                to retrieve.
+        other: value or list of values
+            Where the keyword is the field name, and the passed
+            value is either a single value or list of values
+            with which the field will be queryed.
             
-            bbox: BBox
-                BBox object defining area of interest.
-            
-            sample: <positive nonzero int> or None
-                Number of (random) stations to read from the table.
-                
-            other: value or list of values
-                Where the keyword is the field name, and the passed
-                value is either a single value or list of values
-                which the field will be queryed against.
+            examples:
+            brand="Adidas" will add 'brand == "Adidas"' to the
+                query expression.
+            brand=["Adidas", "Nike", "Puma"] will add
+                'brand in ("Adidas", "Nike", "Puma")'
             
     :return: Pandas DataFrame
         Hydat database table of rows for which all provided query
@@ -573,40 +635,62 @@ def get_hydat_data_range(**q_kwargs) -> pd.DataFrame:
 
 def get_hydat_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
     """
-    Retrieves HYDAT station data that has discharge (Q) values.
+    Retrieves HYDAT station data that have streamflow (Q) values.
     Renames certain data fields to standardize between PWQMN and
     HYDAT data.
 
     The HYDAT sqlite3 database must contain the following tables:
     - STATIONS
-    - STN_DATA_RANGE
+    - Data_Range
 
     STATIONS must contain the following fields:
     - STATION_NUMBER
     - STATION_NAME
     - LONGITUDE
     - LATITUDE
-    - DRAINAGE_AREA_GROSS
-    - DRAINAGE_AREA_EFFECT
 
-    STN_DATA_RANGE must contain STATION_NUMBER and DATA_TYPE, and one
-    of the following sets of fields (or another field name compatible
-    with Period.sql_query()):
-    - YEAR and MONTH
-    - YEAR_FROM and YEAR_TO
-    - DATE
+    Data_Range must be created using hydat_create_data_range and
+    contain the following fields:
+    - Station_ID
+    - Start
+    - End
     
-    :param q_kwargs: keyword arguments (optional)
-        See get_hydat_data() for potential accepted query arguments and
-        more information on passing query keywords.
+    :param to_csv: str or False (default)
+        If False, don't save the output DataFrame to a csv file. If
+        string, save the output station subset to "Hydat/{to_csv}.csv"
+    
+    :param q_kwargs: additional keyword arguments
+        Additional keyword arguments to apply to the query.
+        Potential q_kwargs key + type:
+        
+        period: Tuple/list of length 2 or Period object
+            Tuple/list of (<start date>, <end date>); dates can be 
+            either <str> in format "YYYY-MM-DD" or None; If None, all 
+            dates after(before) the start(end) date are retrieved.
+
+        subset: string or list-like/Series of string
+             The ID to retrieve or a list, tuple, or Series of IDs.
+             
+        bbox: BBox object
+            BBox object defining area of interest.
+        
+        sample: <positive nonzero int>
+            Number of (random) stationsz to read from the table.
+            
+        other: value or list of values
+            Where the keyword is the field name, and the passed
+            value is either a single value or list of values
+            with which the field will be queryed.
+            
+            examples:
+            brand="Adidas" will add 'brand == "Adidas"' to the
+                query expression.
+            brand=["Adidas", "Nike", "Puma"] will add
+                'brand in ("Adidas", "Nike", "Puma")'
     
     :return: <pandas DataFrame>
         HYDAT stations passing all query arguments (see q_kwargs for
-        more informatio) with available monthly streamflow
-        data (one record per month of data available from each station,
-        2 columns (flow value, flow symbol) per assumed 31 days of the
-        month). Refer to hydat_reference.md DATA_SYMBOLS for
-        FLOW_SYMBOL information.
+        more informatio) with available streamflow data.
     """
     fields = ['STATION_NUMBER', 'STATION_NAME', 'LATITUDE', 'LONGITUDE',
               'DRAINAGE_AREA_GROSS', 'DRAINAGE_AREA_EFFECT']
@@ -639,6 +723,21 @@ def get_hydat_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
 
 def hydat_create_data_range():
     """
+    Adds a "Data_Range" table to the HYDAT database that contains the
+    date ranges for each HYDAT station where streamflow data is
+    available. The created table contains 3 fields:
+    - Station_ID
+    - Start
+    - End
+    
+    Requries that the HYDAT database contains the DLY_FLOWS table,
+    which has the following fields:
+    - STATION_NUMBER
+    - YEAR
+    - MONTH
+    - FLOW1 ... FLOW31 (31 FLOW fields numbered from 1 to 31)
+    
+    If a Data_Range table already exists, it will be replaced.
     """
     def add_to_output(st_id, start, end):
         out_data['Station_ID'].append(st_id)
@@ -655,7 +754,6 @@ def hydat_create_data_range():
             
     def is_leap(year):
         return (year % 4 == 0) and (year % 100 != 0 or year % 400 == 0)
-    
     
     dly_flows = get_hydat_flow()
     
@@ -693,19 +791,15 @@ def hydat_create_data_range():
                     
                 last = f"{year}-{month}-{days_in_month}"
             else:
-                for i in range(days_in_month):
-                    if row.iloc[11 + i * 2]:
-                        date = f"{year}-{month}-{(i + 1):02}"
-                        try:
-                            if start is None:
-                                start = date
-                            elif datetime.strptime(date, "%Y-%m-%d") != \
-                                    datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
-                                add_to_output(st_id, start, last)
-                                start = date
-                        except ValueError:
-                            print(date)
-                            return
+                for i in range(1, days_in_month + 1):
+                    if row[f"FLOW{i}"]:
+                        date = f"{year}-{month}-{i:02}"
+                        if start is None:
+                            start = date
+                        elif datetime.strptime(date, "%Y-%m-%d") != \
+                                datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
+                            add_to_output(st_id, start, last)
+                            start = date
                         last = date
             
         add_to_output(st_id, start, last)

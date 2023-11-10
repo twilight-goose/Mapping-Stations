@@ -65,3 +65,6 @@ src/load_data.py.bak
 *.bak
 src/test_cases.py.bak
 src/test_cases.py.bak
+src/subset.sqlite3
+src/psubset.csv
+data/nov-09-subsets/Hydat_sqlite3.csv
