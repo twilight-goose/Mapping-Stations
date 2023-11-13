@@ -1,4 +1,5 @@
-from gen_util import find_xy_fields, Can_LCC_wkt, check_geom, BBox
+from gen_util import find_xy_fields, Can_LCC_wkt, check_geom, BBox, period_overlap
+from load_data import get_hydat_data_range, get_pwqmn_data_range
 
 import pandas as pd
 import geopandas as gpd
@@ -320,6 +321,24 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     return edges.merge(pd.DataFrame(data=temp_data), on='unique_ind', how='left')
 
 
+def assign_period_overlap(match_df):
+    hydat_dr = get_hydat_data_range(subset=match_df['hydat_id'].to_list())
+    pwqmn_dr = get_pwqmn_data_range(subset=match_df['pwqmn_id'].to_list())
+    
+    overlap_lst = []
+    
+    for ind, row in match_df.iterrows():
+        hydat_ps = hydat_dr.query('Station_ID == @row["hydat_id"]')
+        # cast pwqmn_id to an int because using the @ operator in query
+        # makes the id into a string for some reason
+        pwqmn_id = int(row["pwqmn_id"])
+        pwqmn_ps = pwqmn_dr.query('Station_ID == @pwqmn_id')
+        
+        overlap_lst.append(period_overlap(hydat_ps, pwqmn_ps))
+    
+    return match_df.assign(data_overlap=overlap_lst)
+    
+
 def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
     """
 
@@ -409,6 +428,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                 The number of river segments separating the origin and
                 matched station. Stations on the same segment will have
                 a value of 0.
+            - data_overlap (int)
+                The number of days where data is present for both the
+                HYDAT and PWQMN stations.
     """
     def bfs(source):
         pass
@@ -534,7 +556,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
             point_list2.append(station['geometry'])
             add_to_matches(station['Station_ID'], up_id, LineString(point_list2),
                            up_dist, 'Up', up_depth)
-
+    
     # ===================================================================== #
     # Instantiate dictionary to store matches
     matches = {prefix1 + 'id': [], prefix2 + 'id' : [], 'path': [],
@@ -561,7 +583,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                 off_segment()
     
     matches = gpd.GeoDataFrame(data=matches, geometry='path', crs=Can_LCC_wkt)
+    matches = assign_period_overlap(matches)
     return matches
+    
 
 
 def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=False, show=False) -> nx.DiGraph:

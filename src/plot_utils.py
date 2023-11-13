@@ -434,9 +434,9 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
                            figsize=(16, 8))
 
     legend_elements = [
-        {'label': 'HYDAT', 'color': 'blue', 'Symbol': 'point'},
-        {'label': 'PWQMN', 'color': 'red', 'Symbol': 'point'},
-        {'label': 'On', 'color': 'orange', 'Symbol': 'line'},
+        {'label': 'HYDAT', 'color': 'blue', 'symbol': 'point'},
+        {'label': 'PWQMN', 'color': 'red', 'symbol': 'point'},
+        {'label': 'On', 'color': 'orange', 'symbol': 'line'},
         {'label': 'Downstream', 'color': 'pink', 'symbol': 'line'},
         {'label': 'Upstream', 'color': 'purple', 'symbol': 'line'}
     ]

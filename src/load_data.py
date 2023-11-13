@@ -125,6 +125,22 @@ def build_sql_query(fields, **q_kwargs):
                 query expression.
             brand=["Adidas", "Nike", "Puma"] will add
                 'brand in ("Adidas", "Nike", "Puma")'
+    
+    examples/tests:
+    
+        period = ['2010-10-11', '2011-11-11']
+        bbox = BBox(-80, -79.5, 45, 45.5)
+        sample = 5
+        subset = ["2A", "4N", "9K", "i8"]
+        
+        query = load_data.build_sql_query(fields=['name', 'Station_ID', 'X', 'Y', 'Date'],
+                                subset=subset, period=period, bbox=bbox, sample=sample,
+                                var=['v','q'], car='merc')
+                                
+        assert query == ' WHERE Station_ID in ("2A", "4N", "9K", "i8") AND ' + \
+            "(strftime('%Y-%m-%d', '2010-10-11') <= Date AND Date <= strftime('%Y-%m-%d', '2011-11-11'))" + \
+            ' AND (-80.0 <= X AND -79.5 >= X AND 45.0 <= Y AND 45.5 >= Y) AND var in ("v", "q")' + \
+            ' AND (car == "merc") ORDER BY RANDOM() LIMIT 5'
     """
     query = []
     sample = q_kwargs.get('sample')
@@ -151,6 +167,8 @@ def build_sql_query(fields, **q_kwargs):
                 print(f"{key} field not found in list of fields. Skiping...")
             elif type(q_kwargs[key]) is str:
                 q_part = f'({key} == "{q_kwargs[key]}")'
+            elif type(q_kwargs[key]) in [int, float]:
+                q_part = f'({key} == {q_kwargs[key]})'
             elif hasattr(q_kwargs[key], '__iter__'):
                 lst = []
                 for i in q_kwargs[key]:
@@ -169,7 +187,7 @@ def build_sql_query(fields, **q_kwargs):
     
     if sample is not None and sample > 0:
         query += f" ORDER BY RANDOM() LIMIT {sample}"
-    
+
     return query
     
 # ========================================================================= ##
@@ -444,15 +462,8 @@ def get_pwqmn_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
         PWQMN stations (ID, Name, Lat, Lon) with variables of interest.
     """
     timer.start()
-
-    # create a sqlite3 connection to the pwqmn data
-    print("Creating a connection to '{0}'".format(pwqmn_sql_path))
     
-    station_df = get_pwqmn_data("ALL_DATA", get_fields=['Station_ID', 
-                                'Station_Name', 'Latitude', 'Longitude'],
-                                to_csv=False, Variable=interest_var, 
-                                **q_kwargs)
-    station_df.drop_duplicates(subset=['Station_ID'], inplace=True)
+    station_df = get_pwqmn_data('Stations', to_csv=to_csv, **q_kwargs)
 
     if station_df.empty:
         print("Chosen query resulted in empty GeoDataFrame.")
@@ -634,10 +645,52 @@ def get_hydat_data(tbl_name, get_fields='*', to_csv=False, **q_kwargs):
     :save: tbl_name.csv
         Saves the table data to <tbl_name>.csv in the hydat
         directory (if to_csv == True).
+    
+    tests:
+        subset = ['02LA019', '02KF009', '02KF004', '04MC001']
+        period = ['1999-07-10', '1999-10-11']
+        bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
+        sample = 10
+        
+        hydat = load_data.get_hydat_stations(subset=subset)
+        assert subset.sort() == hydat['Station_ID'].to_list().sort()
+        assert hydat == pd.read_csv(os.path.join(data_path, 'Hydat', 'test_1.csv'))
+
+        hydat = load_data.get_hydat_stations(period=period)
+        assert hydat == pd.read_csv(os.path.join(data_path, 'Hydat', 'test_2.csv'))
+        
+        hydat = load_data.get_hydat_stations(bbox=bbox)
+        assert hydat['Station_ID'].to_list() == \
+            ["02EA001","02EB005","02EB006","02EB009","02EB010",
+             "02EB011","02EB012","02EB103","02EB105"]
+        assert hydat == pd.read_csv(os.path.join(data_path, 'Hydat', 'test_3.csv'))
+        
+        hydat = load_data.get_hydat_stations(sample=sample)
+        assert hydat == pd.read_csv(os.path.join(data_path, 'Hydat', 'test_4.csv'))
+        
+        hydat = load_data.get_hydat_stations(bbox=bbox, period=period)
+        assert hydat == pd.read_csv(os.path.join(data_path, 'Hydat', 'test_5.csv'))
+        assert hydat['Station_ID'].to_list() == ["02EB006","02EB011","02EB012"]
+        
+        hydat = load_data.get_hydat_stations(bbox=bbox, period=period,
+                                             sample=sample)
+        assert hydat == pd.read_csv(os.path.join(data_path, 'Hydat', 'test_6.csv'))
+        assert hydat['Station_ID'].sort_values().to_list() == ["02EB006","02EB011","02EB012"]
+            
+        period2 = [None, '1999-07-10']
+        period3 = ['1999-07-10', None]
+        
+        hydat = load_data.get_hydat_stations(period=period2)
+        assert hydat == pd.read_csv(os.path.join(data_path, 'Hydat', 'test_7.csv'))
+
+        hydat = load_data.get_hydat_stations(period=period3)
+        assert hydat == pd.read_csv(os.path.join(data_path, 'Hydat', 'test_8.csv'))
+    
     """
     timer.start()
 
     # create a sqlite3 connection to the hydat data
+    print(f"Creating a connection to '{hydat_path}'")
     conn = sqlite3.connect(hydat_path) 
 
     curs = conn.execute(f'PRAGMA table_info({tbl_name})')
@@ -776,23 +829,11 @@ def hydat_create_data_range():
         out_data['Station_ID'].append(st_id)
         out_data['P_Start'].append(start)
         out_data['P_End'].append(end)
-    
-    def date_comparison():
-        if start is None:
-            start = date
-        elif datetime.strptime(date, "%Y-%m-%d") != \
-                datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
-            add_to_output(st_id, start, last)
-            start = date
             
     def is_leap(year):
         return (year % 4 == 0) and (year % 100 != 0 or year % 400 == 0)
     
     dly_flows = get_hydat_flow()
-    
-    days_by_month = [
-        31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
-    ]
     
     grouped = dly_flows.groupby('STATION_NUMBER')
     out_data = {'Station_ID': [], 'P_Start': [], 'P_End': []}
@@ -807,12 +848,9 @@ def hydat_create_data_range():
         for ind, row in sub_df.iterrows():
             year = row['YEAR']
             month = f"{row['MONTH']:02}"
-            days_in_month = days_by_month[int(month) - 1]
+            days_in_month = row['NO_DAYS']
             
-            if int(month) == 2 and is_leap(year):
-                days_in_month += 1
-            
-            if row['FULL_MONTH']:
+            if row['FULL_MONTH'] == 1:
                 date = f"{year}-{month}-0{1}"
                 
                 if start is None:
@@ -825,8 +863,10 @@ def hydat_create_data_range():
                 last = f"{year}-{month}-{days_in_month}"
             else:
                 for i in range(1, days_in_month + 1):
-                    if row[f"FLOW{i}"]:
+                
+                    if not pd.isnull(row[f"FLOW{i}"]):
                         date = f"{year}-{month}-{i:02}"
+                        
                         if start is None:
                             start = date
                         elif datetime.strptime(date, "%Y-%m-%d") != \
@@ -870,6 +910,7 @@ def load_rivers(path=hydroRIVERS_path, sample=None, bbox=None):
     :return: Geopandas GeoDataFrame
         HydroRIVERS data as a LineString GeoDataFrame.
     """
+    print(f"Loading rivers from '{path}'")
     return read_file(path, rows=sample, bbox=BBox.to_tuple(bbox))
 
 

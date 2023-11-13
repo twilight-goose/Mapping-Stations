@@ -116,7 +116,7 @@ def days_overlapped(start1, end1, start2, end2):
     end = date.fromisoformat(min(end1, end2))
     delta = end - start
     days = delta.days
-    print(delta.days + 1)
+    
     if days >= 0:
         return days + 1
     else:
@@ -124,35 +124,72 @@ def days_overlapped(start1, end1, start2, end2):
 
 
 def period_overlap(hydat_periods, pwqmn_periods):
-    # These should each be subsets of the whole period DataFrames that
-    # each contain only periods for a single station
-    # requires that both sets of periods are sorted earliest to latest
-    p_ind = 0
-    h_ind = 0
-    total_overlap = 0
+    """
+    Caculates the number of days that overlap between two sets of
+    periods. Period sets may be either list-like or DataFrame but
+    must both be of the same type.
     
-    while h_ind < len(hydat_periods) and p_ind < len(pwqmn_periods):
-        h_row = hydat_periods[h_ind]
-        p_row = pwqmn_periods[p_ind]
+    If list-like, a set of periods must be of the shape (N, 2) where
+    N is the number of periods within the set, and the first element
+    (index 0) is the start date and the second element (index 1) is
+    the end date.
+    
+    If DataFrame, the set of periods must contain a 'P_Start' and
+    a 'P_End' column.
+    
+    :param hydat_periods: list-like or DataFrame
+        The first set of periods.
+    
+    :param pwqmn_periods: like-like or DataFrame
+        The other set of periods.
+    """
+
+    if type(hydat_periods) is type(pwqmn_periods):
+        p_ind = 0
+        h_ind = 0
+        total_overlap = 0
         
-        h_start, h_end = h_row
-        p_start, p_end = p_row
+        if type(hydat_periods) is DataFrame:
+            h_len = hydat_periods.shape[0]
+            p_len = pwqmn_periods.shape[0]
+            
+        elif type(hydat_periods) is list:
+            h_len = len(hydat_periods)
+            p_len = len(pwqmn_periods)
         
-        if h_end < p_start:
-            h_ind += 1
-        elif p_end < h_start:
-            p_ind += 1
-        else:
-            overlap = days_overlapped(h_start, h_end, p_start, p_end)
-            if overlap >= 1:
-                total_overlap += overlap
+        while h_ind < h_len and p_ind < p_len:
+            
+            if type(hydat_periods) is DataFrame:
+                h_row = hydat_periods.iloc[h_ind]
+                p_row = pwqmn_periods.iloc[p_ind]
                 
-            if h_end > p_end:
-                p_ind += 1
-            elif h_end < p_end:
+                h_start, h_end = h_row['P_Start'], h_row['P_End']
+                p_start, p_end = p_row['P_Start'], p_row['P_End']
+                
+            elif type(hydat_periods) is list:
+                h_start, h_end = hydat_periods[h_ind]
+                p_start, p_end = pwqmn_periods[p_ind]
+            
+            if h_end < p_start:
                 h_ind += 1
-                
-    return total_overlap
+            elif p_end < h_start:
+                p_ind += 1
+            else:
+                overlap = days_overlapped(h_start, h_end, p_start, p_end)
+                if overlap >= 1:
+                    total_overlap += overlap
+                    
+                if h_end > p_end:
+                    p_ind += 1
+                elif h_end < p_end:
+                    h_ind += 1
+                else:
+                    p_ind += 1
+                    h_ind += 1
+                    
+        return total_overlap
+    else:
+        print("periods not in same format. No calculation performed.")
 
 # ========================================================================= ##
 # Classes ================================================================= ##
@@ -179,6 +216,21 @@ class BBox:
     examples:
         1: BBox.<function name>(bbox)
         2: <BBox obj>.<function name>()
+        
+    tests:
+    
+    >>> bbox1 = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
+    >>> bbox2 = BBox(-80, -79.5, 45, 45.5)
+    
+    >>> assert bbox1.bounds == bbox2.bounds == bbox1.to_tuple() == bbox2.to_tuple()
+    
+    >>> assert bbox1.contains_point((-79.9, 45.2)) == True
+    >>> assert bbox1.contains_point((-89, 45.2)) == False
+    >>> assert bbox1.contains_point((-80, 45)) == False
+    
+    >>> assert bbox1.sql_query('X', 'Y') == "(-80.0 <= X AND -79.5 >= X AND 45.0 <= Y AND 45.5 >= Y)"
+    >>> assert bbox2.sql_query('X', 'Y') == "(-80.0 <= X AND -79.5 >= X AND 45.0 <= Y AND 45.5 >= Y)"
+    
     """
     def __init__(self, min_x=None, max_x=None, min_y=None, max_y=None, crs=ccrs.Geodetic()):
         """
@@ -297,6 +349,69 @@ class Period:
     examples:
         1: Period.<function name>(period)
         2: <Period obj>.<function name>()
+        
+    tests (require pytests):
+    
+        period1 = ['2020-10-11', None]
+        period2 = [None, '2020-10-11']
+        period3 = ['2020-09-11', '2020-10-11']
+        
+        assert Period.check_period(period1) is None
+        assert Period.check_period(period2) is None
+        assert Period.check_period(period3) is None
+        
+        # invalid periods
+        pytest.raises(ValueError, Period.check_period, ['2010-10-11', '2009-11-11'])
+        pytest.raises(ValueError, Period.check_period, "2022-10-11")
+        pytest.raises(ValueError, Period.check_period, ["2022-10-11"])
+        pytest.raises(ValueError, Period.check_period, ["", "", ""])
+        
+        assert Period.sql_query(period1, ['DATE']) == \
+            "(strftime('%Y-%m-%d', '2020-10-11') <= DATE AND DATE <= strftime('%Y-%m-%d', '9999-12-31'))"
+        assert Period.sql_query(period1, ['YEAR_FROM', 'YEAR_TO']) == \
+            "(strftime('%Y', '2020-10-11') <= YEAR_FROM AND YEAR_FROM <= strftime('%Y', '9999-12-31')) OR " + \
+            "(strftime('%Y', '2020-10-11') <= YEAR_TO AND YEAR_TO <= strftime('%Y', '9999-12-31')) OR " + \
+            "(YEAR_FROM <= strftime('%Y', '2020-10-11') AND strftime('%Y', '2020-10-11') <= YEAR_TO) OR " + \
+            "(YEAR_FROM <= strftime('%Y', '9999-12-31') AND strftime('%Y', '9999-12-31') <= YEAR_TO)"
+        assert Period.sql_query(period1, ['YEAR', 'MONTH']) == \
+            "(strftime('%Y-%m', '2020-10-11') <= " + \
+            "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') AND " + \
+            "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') <= " + \
+            "strftime('%Y-%m', '9999-12-31'))"
+            
+        assert Period.sql_query(period2, ['DATE']) == \
+            "(strftime('%Y-%m-%d', '0000-01-01') <= DATE AND DATE <= strftime('%Y-%m-%d', '2020-10-11'))"
+        assert Period.sql_query(period2, ['YEAR_FROM', 'YEAR_TO']) == \
+            "(strftime('%Y', '0000-01-01') <= YEAR_FROM AND YEAR_FROM <= strftime('%Y', '2020-10-11')) OR " + \
+            "(strftime('%Y', '0000-01-01') <= YEAR_TO AND YEAR_TO <= strftime('%Y', '2020-10-11')) OR " + \
+            "(YEAR_FROM <= strftime('%Y', '0000-01-01') AND strftime('%Y', '0000-01-01') <= YEAR_TO) OR " + \
+            "(YEAR_FROM <= strftime('%Y', '2020-10-11') AND strftime('%Y', '2020-10-11') <= YEAR_TO)"
+        assert Period.sql_query(period2, ['YEAR', 'MONTH']) == \
+            "(strftime('%Y-%m', '0000-01-01') <= " + \
+            "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') AND " + \
+            "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') <= " + \
+            "strftime('%Y-%m', '2020-10-11'))"
+            
+        assert Period.sql_query(period3, ['DATE']) == \
+            "(strftime('%Y-%m-%d', '2020-09-11') <= DATE AND DATE <= strftime('%Y-%m-%d', '2020-10-11'))"
+        assert Period.sql_query(period3, ['YEAR_FROM', 'YEAR_TO']) == \
+            "(strftime('%Y', '2020-09-11') <= YEAR_FROM AND YEAR_FROM <= strftime('%Y', '2020-10-11')) OR " + \
+            "(strftime('%Y', '2020-09-11') <= YEAR_TO AND YEAR_TO <= strftime('%Y', '2020-10-11')) OR " + \
+            "(YEAR_FROM <= strftime('%Y', '2020-09-11') AND strftime('%Y', '2020-09-11') <= YEAR_TO) OR " + \
+            "(YEAR_FROM <= strftime('%Y', '2020-10-11') AND strftime('%Y', '2020-10-11') <= YEAR_TO)"
+        assert Period.sql_query(period3, ['YEAR', 'MONTH']) == \
+            "(strftime('%Y-%m', '2020-09-11') <= " + \
+            "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') AND " + \
+            "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') <= " + \
+            "strftime('%Y-%m', '2020-10-11'))"
+            
+        dates = ['1991-02-01', '1991-02-02', '1991-02-03', '1991-02-04', '1991-02-05', '1991-02-06', '1991-02-07']
+        periods = Period.get_periods(dates=dates,silent=True)
+        assert periods == [['1991-02-01', '1991-02-07']]
+
+        dates = ['1991-02-01', '1991-02-02', '1991-02-03', '1991-02-05', '1991-02-06', '1991-02-07']
+        periods = Period.get_periods(dates=dates,silent=True)
+        assert periods == [['1991-02-01', '1991-02-03'], ['1991-02-05', '1991-02-07']]
     """
     def __init__(self, start=None, end=None):
         self.start = start

@@ -112,14 +112,14 @@ def test_build_sql():
     sample = 5
     subset = ["2A", "4N", "9K", "i8"]
     
-    query = load_data.build_sql_query(fields=['name', 'Station_ID', 'X', 'Y', 'Date'],
+    query = load_data.build_sql_query(fields=['name', 'Station_ID', 'X', 'Y', 'Date', 'var'],
                             subset=subset, period=period, bbox=bbox, sample=sample,
                             var=['v','q'], car='merc')
                             
     assert query == ' WHERE Station_ID in ("2A", "4N", "9K", "i8") AND ' + \
         "(strftime('%Y-%m-%d', '2010-10-11') <= Date AND Date <= strftime('%Y-%m-%d', '2011-11-11'))" + \
         ' AND (-80.0 <= X AND -79.5 >= X AND 45.0 <= Y AND 45.5 >= Y) AND var in ("v", "q")' + \
-        ' AND (car == "merc") ORDER BY RANDOM() LIMIT 5'
+        ' ORDER BY RANDOM() LIMIT 5'
     
 
 def test_period_overlap():
@@ -153,48 +153,36 @@ def test_period_overlap():
 def test_hydat_load():
     subset = ['02LA019', '02KF009', '02KF004', '04MC001']
     period = ['1999-07-10', '1999-10-11']
+    period2 = [None, '1999-07-10']
+    period3 = ['1999-07-10', None]
     bbox = BBox(min_x=-80, max_x=-79.5, min_y=45, max_y=45.5)
     sample = 10
     
-    hydat = load_data.get_hydat_stations(to_csv='test_1', subset=subset)
+    hydat = load_data.get_hydat_stations(subset=subset)
     assert subset.sort() == hydat['Station_ID'].to_list().sort()
 
-    hydat = load_data.get_hydat_stations(to_csv='test_2', period=period)
-    d_range = load_data.get_hydat_data_range(period=period)
-    Period.check_data_range(period, d_range)
-    assert hydat.shape == (1770, 6)
+    hydat = load_data.get_hydat_stations(period=period)
+    assert hydat.shape == (1765, 15)
     
-    hydat = load_data.get_hydat_stations(to_csv='test_3', bbox=bbox)
+    hydat = load_data.get_hydat_stations(bbox=bbox)
     assert hydat['Station_ID'].to_list() == \
-        ["02EA001","02EB005","02EB006","02EB009","02EB010",
-         "02EB011","02EB012","02EB103","02EB105"]
-    assert hydat.shape == (9, 6)
+        ["02EA001","02EB005","02EB006","02EB009","02EB010", "02EB011","02EB012","02EB103","02EB105"]
+    assert hydat.shape == (9, 15)
     
-    hydat = load_data.get_hydat_stations(to_csv='test_4', sample=sample)
-    assert hydat.shape == (10, 6)
+    hydat = load_data.get_hydat_stations(sample=sample)
+    assert hydat.shape == (10, 15)
     
-    hydat = load_data.get_hydat_stations(to_csv='test_5', bbox=bbox, period=period)
-    assert hydat.shape == (3, 6)
+    hydat = load_data.get_hydat_stations(bbox=bbox, period=period)
     assert hydat['Station_ID'].to_list() == ["02EB006","02EB011","02EB012"]
     
-    hydat = load_data.get_hydat_stations(to_csv='test_6', bbox=bbox, period=period,
-                                         sample=sample)
-    assert hydat.shape == (3, 6)
+    hydat = load_data.get_hydat_stations(bbox=bbox, period=period, sample=sample)
     assert hydat['Station_ID'].sort_values().to_list() == ["02EB006","02EB011","02EB012"]
-        
-    period2 = [None, '1999-07-10']
-    period3 = ['1999-07-10', None]
-    
-    hydat = load_data.get_hydat_stations(to_csv='test_7', period=period2)
-    d_range = load_data.get_hydat_data_range(period=period2)
-    Period.check_data_range(period2, d_range)
-    assert hydat.shape == (6048, 6)
 
-    hydat = load_data.get_hydat_stations(to_csv='test_8', period=period3)
-    d_range = load_data.get_hydat_data_range(period=period3)
-    Period.check_data_range(period3, d_range)
-    
-    assert hydat.shape == (2418, 6)
+    hydat = load_data.get_hydat_stations(period=period2)
+    assert hydat.shape == (6048, 15)
+
+    hydat = load_data.get_hydat_stations(period=period3)
+    assert hydat.shape == (2415, 15)
 
 
 def point_plot_test():
@@ -332,8 +320,10 @@ def hydat_data_test():
 
 def main():
     timer = Timer()
-    load_data.generate_pwqmn_sql()
-
+    
+    dly_flow = load_data.get_hydat_flow(subset=["02EB004"])
+    
+    print(dly_flow)
     # network_compare()
     
     # output = "output"

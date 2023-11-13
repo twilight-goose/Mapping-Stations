@@ -13,11 +13,10 @@ period = ["2002-10-12", "2003-10-12"]
 bbox = BBox([-80, 45, -79, 46])
 
 hydroRIVERS = load_data.load_rivers(bbox=bbox)
-hydat = load_data.get_hydat_statios(period=period, bbox=bbox)
+hydat = load_data.get_hydat_stations(period=period, bbox=bbox)
 hydat_gdf = gdf_utils.point_gdf_from_df(hydat)
 
 hydroRIVERS = gdf_utils.assign_stations(hydroRIVERS, hydat_gdf)
-hydroNetwork = gdf_utils.hyriv_gdf_to_network(hydroRIVERS)
 
 # Plotting setup
 new_points, connectors = gdf_utils.connect_points_to_feature(hydat_gdf, hydroRIVERS)
@@ -25,6 +24,7 @@ new_points, connectors = gdf_utils.connect_points_to_feature(hydat_gdf, hydroRIV
 ax = plot_utils.add_map_to_plot(extent=bbox)
 ax.set_title('Projected Location of HYDAT Stations on HydroRIVERS Segments')
 plot_utils.add_grid_to_plot(ax=ax)
+rivers = plot_utils.plot_gdf(hydroRIVERS, color="grey")
 
 og = plot_utils.plot_gdf(hydat_gdf, ax=ax, color='blue')
 new = plot_utils.plot_g_series(new_points, ax=ax, color='red')
@@ -36,7 +36,8 @@ plot_utils.annotate_stations(hydat_gdf, ax=ax)
 legend_elements = [
     {'label': 'HYDAT', 'renderer': og},
     {'label': 'NEW', 'renderer': new},
-    {'label': 'Connectors', 'renderer': connect}
+    {'label': 'Connectors', 'renderer': connect},
+    {'label': 'HydroRIVERS', 'renderer': rivers}
 ]
 plot_utils.configure_legend(legend_elements, ax=ax)
 
