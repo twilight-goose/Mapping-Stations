@@ -102,10 +102,7 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
             ax2.set_axis_off()
 
             self.selected.set_visible(True)
-            self.selected.set_data(
-                lambert.transform_point(data['geometry'].x, data['geometry'].y,
-                                        geodetic)
-            )
+            self.selected.set_data((data['geometry'].x, data['geometry'].y))
             # self.text.set_text('selected: %d' % dataind)
             fig.canvas.draw()
 

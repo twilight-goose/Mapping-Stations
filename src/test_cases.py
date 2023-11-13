@@ -4,7 +4,7 @@ import load_data
 import gdf_utils
 import plot_utils
 from gen_util import lambert, geodetic, Can_LCC_wkt, BBox, Timer, Period, ON_bbox
-from gen_util import period_overlap
+from gen_util import period_overlap, days_overlapped
 import os
 import sys
 
@@ -121,7 +121,30 @@ def test_build_sql():
         ' AND (-80.0 <= X AND -79.5 >= X AND 45.0 <= Y AND 45.5 >= Y) AND var in ("v", "q")' + \
         ' AND (car == "merc") ORDER BY RANDOM() LIMIT 5'
     
+
+def test_period_overlap():
+    periods1 = [["2002-02-12", "2005-10-12"], ["2006-04-12", "2008-10-12"]]
     
+    periods2 = [["2002-02-12", "2002-02-12"], ["2004-02-12", "2004-02-12"],
+                ["2005-10-12", "2005-10-13"], ["2006-04-11", "2006-04-12"],
+                ["2006-06-12", "2007-06-12"], ["2008-10-12", "2008-10-13"]]
+                
+    periods3 = [["2005-10-10", "2006-04-20"]]
+                
+    expected = 1 + 1 + 1 + 1 + 366 + 1
+    
+    assert days_overlapped(*periods1[0], *periods2[0]) == 1
+    assert days_overlapped(*periods1[0], *periods2[2]) == 1
+    assert days_overlapped(*periods1[0], *periods2[3]) == 0
+    assert days_overlapped(*periods1[1], *periods2[0]) == 0
+    assert days_overlapped(*periods1[1], *periods2[3]) == 1
+    assert days_overlapped(*periods1[0], "2005-10-10", "2005-10-13") == 3
+    assert days_overlapped(*periods1[0], "2005-10-01", "2005-10-10") == 10
+    
+    assert period_overlap(periods1, periods2) == expected
+    assert period_overlap(periods1, periods3) == 12
+
+
 # ========================================================================= ##
 # License ================================================================= ##
 # ========================================================================= ##
@@ -295,19 +318,6 @@ def drainage_compare():
     
     edge_df.to_csv('dist_by_delta_drainage.csv')
     
-    # Old Algorithm (uses direct distance instead of distance along r)
-    # calcs = {'distance': [],
-             # 'drainage_delta': []}
-    
-    # for ind, origin in hydat.iterrows():
-        # for ind, candy in hydat.iterrows():
-            # calcs['distance'].append(origin.geometry.distance(candy.geometry))
-            # calcs['drainage_delta'].append(abs(float(origin['DRAINAGE_AREA_GROSS']) - \
-                                               # float(candy['DRAINAGE_AREA_GROSS'])))
-    # from pandas import DataFrame
-    # 
-    # calcs.to_csv('dist_by_delta_drainage.csv')
-    
     
 def hydat_data_test():
     hydat = load_data.get_hydat_stations(sample=100)
@@ -323,11 +333,6 @@ def hydat_data_test():
 def main():
     timer = Timer()
     load_data.generate_pwqmn_sql()
-    
-    pwqmn = load_data.get_pwqmn_stations(subset=psubset)
-    pwqmn.to_csv('psubset.csv')
-    
-    period_overlap(hydat_dr, pwqmn_dr)
 
     # network_compare()
     

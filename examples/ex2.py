@@ -13,7 +13,7 @@ period = ["2002-10-12", "2003-10-12"]
 bbox = BBox([-80, 45, -79, 46])
 
 hydroRIVERS = load_data.load_rivers(bbox=bbox)
-hydat = load_data.get_hydat_station_data(period=period, bbox=bbox)
+hydat = load_data.get_hydat_statios(period=period, bbox=bbox)
 hydat_gdf = gdf_utils.point_gdf_from_df(hydat)
 
 hydroRIVERS = gdf_utils.assign_stations(hydroRIVERS, hydat_gdf)

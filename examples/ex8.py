@@ -8,8 +8,8 @@ import load_data
 import gen_util
 import gdf_utils
 
-hydat = load_data.get_hydat_station_data()
-pwqmn = load_data.get_pwqmn_station_data()
+hydat = load_data.get_hydat_stations()
+pwqmn = load_data.get_pwqmn_stations()
 
 hydat = gdf_utils.point_gdf_from_df(hydat)
 pwqmn = gdf_utils.point_gdf_from_df(pwqmn)

@@ -12,7 +12,7 @@ from gen_util import BBox
 period = ["2002-10-12", "2003-10-12"]
 bbox = BBox([-80, 45, -79, 46])
 
-hydat = load_data.get_hydat_station_data(period, bbox)
+hydat = load_data.get_hydat_stations(period, bbox)
 hydat_gdf = gdf_utils.point_gdf_from_df(hydat)
 
 ax = plot_utils.add_map_to_plot(extent=bbox)

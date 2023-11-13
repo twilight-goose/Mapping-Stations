@@ -81,7 +81,7 @@ def find_xy_fields(fields) -> [str, str]:
     x, y = "", ""
     
     if type(fields) is DataFrame:
-        fields = df.columns.values
+        fields = fields.columns.values
     # Iterate through dataframe field names
     for field in fields:
         # Check if the field matches one of the X or Y field names
@@ -115,37 +115,44 @@ def days_overlapped(start1, end1, start2, end2):
     start = date.fromisoformat(max(start1, start2))
     end = date.fromisoformat(min(end1, end2))
     delta = end - start
-    return delta
+    days = delta.days
+    print(delta.days + 1)
+    if days >= 0:
+        return days + 1
+    else:
+        return 0
 
 
 def period_overlap(hydat_periods, pwqmn_periods):
     # These should each be subsets of the whole period DataFrames that
     # each contain only periods for a single station
+    # requires that both sets of periods are sorted earliest to latest
     p_ind = 0
     h_ind = 0
     total_overlap = 0
     
-    while h_ind < hydat_periods.shape[0] and p_ind < pwqmn_periods.shape[0]:
-        h_row = hydat_periods.iloc[h_ind]
-        p_row = pwqmn_periods.iloc[p_ind]
+    while h_ind < len(hydat_periods) and p_ind < len(pwqmn_periods):
+        h_row = hydat_periods[h_ind]
+        p_row = pwqmn_periods[p_ind]
         
-        h_start, h_end = h_row['P_Start'], h_row['P_End']
-        p_start, p_end = p_row['P_Start'], p_row['P_End']
+        h_start, h_end = h_row
+        p_start, p_end = p_row
         
         if h_end < p_start:
             h_ind += 1
         elif p_end < h_start:
             p_ind += 1
         else:
-            delta = days_overlapped(h_start, h_end, p_start, p_end).days
-            if delta >= 0:
-                total_overlap += delta + 1
+            overlap = days_overlapped(h_start, h_end, p_start, p_end)
+            if overlap >= 1:
+                total_overlap += overlap
+                
             if h_end > p_end:
                 p_ind += 1
             elif h_end < p_end:
                 h_ind += 1
                 
-    print(total_overlap)
+    return total_overlap
 
 # ========================================================================= ##
 # Classes ================================================================= ##

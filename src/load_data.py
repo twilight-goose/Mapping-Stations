@@ -196,14 +196,21 @@ def generate_pwqmn_sql():
 
     # read fields of interest, and set data types for mixed type fields
     pwqmn_data = pd.read_csv(pwqmn_path,
-                             dtype={'MonitoringLocationLongitude': float,
+                             dtype={'ActivityStartTime': str,
+                                    'MethodSpeciation': str,
+                                    'MonitoringLocationLongitude': float,
                                     'MonitoringLocationLatitude': float,
                                     'ResultSampleFraction': str,
                                     'ResultValue': float,
                                     'ResultUnit': str,
                                     'ResultDetectionCondition': str,
+                                    'ResultDetectionQuantitationLimitType': str,
                                     'ResultDetectionQuantitationLimitMeasure': str,
-                                    'ResultDetectionQuantitationLimitUnit': str})
+                                    'ResultDetectionQuantitationLimitUnit': str,
+                                    'ResultComment': str,
+                                    'ResultAnalyticalMethodID': str,
+                                    'ResultAnalyticalMethodContext': str,
+                                    'LaboratorySampleID': str})
 
     # rename some columns to make working with the PWQMN data easier
     pwqmn_data.rename(columns={'MonitoringLocationName': 'Station_Name',
@@ -217,8 +224,8 @@ def generate_pwqmn_sql():
     pwqmn_data['Date'] = pd.to_datetime(pwqmn_data['Date'])
     pwqmn_data.to_sql("ALL_DATA", connection, index=False, if_exists='replace')
     
-    pwqmn_create_stations(pwqmn_data=pwqmn_data)
-    pwqmn_create_data_range(pwqmn_data=pwqmn_data)
+    pwqmn_create_stations()
+    pwqmn_create_data_range()
     
     connection.close()
     
@@ -230,9 +237,36 @@ interest_var = ["Nitrite", "Inorganic nitrogen (nitrate and nitrite)",
         "Total Phosphorus; mixed forms", "Orthophosphate"]
 
 
+def pwqmn_create_stations():
+    """
+    Adds a 'Stations' table to the PWQMN sqlite3 database. The table
+    stores a each unique station that has one of the variables of
+    interest with it's name, ID, latitude, and longitude.
+    
+    :return: DataFrame
+        The created SQL table as a DataFrame.
+    
+    :modifies: database @ pwqmn_sql_path.
+    """
+    variables = ", ".join(interest_var)
+    
+    conn = sqlite3.connect(pwqmn_sql_path)
+    curs = conn.execute('PRAGMA table_info(ALL_DATA)')
+    fields = [field[1] for field in curs.fetchall()]
+    
+    stations = pd.read_sql_query(
+        "SELECT DISTINCT Station_ID, Station_Name, Longitude, Latitude FROM ALL_DATA" + 
+        build_sql_query(fields, Variable=interest_var), conn
+    )
+    stations.to_sql('Stations', conn, index=False, if_exists='replace')
+    conn.close()
+    
+    return stations
+    
+
 def pwqmn_create_data_range():
     """
-    Adds a 'Data_Range' table in the PWQMN sqlite3 database. The table
+    Adds a 'Data_Range' table to the PWQMN sqlite3 database. The table
     stores periods where either Nitrogen or Phosphurus data is 
     available for each pwqmn station using a start and end date.
     
@@ -243,8 +277,9 @@ def pwqmn_create_data_range():
     Modified by James Wang, November 2023sample
     
     :return: DataFrame
-        The created SQL table as a DataFrame. Modifies the database at
-        pwqmn_sql_path.
+        The created SQL table as a DataFrame.
+    
+    :modifies: database @ pwqmn_sql_path.
     """
     
     def add_to_output(st_id, start, end):
@@ -692,14 +727,12 @@ def get_hydat_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
         HYDAT stations passing all query arguments (see q_kwargs for
         more informatio) with available streamflow data.
     """
-    fields = ['STATION_NUMBER', 'STATION_NAME', 'LATITUDE', 'LONGITUDE',
-              'DRAINAGE_AREA_GROSS', 'DRAINAGE_AREA_EFFECT']
     
     sample = q_kwargs.get('sample')
     if sample is not None:
         del q_kwargs['sample']
     
-    stations = get_hydat_data('STATIONS', get_fields=fields, to_csv=False, **q_kwargs)
+    stations = get_hydat_data('STATIONS', to_csv=False, **q_kwargs)
     data_range = get_hydat_data_range(to_csv=False, **q_kwargs)
     data_range.drop_duplicates(subset=['Station_ID'], inplace=True)
     
