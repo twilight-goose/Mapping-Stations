@@ -483,17 +483,18 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         for u, v, data in edges:
             if type(data[prefix + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
                 
-                series = data[prefix + 'data'].sort_values(
-                    by='dist_along', ascending=not direction
-                ).iloc[0]
+                stations = data[prefix + 'data'].sort_values(
+                    by='dist_along', ascending=not direction) 
+                
+                for ind, series in stations.iterrows():
+                    if series['Station_ID'] not in matches[prefix + 'id']:
+                        direct_dist = station['geometry'].distance(series['geometry'])
+                        dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist_along'])
 
-                direct_dist = station['geometry'].distance(series['geometry'])
-                dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist_along'])
-
-                if dist < max_distance:
-                    return series['Station_ID'], max(direct_dist, dist), depth,\
-                           series['geometry'], (u, v)[direction]
-                return -1, -1, -1
+                        if dist < max_distance:
+                            return series['Station_ID'], max(direct_dist, dist), depth,\
+                                   series['geometry'], (u, v)[direction]
+                        return -1, -1, -1
             else:
                 result = *dfs((u, v)[not direction], prefix2, direction,
                               cum_dist + data['LENGTH_M'], depth + 1), \
@@ -574,14 +575,18 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                 pref_1_data = pref_1_data.query(f'Station_ID {mod}in @id_query')
             if not pref_1_data.empty:
                 # for each origin station on the edge
-                station = pref_1_data.sort_values(by='dist_along', ascending=True).iloc[0]
-                # Check if there are candidate stations on the same river segment
-                if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-                    for ind, row in pref_2_data.iterrows():
-                        on_segment()
-                # search for candidate stations on connected river segments
-                off_segment()
-    
+                stations = pref_1_data.sort_values(by='dist_along', ascending=True)
+                
+                for ind, station in stations.iterrows():
+                    # Check if there are candidate stations on the same river segment
+                    if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
+                        for ind, row in pref_2_data.iterrows():
+                            on_segment()
+                    
+                    for i in range(10):
+                        # search for candidate stations on connected river segments
+                        off_segment()
+        
     matches = gpd.GeoDataFrame(data=matches, geometry='path', crs=Can_LCC_wkt)
     matches = assign_period_overlap(matches)
     return matches

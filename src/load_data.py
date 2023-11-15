@@ -175,7 +175,7 @@ def build_sql_query(fields, **q_kwargs):
                     if type(i) is str:
                         lst.append(f'"{i}"')
                     else:
-                        lst.append(i)
+                        lst.append(str(i))
                 q_part = f'{key} in ({", ".join(lst)})'
         
         if q_part:
@@ -479,8 +479,6 @@ def get_pwqmn_data_range(to_csv=False, **q_kwargs):
     """
     Retrieves the data ranges of PWQMN stations with variables of
     interest according to query arguments.
-    
-    
     """
     return get_pwqmn_data('Data_Range', to_csv=to_csv, **q_kwargs)
 
@@ -621,7 +619,7 @@ def get_hydat_data(tbl_name, get_fields='*', to_csv=False, **q_kwargs):
         subset: string or list-like/Series of string
              The ID to retrieve or a list, tuple, or Series of IDs.
              
-        bbox: BBox object
+        b box: BBox object
             BBox object defining area of interest.
         
         sample: <positive nonzero int>
@@ -709,16 +707,16 @@ def get_hydat_data(tbl_name, get_fields='*', to_csv=False, **q_kwargs):
     return data
 
 
-def get_hydat_flow(**q_kwargs) -> pd.DataFrame:
-    return get_hydat_data('DLY_FLOWS', **q_kwargs)
+def get_hydat_flow(to_csv=False, **q_kwargs) -> pd.DataFrame:
+    return get_hydat_data('DLY_FLOWS', to_csv=to_csv, **q_kwargs)
  
 
-def get_hydat_remarks(**q_kwargs) -> pd.DataFrame:
-    return get_hydat_data('STN_REMARKS', **q_kwargs)
+def get_hydat_remarks(to_csv=False, **q_kwargs) -> pd.DataFrame:
+    return get_hydat_data('STN_REMARKS', to_csv=to_csv, **q_kwargs)
                           
                           
-def get_hydat_data_range(**q_kwargs) -> pd.DataFrame:
-    return get_hydat_data('Data_Range', **q_kwargs)
+def get_hydat_data_range(to_csv=False, **q_kwargs) -> pd.DataFrame:
+    return get_hydat_data('Data_Range', to_csv=to_csv, **q_kwargs)
 
 
 def get_hydat_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
@@ -807,7 +805,7 @@ def get_hydat_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
     return stations
 
 
-def hydat_create_data_range():
+def hydat_create_data_range(unittest=False):
     """
     Adds a "Data_Range" table to the HYDAT database that contains the
     date ranges for each HYDAT station where streamflow data is
@@ -824,6 +822,12 @@ def hydat_create_data_range():
     - FLOW1 ... FLOW31 (31 FLOW fields numbered from 1 to 31)
     
     If a Data_Range table already exists, it will be replaced.
+    
+    :param unittest: bool or DataFrame
+        For testing purposes only.
+        
+    :return: DataFrame
+        The table added to the HYDAT database as a DataFrame.
     """
     def add_to_output(st_id, start, end):
         out_data['Station_ID'].append(st_id)
@@ -833,13 +837,7 @@ def hydat_create_data_range():
     def is_leap(year):
         return (year % 4 == 0) and (year % 100 != 0 or year % 400 == 0)
     
-    dly_flows = get_hydat_flow()
-    
-    grouped = dly_flows.groupby('STATION_NUMBER')
-    out_data = {'Station_ID': [], 'P_Start': [], 'P_End': []}
-    
-    for st_id, sub_df in grouped:
-        
+    def get_periods(st_id, sub_df):
         start = None
         last = None
         
@@ -876,11 +874,28 @@ def hydat_create_data_range():
                         last = date
             
         add_to_output(st_id, start, last)
+    
+    if type(unittest) is pd.DataFrame:
+        grouped = unittest.groupby('STATION_NUMBER')
+        out_data = {'Station_ID': [], 'P_Start': [], 'P_End': []} 
         
-    out_data = pd.DataFrame(data=out_data)
-    conn = sqlite3.connect(hydat_path)
-    out_data.to_sql('Data_Range', conn, index=False, if_exists='replace')
-    conn.close()
+        for st_id, sub_df in grouped:
+            get_periods(st_id, sub_df)
+            
+    else:
+        dly_flows = get_hydat_flow()
+        
+        grouped = dly_flows.groupby('STATION_NUMBER')
+        out_data = {'Station_ID': [], 'P_Start': [], 'P_End': []}
+        
+        for st_id, sub_df in grouped:
+            get_periods(st_id, sub_df)
+            
+        out_data = pd.DataFrame(data=out_data)
+        conn = sqlite3.connect(hydat_path)
+        out_data.to_sql('Data_Range', conn, index=False, if_exists='replace')
+        conn.close()
+    
     return out_data
     
 
@@ -911,7 +926,11 @@ def load_rivers(path=hydroRIVERS_path, sample=None, bbox=None):
         HydroRIVERS data as a LineString GeoDataFrame.
     """
     print(f"Loading rivers from '{path}'")
-    return read_file(path, rows=sample, bbox=BBox.to_tuple(bbox))
+    if bbox is None:
+        bbox = None
+    else:
+        bbox = BBox.to_tuple(bbox)
+    return read_file(path, rows=sample, bbox=bbox)
 
 
 def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
