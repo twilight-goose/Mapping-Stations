@@ -68,3 +68,9 @@ src/test_cases.py.bak
 src/subset.sqlite3
 src/psubset.csv
 data/nov-09-subsets/Hydat_sqlite3.csv
+*.sbn
+*.sbx
+*.xml
+*.geojson
+*.ini
+dist_by_delta_drainage.csv

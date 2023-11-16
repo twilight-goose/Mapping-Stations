@@ -30,8 +30,7 @@ def add_map_to_plot(extent=None, ax=None, projection=lambert, extent_crs=None,
                     features=(cfeature.COASTLINE, cfeature.STATES, cfeature.LAKES),
                     **kwargs):
     """
-    Adds an axes to the current figure, makes it the current Axes, and
-    draws a map onto said axes using cartopy.
+    Adds a background map to a plot.
 
     :param extent: list-like, BBox, or None (Default)
         The bounding coordinates to set the extent of the map to.
@@ -41,10 +40,10 @@ def add_map_to_plot(extent=None, ax=None, projection=lambert, extent_crs=None,
         the Axes is not set or changed.
 
     :param ax: plt.Axes object or None (default)
-        The Axes to plot g_series onto. If None, draws the map on the
-        matplotlib.pyplot default axes (without clearing it).
+        The Axes to draw the map onto. If None, creates a 8x8 figure
+        and a new axes on that figure, and draws the map onto that axes.
 
-    :param projection: Cartopy CRS object
+    :param projection: Cartopy CRS object (default=lambert; see gen_util)
         Projection to use to display the map. Defaults to Lambert
         Conformal Conic.
 
@@ -53,15 +52,16 @@ def add_map_to_plot(extent=None, ax=None, projection=lambert, extent_crs=None,
         total_bounds is in latitude longitude format.
 
     :param features: list or tuple of cartopy.feature attributes
-        Cartopy features to add to the map. If None, adds a default
-        set of features.
+        Cartopy features to add to the map. If not provided, adds a
+        default set of features.
 
-    :param kwargs:
+    :param **kwargs:
         Additional keyword arguments to instantiate the matplotlib
-        Axes with.
+        Axes with, passed directly to matplotlib.pyplot.axes().
+        See https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.axes.html.
 
     :return: matplotlib Axes
-        The created Axes object that the map was draw onto.
+        The Axes object that the map was draw onto.
     """
 
     if ax is None:
@@ -98,16 +98,21 @@ def add_map_to_plot(extent=None, ax=None, projection=lambert, extent_crs=None,
 
 def add_grid_to_plot(ax=None, projection=lambert, **kwargs):
     """
-    Adds a Latitude Longitude grid to an Axes.
+    Adds a Latitude/Longitude grid to an Axes.
 
-    :param ax:
-    :param projection:
+    :param ax: plt.Axes object or None (default)
+        The Axes to draw the grid onto. If None, draws the grid onto
+        the matplotlib default axes.
+    
+    :param projection: Cartopy CRS object (default=lambert; see gen_util)
+        Projection to use to display the map. Defaults to Lambert
+        Conformal Conic.
 
     :return: cartopy.mpl.gridliner.Gridliner object
         The object used to add gridlines and tick labels to the axes.
     """
     if ax is None:
-        ax = plt.axes(projection=projection, **kwargs)
+        ax = plt
 
     gridliner = ax.gridlines(draw_labels={"bottom": "x", "left": "y"}, x_inline=False, y_inline=False,
                              dms=False, rotate_labels=False,
@@ -117,7 +122,7 @@ def add_grid_to_plot(ax=None, projection=lambert, **kwargs):
     return gridliner
 
 
-def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
+def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=None,
                   marker="", **kwargs):
     """
     Plot a Geopandas GeoSeries. Does not change the original GeoSeries
@@ -126,13 +131,13 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
     :param g_series: Geopandas GeoSeries
         Data to plot. May consist of points or lines, but not polygons.
 
-    :param crs: pyproj.CRS
-        The value can be anything accepted by pyproj.CRS.from_user_input(),
+    :param crs: pyproj.CRS (default=Can_LCC_wkt; see gen_util)
+        The value may be anything accepted by pyproj.CRS.from_user_input(),
         such as an authority string (eg “EPSG:4326”) or a WKT string.
 
-    :param ax: plt.Axes object
-        The Axes to plot g_series onto. If plt, plots g_series on
-        matplotlib.pyplot (without clearing it).
+    :param ax: plt.Axes object or None (default)
+        The Axes to plot g_series onto. If None, plots the data on the
+        matplotlib.pyplot default axes (without clearing it).
 
     :param kwargs:
         Keyword arguments to pass when plotting g_series. Kwargs are
@@ -142,7 +147,10 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
     """
     if not (type(g_series) is gpd.GeoSeries):
         raise TypeError(f'GeoSeries expected, {type(g_series)} found.')
-
+    
+    if ax is None:
+        ax = plt
+    
     g_series = g_series.to_crs(crs=crs)
 
     try:
@@ -163,10 +171,22 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=plt,
 
 
 def draw_network(p_graph, **kwargs):
+    """
+    Wrapper function for plotting/drawing a networkx graph.
+    
+    Draws a NetworkX Graph object onto an axes.
+
+    :param p_graph: NetworkX Graph
+        The graph object to draw.
+
+    :param ax: plt.Axes object (optional)
+        The Axes to plot g_series onto. If None, creates a new Axes,
+        adds it to the current figure, and uses that Axes.
+    """
     gdf_utils.__draw_network__(p_graph, **kwargs)
 
 
-def plot_gdf(gdf: gpd.GeoDataFrame, crs=Can_LCC_wkt, ax=plt, **kwargs):
+def plot_gdf(gdf: gpd.GeoDataFrame, crs=Can_LCC_wkt, ax=None, **kwargs):
     """
     Plot a Geopandas GeoDataFrame. Does not change the original
     GeoDataFrame geometry.
@@ -179,8 +199,8 @@ def plot_gdf(gdf: gpd.GeoDataFrame, crs=Can_LCC_wkt, ax=plt, **kwargs):
         such as an authority string (eg “EPSG:4326”) or a WKT string.
 
     :param ax: plt.Axes object or None (default)
-        The Axes to plot g_series onto. If None, clears pyplot, plots
-        g_series, and displays the result.
+        The Axes to plot the data onto. If None, plots the data on the
+        matplotlib.pyplot default axes (without clearing it).
 
     :param kwargs:
         Keyword arguments to pass when plotting the gdf. Kwargs are
@@ -192,6 +212,9 @@ def plot_gdf(gdf: gpd.GeoDataFrame, crs=Can_LCC_wkt, ax=plt, **kwargs):
         raise TypeError(f'GeoDataFrame expected, {type(gdf)} found.')
     if 'Station_ID' in gdf.columns:
         gdf = gdf.drop_duplicates('Station_ID')
+    if ax is None:
+        ax = plt
+        
     return plot_g_series(gdf.geometry, ax=ax, crs=crs, **kwargs)
 
 
@@ -209,8 +232,8 @@ def plot_df(df: pd.DataFrame, ax=None, crs=Can_LCC_wkt, **kwargs):
         such as an authority string (eg “EPSG:4326”) or a WKT string.
 
     :param ax: plt.Axes object or None (default)
-        The Axes to plot g_series onto. If None, clears pyplot, plots
-        g_series, and displays the result.
+        The Axes to plot the data onto. If None, plots the data on the
+        matplotlib.pyplot default axes (without clearing it).
 
     :raises TypeError:
         If df is not a Pandas DataFrame
@@ -219,7 +242,10 @@ def plot_df(df: pd.DataFrame, ax=None, crs=Can_LCC_wkt, **kwargs):
     """
     if type(df) != pd.DataFrame:
         raise TypeError("Parameter passed as 'df' is not a DataFrame'")
-
+    
+    if ax is None:
+        ax = plt
+    
     output = gdf_utils.point_gdf_from_df(df)
 
     # Only try to plot the output if the conversion was successful
@@ -228,29 +254,6 @@ def plot_df(df: pd.DataFrame, ax=None, crs=Can_LCC_wkt, **kwargs):
     else:
         print("Could not be plotted")
         return None
-
-
-def plot_closest(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame, ax=plt):
-    """
-    For each point in points, finds the closest feature in other, then
-    plots both GeoDataFrames and draws lines between them.
-
-    :param points: Geopandas GeoDataFrame
-        Origin points.
-
-    :param other: Geopandas GeoDataFrame
-        Candidate geometry.
-    """
-    new_points, lines = gdf_utils.connect_points_to_feature(points, other)
-
-    print("plotting connecting lines")
-    plot_g_series(lines, ax=ax, zorder=1, color='purple', label='connector')
-    print("plotting snapped points")
-    plot_g_series(new_points, ax=ax, color='red', zorder=9, label='new')
-    print("plotting features that were snapped to")
-    plot_gdf(other, ax=ax, color='red', zorder=9, label='new')
-    print("plotting original points")
-    plot_gdf(points, ax=ax, color='blue', zorder=10, label='original')
 
 
 def plot_paths(path_df, ax=None, filter=""):
@@ -268,14 +271,18 @@ def plot_paths(path_df, ax=None, filter=""):
             - 'pos' (string)
             - 'path' (geometry; LineString)
 
-    :param ax:
-        The axes to plot the paths onto.
+    :param ax: plt.Axes object or None (default)
+        The Axes to plot the paths onto. If None, plots the data on the
+        matplotlib.pyplot default axes (without clearing it).
 
-    :param filter: string
+    :param filter: string one of {'On', 'Down', 'Up'}(default="")
         Accepts any value in 'pos'.
 
     :return:
     """
+    if ax is None:
+        ax = plt
+    
     grouped = path_df.groupby(by='pos')
     for ind, group in grouped:
         if ind.startswith('On'):
@@ -286,11 +293,11 @@ def plot_paths(path_df, ax=None, filter=""):
             color = 'purple'
         else:
             color = 'grey'
-        if ind == filter or filter == "":
+        if ind.startswith(filter) or filter == "":
             plot_g_series(group['path'], ax=ax, color=color, linewidth=3)
 
 
-def configure_legend(legend_elements: list, ax=plt, loc='upper right',
+def configure_legend(legend_elements: list, ax=None, loc='upper right',
                      **kwargs):
     """
     Configures a custom legend on an Axes object based on information
@@ -310,8 +317,9 @@ def configure_legend(legend_elements: list, ax=plt, loc='upper right',
         matplotlib.lines.Line2D.set(). For full list of keywords, see:
         https://matplotlib.org/stable/api/_as_gen/matplotlib.lines.Line2D.html#matplotlib.lines.Line2D.set
 
-    :param ax: Axes object
-        Axes to place the configured custom legend onto.
+    :param ax: plt.Axes object or None (default)
+        The Axes to place the legend on. If None, places the legend on
+        the matplotlib.pyplot default axes (without clearing it).
 
     :param loc: string (default='upper right')
         Location in ax to place the legend.
@@ -327,6 +335,9 @@ def configure_legend(legend_elements: list, ax=plt, loc='upper right',
 
     :return:
     """
+    if ax is None:
+        ax = plt
+        
     custom_lines = []
     for i in legend_elements:
         line = Line2D([0], [0])
@@ -354,16 +365,18 @@ def configure_legend(legend_elements: list, ax=plt, loc='upper right',
     ax.legend(handles=custom_lines, loc=loc, **kwargs)
 
 
-def annotate_stations(*station_sets, adjust=True, ax=plt):
+def annotate_stations(*station_sets, adjust=True, ax=None):
     """
     Add station id text annotations to a matplotlib plot.
 
     :param adjust: bool (default=True)
         Whether to adjust the position of the annotations. Turning
-        this off improves efficiency.
+        this off improves efficiency. Utilizes the adjustText library
+        by Ilya Flyamer at https://github.com/Phlya/adjustText.
 
-    :param ax: (default=matplotlib.pyplot)
-        Axes to add the annotations to.
+    :param ax: plt.Axes object or None (default)
+        Axes to add the annotations to. If None, adds the text on
+        the matplotlib.pyplot default axes (without clearing it).
 
     :param station_sets: list of DataFrame or GeoDataFrame
         The DataFrames containing the stations to annotate. Must
@@ -371,6 +384,9 @@ def annotate_stations(*station_sets, adjust=True, ax=plt):
 
     :return:
     """
+    if ax is None:
+        ax = plt
+        
     texts = []
 
     for stations in station_sets:
@@ -387,11 +403,13 @@ def annotate_stations(*station_sets, adjust=True, ax=plt):
         # dont adjust text if there are over 300 because it takes too long,
         # and at that scale its hard to see the text regardless
         adjust_text(texts)
+    elif adjust and len(text) > 300:
+        print("adjust keyword overriden. Text positions not adjusted because there are too many.")
 
 
 def plot_match_array(edge_df, add_to_plot=None, shape=None):
     """
-
+    
     :param edge_df:
     :param shape:
     :param add_to_plot:
@@ -455,7 +473,7 @@ def plot_match_array(edge_df, add_to_plot=None, shape=None):
 
 
 def plot_flow_timeseries(flow_data: pd.DataFrame or gpd.GeoDataFrame,
-                         ax=plt, **kwargs):
+                         ax=None, **kwargs):
     """
     
     :param flow_data: DataFrame or GeoDataFrame
@@ -463,13 +481,19 @@ def plot_flow_timeseries(flow_data: pd.DataFrame or gpd.GeoDataFrame,
     
 
 
-def add_scalebar(ax=plt):
+def add_scalebar(ax=None):
     """
     Adds a scalebar to ax.
 
-    :param ax:
+    :param ax: plt.Axes object
+        The Axes to plot g_series onto. If not provided, plots the data 
+        on the matplotlib.pyplot default axes (without clearing it).
+        
     :return:
-    """
+    """ 
+    if ax is None:
+        ax = plt
+        
     ax.add_artist(ScaleBar(1, location='lower right', box_alpha=0.75))
 
 
@@ -485,7 +509,7 @@ def show():
 
 def close():
     """
-    Wrapper function for calling plt.show() from functions that don't
+    Wrapper function for calling plt.close() from functions that don't
     import matplotlib.
 
     :return:
@@ -496,10 +520,11 @@ def close():
 def timed_display(seconds=2):
     """
     Displays the current matplotlib.pyplot plot, and automatically
-    closes the plot window after a specificied amount of time.r
+    closes the plot window after a specificied amount of time.
 
-    :param seconds: int
-        Time to display the plot for in seconds. Default 2 seconds.
+    :param seconds: int (default=2)
+        Time to display the plot for in seconds.
+        
     :return:
     """
     plt.show(block=False)
@@ -509,23 +534,3 @@ def timed_display(seconds=2):
 
 def get_ax():
     return plt.subplot(projection=lambert)
-
-
-# from matplotlib import pyplot as plt
-    # fig = plt.figure(figsize=(8, 8))
-    # ax = plot_utils.add_map_to_plot(extent=bbox)
-    # ax.set_box_aspect(1)
-    # ax.set_facecolor('white')
-    # plot_utils.add_grid_to_plot(ax=ax)
-    #
-    # plot_utils.plot_gdf(hydat, ax=ax, zorder=5, color='blue')
-    # plot_utils.plot_gdf(pwqmn, ax=ax, zorder=5, color='red')
-    #
-    # plot_utils.plot_g_series(gdf_utils.straighten(ohn_lines), ax=ax)
-    # plot_utils.plot_g_series(gdf_utils.straighten(hydroRIVERS_lines), ax=ax)
-    #
-    # plot_utils.plot_paths(ohn_edge_df, ax=ax)
-    # plot_utils.plot_paths(hydro_edge_df, ax=ax)
-    # plot_utils.annotate_stations(hydat, pwqmn, ax=ax, adjust=False)
-    # plot_utils.show()
-    

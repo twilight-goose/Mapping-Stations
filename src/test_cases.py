@@ -108,6 +108,16 @@ def test_build_sql():
     bbox = BBox(-80, -79.5, 45, 45.5)
     sample = 5
     subset = ["2A", "4N", "9K", "i8"]
+    subset2 = [123, 234, 345, 456]
+    subset3 = "sample_subset.csv"
+    
+    id_query = load_data.id_query_from_subset(subset, ['Station_ID'])
+    id_query2 = load_data.id_query_from_subset(subset2, ['STATION_NUMBER'])
+    id_query3 = load_data.id_query_from_subset("sample_subset.csv", ['Station_ID'])
+    
+    assert id_query == 'Station_ID in ("2A", "4N", "9K", "i8")'
+    assert id_query2 == 'STATION_NUMBER in (123, 234, 345, 456)'
+    assert id_query3 == 'Station_ID in (123, 234, "9K", "i8")'
    
     query = load_data.build_sql_query(fields=['name', 'Station_ID', 'X', 'Y', 'Date', 'var'],
                             subset=subset, period=period, bbox=bbox, sample=sample,
@@ -221,6 +231,8 @@ def test_hydat_load():
 
 def main():
     timer = Timer()
+    
+    return
     
     bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
 

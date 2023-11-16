@@ -7,6 +7,7 @@ import pandas as pd
 from geopandas import read_file
 from datetime import datetime
 from datetime import timedelta
+from datetime import date
 
 
 """
@@ -50,7 +51,9 @@ def id_query_from_subset(subset, fields):
     Creates a SQL expression that queries ID.
     
     :param subset: string or list-like/Series of string
-        The ID to retrieve or a list, tuple, or Series of IDs.
+        The ID to retrieve or a list, tuple, Series of IDs, or file
+        path of a .csv file to load IDs from. If file path, IDs will be
+        read from the 'Station_ID' field.
     
     :param fields: list-like of string
         List of fields available for the query. This can be a list
@@ -75,10 +78,23 @@ def id_query_from_subset(subset, fields):
         raise ValueError("No ID field found. To add a query for an id field"
                          "include it as a q_kwarg.")
     
-    if not hasattr(subset, '__iter__') or type(subset) is str:
-        subset = (subset, )
+    if type(subset) is str:
+        if subset.endswith(".csv"):
+            subset = pd.read_csv(subset)
+            subset = subset['Station_ID'].to_list()
+        else:
+            subset = (subset, )
     
-    id_list_str = ', '.join([f'"{st_id}"' for st_id in subset])
+    id_list = []
+    
+    for st_id in subset:
+        if type(st_id) is not str or st_id.isdigit():
+            id_list.append(str(st_id))
+        else:
+            id_list.append(f'"{st_id}"')
+            
+    
+    id_list_str = ', '.join(id_list)
     if id_list_str:
         return f'{id_field} in ({id_list_str})'
     return ""
@@ -107,7 +123,9 @@ def build_sql_query(fields, **q_kwargs):
             dates after(before) the start(end) date are retrieved.
 
         subset: string or list-like/Series of string
-             The ID to retrieve or a list, tuple, or Series of IDs.
+            The ID to retrieve or a list, tuple, Series of IDs, or file
+            path of a .csv file to load IDs from. If file path, IDs
+            will be read from the 'Station_ID' field.
              
         bbox: BBox object
             BBox object defining area of interest.
@@ -289,7 +307,7 @@ def pwqmn_create_data_range():
     available for each pwqmn station using a start and end date.
     
     Table Name: Data_Range
-    Fields: Station_ID, Start, End
+    Fields: Station_ID, Start, End, Num_Days
     
     Date processing code writter by Juliane Mai, January 2023
     Modified by James Wang, November 2023sample
@@ -304,6 +322,8 @@ def pwqmn_create_data_range():
         out_data['Station_ID'].append(st_id)
         out_data['P_Start'].append(start)
         out_data['P_End'].append(end)
+        delta = date.fromisoformat(end) - date.fromisoformat(start)
+        out_data['Num_Days'].append(delta.days + 1)
 
     conn = sqlite3.connect(pwqmn_sql_path)
     curs = conn.execute('PRAGMA table_info(ALL_DATA)')
@@ -317,25 +337,25 @@ def pwqmn_create_data_range():
     
     grouped = pwqmn_data.groupby(by=['Station_ID'])
     
-    out_data = {'Station_ID': [], 'P_Start': [], 'P_End': []}
+    out_data = {'Station_ID': [], 'P_Start': [], 'P_End': [], 'Num_Days': []}
     
     for key, sub_df in grouped:
         dates = sub_df['Date'].sort_values().to_list()
         start = None
         last = None
         
-        for date in dates:
+        for idate in dates:
             if start is None:
-                start = date
+                start = idate
             else:
-                str_date = datetime.strptime(date, "%Y-%m-%d")
+                str_date = datetime.strptime(idate, "%Y-%m-%d")
                 str_last = datetime.strptime(last, "%Y-%m-%d")
                 
                 if  str_date != str_last + timedelta(days=1) and str_date != str_last:
                     add_to_output(key[0], start, last)
-                    start = date
+                    start = idate
                     
-            last = date
+            last = idate
         add_to_output(key[0], start, last)
       
     out_data = pd.DataFrame(out_data)
@@ -371,7 +391,9 @@ def get_pwqmn_data(tbl_name, to_csv=False, get_fields="*", **q_kwargs) -> pd.Dat
             dates after(before) the start(end) date are retrieved.
 
         subset: string or list-like/Series of string
-             The ID to retrieve or a list, tuple, or Series of IDs.
+            The ID to retrieve or a list, tuple, Series of IDs, or file
+            path of a .csv file to load IDs from. If file path, IDs
+            will be read from the 'Station_ID' field.
              
         bbox: BBox object
             BBox object defining area of interest. If table does not
@@ -439,7 +461,9 @@ def get_pwqmn_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
             dates after(before) the start(end) date are retrieved.
 
         subset: string or list-like/Series of string
-             The ID to retrieve or a list, tuple, or Series of IDs.
+            The ID to retrieve or a list, tuple, Series of IDs, or file
+            path of a .csv file to load IDs from. If file path, IDs
+            will be read from the 'Station_ID' field.
              
         bbox: BBox object
             BBox object defining area of interest.
@@ -617,7 +641,9 @@ def get_hydat_data(tbl_name, get_fields='*', to_csv=False, **q_kwargs):
             dates after(before) the start(end) date are retrieved.
 
         subset: string or list-like/Series of string
-             The ID to retrieve or a list, tuple, or Series of IDs.
+            The ID to retrieve or a list, tuple, Series of IDs, or file
+            path of a .csv file to load IDs from. If file path, IDs
+            will be read from the 'Station_ID' field.
              
         b box: BBox object
             BBox object defining area of interest.
@@ -755,7 +781,9 @@ def get_hydat_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
             dates after(before) the start(end) date are retrieved.
 
         subset: string or list-like/Series of string
-             The ID to retrieve or a list, tuple, or Series of IDs.
+            The ID to retrieve or a list, tuple, Series of IDs, or file
+            path of a .csv file to load IDs from. If file path, IDs
+            will be read from the 'Station_ID' field.
              
         bbox: BBox object
             BBox object defining area of interest.
@@ -813,6 +841,7 @@ def hydat_create_data_range(unittest=False):
     - Station_ID
     - Start
     - End
+    - Num_Days
     
     Requries that the HYDAT database contains the DLY_FLOWS table,
     which has the following fields:
@@ -833,6 +862,8 @@ def hydat_create_data_range(unittest=False):
         out_data['Station_ID'].append(st_id)
         out_data['P_Start'].append(start)
         out_data['P_End'].append(end)
+        delta = date.fromisoformat(end) - date.fromisoformat(start)
+        out_data['Num_Days'].append(delta.days + 1)
             
     def is_leap(year):
         return (year % 4 == 0) and (year % 100 != 0 or year % 400 == 0)
@@ -849,35 +880,35 @@ def hydat_create_data_range(unittest=False):
             days_in_month = row['NO_DAYS']
             
             if row['FULL_MONTH'] == 1:
-                date = f"{year}-{month}-0{1}"
+                idate = f"{year}-{month}-0{1}"
                 
                 if start is None:
-                    start = date
-                elif datetime.strptime(date, "%Y-%m-%d") != \
+                    start = idate
+                elif datetime.strptime(idate, "%Y-%m-%d") != \
                         datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
                     add_to_output(st_id, start, last)
-                    start = date
+                    start = idate
                     
                 last = f"{year}-{month}-{days_in_month}"
             else:
                 for i in range(1, days_in_month + 1):
                 
                     if not pd.isnull(row[f"FLOW{i}"]):
-                        date = f"{year}-{month}-{i:02}"
+                        idate = f"{year}-{month}-{i:02}"
                         
                         if start is None:
-                            start = date
-                        elif datetime.strptime(date, "%Y-%m-%d") != \
+                            start = idate
+                        elif datetime.strptime(idate, "%Y-%m-%d") != \
                                 datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1):
                             add_to_output(st_id, start, last)
-                            start = date
-                        last = date
+                            start = idate
+                        last = idate
             
         add_to_output(st_id, start, last)
     
     if type(unittest) is pd.DataFrame:
         grouped = unittest.groupby('STATION_NUMBER')
-        out_data = {'Station_ID': [], 'P_Start': [], 'P_End': []} 
+        out_data = {'Station_ID': [], 'P_Start': [], 'P_End': [], 'Num_Days': []} 
         
         for st_id, sub_df in grouped:
             get_periods(st_id, sub_df)
@@ -886,7 +917,7 @@ def hydat_create_data_range(unittest=False):
         dly_flows = get_hydat_flow()
         
         grouped = dly_flows.groupby('STATION_NUMBER')
-        out_data = {'Station_ID': [], 'P_Start': [], 'P_End': []}
+        out_data = {'Station_ID': [], 'P_Start': [], 'P_End': [], 'Num_Days': []}
         
         for st_id, sub_df in grouped:
             get_periods(st_id, sub_df)

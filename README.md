@@ -205,6 +205,26 @@ The browser.py module contains complex code that creates interactive matplotlib 
 Code within browser.py is not useful for performing any operations outside of the script,
 and it's relevance is limited to its exact use case - creating and opening data browsers.
 
+
+## Use Cases and Usage Examples
+Refer to ../examples/ and ../examples/example index.md for examples and explainations.
+
+
+## Matching and Distance Criteria
+Steps for matching stations:
+1. Load both origin and candidate stations
+2. Load the river dataset
+3. Assign stations to the river dataset
+- Each station within a certain distance of a river segment will be 'assigned' to
+the closest river segment
+- Stations assigned to a river segment have their attributes stored as attributes
+of that river segment, which are carried over when the dataset is converted to a
+networkX directed graph.
+4. Convert the river dataset to a network graph. This enables the search algorithm
+to be run and builds directionality.
+5. Run the matching algorithm (dfs_search)
+
+
 ## Output Accuracy Table
 ### Zone 1: Southern/Central Ontario
 All distances are in meters. For stations on the same segment within 350m, regardless
@@ -228,6 +248,7 @@ Matches with NA instead of a distance indicate 1 of the following:
 - In % Error, algorithm calculated direct distance between stations for both networks (see above)
 
 @submission 0895cd7 {Extent (lat/lon): min_x=-80, max_x=-79, min_y=45, max_y=46}
+```
    hydat_id    pwqmn_id  dist_hyRivers pos_hyRivers     dist_OHN  pos_OHN     error  manual
 0   02DD009  3013302302      43.451882      On-Down    43.451882  On-Down  0.000000    43.1
 1   02EA005  3012400102    6232.601156         Down  7894.037701     Down  0.210467      NA
@@ -252,6 +273,7 @@ Matches with NA instead of a distance indicate 1 of the following:
 20  02EB012  3008500102      64.850527      On-Down    64.850527  On-Down  0.000000    63.5
 21  02EB009  3009200102            NaN          NaN  8863.486486     Down       NaN      NA
 22  02EB009  3009200202            NaN          NaN  6024.150516       Up       NaN      NA
+```
 
 On-Up = On the same river segment, upstream
 On-Down = On the same river segment, downstream

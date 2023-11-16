@@ -20,13 +20,18 @@ lines = load_data.load_rivers(bbox=bbox)
 hydat = gdf_utils.point_gdf_from_df(hydat)
 pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
+# "Assign" stations to the river dataset
 lines = gdf_utils.assign_stations(lines, hydat, prefix='hydat_')
 lines = gdf_utils.assign_stations(lines, pwqmn, prefix='pwqmn_')
 
+# build a network from the river dataset with station data
 network = gdf_utils.hyriv_gdf_to_network(lines)
 
+# match hydat to pwqmn stations
 edge_df = gdf_utils.dfs_search(network)
 
+# display the list of matches
 print(edge_df.drop(columns='path').to_string())
 
+# plot the matches in an interactive plot
 browser.match_browser(hydat, network, pwqmn, edge_df, bbox, color='blue')

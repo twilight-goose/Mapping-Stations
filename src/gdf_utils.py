@@ -1,6 +1,8 @@
 from gen_util import find_xy_fields, Can_LCC_wkt, check_geom, BBox, period_overlap
 from load_data import get_hydat_data_range, get_pwqmn_data_range
-
+import load_data
+import sys
+import os
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -321,36 +323,77 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     return edges.merge(pd.DataFrame(data=temp_data), on='unique_ind', how='left')
 
 
+def delineate_matches(match_df, subset=None):
+    hydat_stations = load_data.get_hydat_stations(subset=match_df['hydat_id'].to_list())
+    pwqmn_stations = load_data.get_pwqmn_stations(subset=match_df['pwqmn_id'].to_list())
+    
+    hydat_stations = hydat_stations[['Station_ID', 'Latitude', 'Longitude']]
+    pwqmn_stations = pwqmn_stations[['Station_ID', 'Latitude', 'Longitude']]
+    
+    stations = pd.concat([hydat_stations, pwqmn_stations], axis=0)
+    print(stations)
+    stations.rename(columns={'Latitude': 'lat', 'Longitude': 'lon'}, inplace=True)
+    
+    dem="D:/Watershed_Delineation/src/PySheds/data/n40w090_dem.tif"
+    
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    sys.path.append(dir_path + '/../../Watershed_Delineation/src/PySheds')
+
+    from main import delineate
+    
+    delineate(dem, basins=stations, output_fname="watersheds", id_field='Station_ID')
+
+    watersheds = gpd.read_file("watersheds.geojson")
+    watersheds = watersheds.query('LABEL == 1')
+    watersheds.assign(ws_size=h_watersheds.geometry.area)
+    
+    # Keep only the Station_IDs and geometry area
+    watersheds = watersheds[['Station_ID', 'hws_size']]
+    
+    match_df = match_df.merge(watersheds, how='left', left_on='hydat_id', right_on='Station_ID')
+    match_df = match_df.merge(watersheds, how='left', left_on='pwqmn_id', right_on='Station_ID')
+    
+    return match_df
+
+
 def assign_period_overlap(match_df):
+    """
+    Caculates the number of days where data is available for each pair
+    of stations in match_df. Called automatically by dfs_search().
+    
+    :param match_df: DataFrame
+        DataFrame of matched stations. Must contain 'hydat_id'
+        and 'pwqmn_id'.
+    
+    :return: DataFrame
+        The original DataFrame with an additional 'data_overlap' column.
+    """
     hydat_dr = get_hydat_data_range(subset=match_df['hydat_id'].to_list())
     pwqmn_dr = get_pwqmn_data_range(subset=match_df['pwqmn_id'].to_list())
     
     overlap_lst = []
+    h_count = []
+    p_count = []
     
     for ind, row in match_df.iterrows():
         hydat_ps = hydat_dr.query('Station_ID == @row["hydat_id"]')
-        # cast pwqmn_id to an int because using the @ operator in query
+        # cast pwqmn_id to an int because using the @ operator in .query()
         # makes the id into a string for some reason
         pwqmn_id = int(row["pwqmn_id"])
         pwqmn_ps = pwqmn_dr.query('Station_ID == @pwqmn_id')
         
+        h_count.append(hydat_ps['Num_Days'].sum())
+        p_count.append(pwqmn_ps['Num_Days'].sum())
+        
         overlap_lst.append(period_overlap(hydat_ps, pwqmn_ps))
     
-    return match_df.assign(data_overlap=overlap_lst)
-    
-
-def bfs_search(network: nx.DiGraph, prefix1='pwqmn_', prefix2='hydat_'):
-    """
-
-    :param network:
-    :param prefix1:
-    :param prefix2:
-    :return:
-    """
-
+    return match_df.assign(data_overlap=overlap_lst, total_hydat_records=h_count,
+                           total_pwqmn_records=p_count)
+  
 
 def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
-               max_distance=5000, max_depth=10, id_query=None, **kwargs):
+               max_distance=5000, max_depth=10, id_query=None, max_matches=10,
+               **kwargs):
     """
     For the station closest to each network edge denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -371,7 +414,8 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
     DataFrames. MUST contain a 'dist_along' and 'dist_from' column.
 
     For stations located on the same river segment/network edge,
-    distance between matched stations is computed geographically.
+    distance between matched stations is the max of the direct
+    distance between the stations and distance along the network.
 
     :param network: NetworkX Directed Graph
         The graph to search. Must contain station data stored as
@@ -399,7 +443,8 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
 
     :param id_query: list-like of string or None (default)
         One dimensional array with a list of station ids to include/
-        exclude in matching.
+        exclude in matching. Limiting the stations to assign improves
+        efficiency.
 
     :param kwargs: keyword arguments
         Additional arguments for the operation. As of submission
@@ -565,6 +610,8 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
 
     # check each edge for origin stations
     for u, v, data in network.out_edges(data=True):
+        match_count = 0
+        
         pref_1_data = data[prefix1 + 'data']
         pref_2_data = data[prefix2 + 'data']
 
@@ -581,9 +628,10 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                     # Check if there are candidate stations on the same river segment
                     if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
                         for ind, row in pref_2_data.iterrows():
+                            match_count += 1
                             on_segment()
                     
-                    for i in range(10):
+                    for i in range(max_matches - match_count):
                         # search for candidate stations on connected river segments
                         off_segment()
         
