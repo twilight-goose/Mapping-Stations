@@ -42,7 +42,7 @@ ohn_edge_df.drop(columns=['path', 'seg_apart'], inplace=True)
 hydro_edge_df.drop(columns=['path', 'seg_apart'], inplace=True)
 table = hydro_edge_df.merge(ohn_edge_df, how='outer', on=['hydat_id', 'pwqmn_id'],
 							suffixes=('_hyRivers', '_OHN'))
-table = table.assign(error=abs(table['dist_hyRivers'] - table['dist_OHN']) /
+table = table.assign(error=table['dist_hyRivers'] - table['dist_OHN']) /
 						   table['dist_OHN'])
 
 print(table)

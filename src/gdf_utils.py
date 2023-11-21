@@ -198,7 +198,7 @@ def connectors(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame):
 
 
 def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
-                    prefix="", max_distance=500, save_dist=False, len_f='LENGTH_KM',
+                    prefix="", max_distance=750, save_dist=False, len_f='LENGTH_KM',
                     len_unit='km') -> gpd.GeoDataFrame:
     """
     Snaps stations to the closest features in edges and assigns
@@ -228,10 +228,10 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
         assign more than 1 set of stations to edges. If left blank, may
         cause overlapping columns in output GeoDataFrame.
 
-    :param max_distance: int (default=700)
+    :param max_distance: int (default=750)
         The maximum distance (in CRS units) within which to assign a
         station to edges. If int, must be greater than 0. Default limit
-        of 700 was determined by looking at the distribution of
+        of 750 was determined by looking at the distribution of
         distance from the network.
 
     :param save_dist: bool (default=False)
@@ -295,7 +295,7 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
         edges = edges.assign(LENGTH_M=edges[len_f] * conversion)
     elif not (len_f in edges.columns):
         print(f'Warning: Edges GeoDataFrame does not contain {len_f} field.'
-                'GeoPandas computed length will be used.')
+               'GeoPandas computed length will be used.')
         edges = edges.assign(LENGTH_M=edges.geometry.length)
 
     edges = edges.assign(unique_ind=edges.index, other=edges.geometry)
@@ -334,7 +334,7 @@ def delineate_matches(match_df, subset=None):
     print(stations)
     stations.rename(columns={'Latitude': 'lat', 'Longitude': 'lon'}, inplace=True)
     
-    dem="D:/Watershed_Delineation/src/PySheds/data/n40w090_dem.tif"
+    dem = os.path.join(load_data.proj_path, "..", "Watershed_Delineation", "src", "PySheds", "data", "n40w090_dem.tif")
     
     dir_path = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(dir_path + '/../../Watershed_Delineation/src/PySheds')
@@ -532,6 +532,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                     by='dist_along', ascending=not direction) 
                 
                 for ind, series in stations.iterrows():
+                    
                     if series['Station_ID'] not in matches[prefix + 'id']:
                         direct_dist = station['geometry'].distance(series['geometry'])
                         dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist_along'])
@@ -539,14 +540,15 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                         if dist < max_distance:
                             return series['Station_ID'], max(direct_dist, dist), depth,\
                                    series['geometry'], (u, v)[direction]
+                                   
                         return -1, -1, -1
-            else:
-                result = *dfs((u, v)[not direction], prefix2, direction,
-                              cum_dist + data['LENGTH_M'], depth + 1), \
-                          (u, v)[direction]
 
-                if result[0] != -1:
-                    return result
+            result = *dfs((u, v)[not direction], prefix2, direction,
+                          cum_dist + data['LENGTH_M'], depth + 1), \
+                      (u, v)[direction]
+
+            if result[0] != -1:
+                return result
         # This is only run if there are no edges and the function has
         # reached the end of the line
         return -1, -1, -1
@@ -637,6 +639,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         
     matches = gpd.GeoDataFrame(data=matches, geometry='path', crs=Can_LCC_wkt)
     matches = assign_period_overlap(matches)
+    
     return matches
     
 

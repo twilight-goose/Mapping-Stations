@@ -764,8 +764,8 @@ def get_hydat_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
     Data_Range must be created using hydat_create_data_range and
     contain the following fields:
     - Station_ID
-    - Start
-    - End
+    - P_Start
+    - P_End
     
     :param to_csv: str or False (default)
         If False, don't save the output DataFrame to a csv file. If
