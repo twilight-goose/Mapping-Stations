@@ -69,6 +69,19 @@ def id_query_from_subset(subset, fields):
         
     :return: string
         The created sql query string.
+    
+    tests:
+        subset = ["2A", "4N", "9K", "i8"]
+        subset2 = [123, 234, 345, 456]
+        subset3 = "sample_subset.csv"
+        
+        id_query = load_data.id_query_from_subset(subset, ['Station_ID'])
+        id_query2 = load_data.id_query_from_subset(subset2, ['STATION_NUMBER'])
+        id_query3 = load_data.id_query_from_subset("sample_subset.csv", ['Station_ID'])
+        
+        assert id_query == 'Station_ID in ("2A", "4N", "9K", "i8")'
+        assert id_query2 == 'STATION_NUMBER in (123, 234, 345, 456)'
+        assert id_query3 == 'Station_ID in (123, 234, "9K", "i8")'
     """
     if 'Station_ID' in fields:
         id_field = 'Station_ID'
@@ -88,7 +101,7 @@ def id_query_from_subset(subset, fields):
     id_list = []
     
     for st_id in subset:
-        if type(st_id) is not str or st_id.isdigit():
+        if type(st_id) is not str:
             id_list.append(str(st_id))
         else:
             id_list.append(f'"{st_id}"')
@@ -145,7 +158,6 @@ def build_sql_query(fields, **q_kwargs):
                 'brand in ("Adidas", "Nike", "Puma")'
     
     examples/tests:
-    
         period = ['2010-10-11', '2011-11-11']
         bbox = BBox(-80, -79.5, 45, 45.5)
         sample = 5
@@ -268,9 +280,8 @@ def generate_pwqmn_sql():
     return pwqmn_data
 
 
-interest_var = ["Nitrite", "Inorganic nitrogen (nitrate and nitrite)",
-        "Total Nitrogen; mixed forms", "Kjeldahl nitrogen", "Nitrate",
-        "Total Phosphorus; mixed forms", "Orthophosphate"]
+interest_var = ["Nitrite", "Total Nitrogen; mixed forms",
+                "Total Phosphorus; mixed forms", "Orthophosphate as P filtered"]
 
 
 def pwqmn_create_stations():

@@ -98,14 +98,24 @@ Next, you need to configure project structure and data paths.
         | Hydat
             |--hydat.sqlite3
         | MondayFileGallery
-            |--<file 1>.csv
-            ...
-            |--<file n>.csv
+            | --q_c_pairs.csv
         | PWQMN_cleaned
             |--Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv
+	| errors
+	| examples
+	| plots
     | src
-    | plots
-    | maps
+		| --gen_util.py
+		| --gdf_utils.py
+		| --plot_utils.py
+		| --load_data.py
+		| --browser.py
+|Watershed_Delineation
+	| src
+		| PySheds
+			| --main.py
+			| data
+				| --n40w90_dem.tif
 ```
 Data loading functions within these python files assumes the above project structure. To load
 data/files from directories or files with different names, data file paths can be modified near the
@@ -113,7 +123,7 @@ top of "/src/load_data.py". Anything beyond changing file and folder names is **
 
 Functions in "src/load_data.py" were designed to accommodate specific versions of the Hydat and PWQMN
 datasets. Specifically, HYDAT dataset tables are expected to have a field exactly named "STATION_NUMBER".
-The HYDAT dataset is also expected to contain the following table names:
+The HYDAT dataset is also expected to contain the following tables:
 
 - STATIONS
 - DLY_FLOWS
@@ -140,6 +150,7 @@ The PWQMN dataset is expected to contain the following fields, and a missing one
 'MonitoringLocationID',
 'MonitoringLocationLongitude',
 'MonitoringLocationLatitude',
+'MethodSpeciation',
 'ActivityStartDate',
 'CharacteristicName',
 'SampleCollectionEquipmentName',
@@ -148,8 +159,13 @@ The PWQMN dataset is expected to contain the following fields, and a missing one
 'ResultUnit',
 'ResultValueType',
 'ResultDetectionCondition',
+'ResultDetectionQuantitationLimitType',
 'ResultDetectionQuantitationLimitMeasure',
 'ResultDetectionQuantitationLimitUnit'
+'ResultComment',
+'ResultAnalyticalMethodID',
+'ResultAnalyticalMethodContext',
+'LaboratorySampleID'
 ```
 
 The HYDAT and PWQMN data used in this project were pre-processed by [Juliane Mai](https://github.com/julemai).
@@ -227,9 +243,7 @@ to be run and builds directionality.
 
 ## Output Accuracy Table
 ### Zone 1: Southern/Central Ontario
-All distances are in meters. For stations on the same segment within 350m, regardless
-of the dataset that the network was built with, distance is calculated from origin
-to candidate station point instead of along the network. The algorithm is also designed
+All distances are in meters. The algorithm is also designed
 to report ALL candidate stations within a maximum distance that lie on the same river
 segment as the origin station. This means that where the greater resolution of the OHN
 dataset breaks stretches of river that are recorded as single edges in HydroRIVERS into
@@ -282,3 +296,7 @@ Down = Downstream
 % Error is % error in hydroRIVERS, calculated as (hydroRIVERS - OHN_dist) / OHN_dist * 100
 
 Table produced using test_cases.network_compare()
+
+### Compared to Manual Matching
+As of submission @8c9d254, the algorithm is able to match all stations manually matched in q_c_pairs.csv.
+

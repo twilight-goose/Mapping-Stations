@@ -95,7 +95,7 @@ def point_gdf_from_df(df: pd.DataFrame, x_field=None, y_field=None, crs=4326,
     print(f"Attempting conversion with the following CRS parameter: {crs}")
     try:
         gdf = gpd.GeoDataFrame(
-            df.astype(str), geometry=gpd.points_from_xy(df[x_field], df[y_field]), crs=crs)
+            df, geometry=gpd.points_from_xy(df[x_field], df[y_field]), crs=crs)
         gdf.drop_duplicates(subset=[x_field, y_field], inplace=True)
         gdf.to_crs(Can_LCC_wkt, inplace=True)
         print("Dataframe successfully converted to geopandas point geodataframe")
@@ -342,7 +342,11 @@ def delineate_matches(match_df, subset=None):
     from main import delineate
     
     delineate(dem, basins=stations, output_fname="watersheds", id_field='Station_ID')
+    
+    return assign_delineations(match_df)
+    
 
+def assign_delineations(match_df):
     watersheds = gpd.read_file("watersheds.geojson")
     watersheds = watersheds.query('LABEL == 1')
     watersheds.assign(ws_size=h_watersheds.geometry.area)
@@ -416,7 +420,11 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
     For stations located on the same river segment/network edge,
     distance between matched stations is the max of the direct
     distance between the stations and distance along the network.
-
+    
+    By restricting max_matches and increasing max_distance +
+    max_depth, the user can locate the closest X number of stations
+    without limits on distance from origin station.
+    
     :param network: NetworkX Directed Graph
         The graph to search. Must contain station data stored as
         edge attributes.
@@ -445,6 +453,10 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         One dimensional array with a list of station ids to include/
         exclude in matching. Limiting the stations to assign improves
         efficiency.
+        
+    :param max_matches: int (default=10)
+        Approximate maximum number of candidates to locate per origin
+        station.
 
     :param kwargs: keyword arguments
         Additional arguments for the operation. As of submission
@@ -523,7 +535,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
             raise ValueError('Invalid direction')
 
         if (cum_dist >= max_distance) or (len(edges) == 0) or (depth >= max_depth):
-            return -1, -1, -1
+            return -1, -1, -1, -1
 
         for u, v, data in edges:
             if type(data[prefix + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
@@ -538,10 +550,10 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                         dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist_along'])
 
                         if dist < max_distance:
-                            return series['Station_ID'], max(direct_dist, dist), depth,\
-                                   series['geometry'], (u, v)[direction]
+                            return series['Station_ID'], series['dist_from'], max(direct_dist, dist), \
+                                depth, series['geometry'], (u, v)[direction]
                                    
-                        return -1, -1, -1
+                        return -1, -1, -1, -1
 
             result = *dfs((u, v)[not direction], prefix2, direction,
                           cum_dist + data['LENGTH_M'], depth + 1), \
@@ -551,14 +563,16 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                 return result
         # This is only run if there are no edges and the function has
         # reached the end of the line
-        return -1, -1, -1
+        return -1, -1, -1, -1
     
-    def add_to_matches(id1, id2, path, dist_, pos_, depth):
+    def add_to_matches(id1, id2, dist_from_1, dist_from_2, path, dist_, pos_, depth):
         """
         Helper function that adds a set of values to a dictionary with specific keys.
         """
         matches[prefix1 + 'id'].append(id1)
         matches[prefix2 + 'id'].append(id2)
+        matches[prefix1 + 'dist_from_net'].append(dist_from_1)
+        matches[prefix2 + 'dist_from_net'].append(dist_from_2)
         matches['path'].append(path)
         matches['dist'].append(dist_)
         matches['pos'].append(pos_)
@@ -579,6 +593,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
             pos = 'On-' + ('Up' if station['dist_along'] > row['dist_along'] else 'Down')
 
             add_to_matches(station['Station_ID'], row['Station_ID'],
+                           station['dist_from'], row['dist_from'],
                            LineString([station['geometry'], row['geometry']]),
                            on_dist, pos, 0)
 
@@ -588,27 +603,30 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         on the same segment.
         """
         # Check for candidate stations upstream and downstream
-        down_id, down_dist, down_depth, *point_list = dfs(
+        down_id, down_from, down_dist, down_depth, *point_list = dfs(
             v, prefix2, 0, data['LENGTH_M'] - station['dist_along'], 1
         )
-        up_id, up_dist, up_depth, *point_list2 = dfs(
+        up_id, up_from, up_dist, up_depth, *point_list2 = dfs(
             u, prefix2, 1, station['dist_along'], 1
         )
 
         if down_id != -1:
             point_list.append(station['geometry'])
-            add_to_matches(station['Station_ID'], down_id, LineString(point_list),
+            add_to_matches(station['Station_ID'], down_id, station['dist_from'], down_from, 
+                            LineString(point_list),
                            down_dist, 'Down', down_depth)
 
         if up_id != -1:
             point_list2.append(station['geometry'])
-            add_to_matches(station['Station_ID'], up_id, LineString(point_list2),
+            add_to_matches(station['Station_ID'], up_id, station['dist_from'], up_from,
+                           LineString(point_list2),
                            up_dist, 'Up', up_depth)
     
     # ===================================================================== #
     # Instantiate dictionary to store matches
-    matches = {prefix1 + 'id': [], prefix2 + 'id' : [], 'path': [],
-               'dist': [], 'pos': [], 'seg_apart': []}
+    matches = {prefix1 + 'id': [], prefix2 + 'id' : [],
+               prefix1 + 'dist_from_net': [], prefix2 + 'dist_from_net': [],
+               'path': [], 'dist': [], 'pos': [], 'seg_apart': []}
 
     # check each edge for origin stations
     for u, v, data in network.out_edges(data=True):

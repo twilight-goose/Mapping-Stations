@@ -64,15 +64,20 @@ def find_xy_fields(fields) -> [str, str]:
 
     :param fields: Pandas DataFrame or list-like of str
         The object to search. If a Pandas DataFrame is passed,
-        column values will be used.
+        column values will be used. 
 
     :return: list-like of strings of length 2
         The result of the search for x and y fields, where each item
         in the list is either the field name or "Failed"
         i.e:
             [<X field name> or "Failed", <Y field name> or "Failed"]
+            
+    tests:
+    >>> import pandas as pd
+    >>> data = {"X": [1], "Y", [2]}
+    >>> df = pd.DataFrame(data)
+    >>> assert find_xy_fields(df) == ("X", "Y")
     """
-
     # simple helper function
     def _(i, field_name) -> str:
         return field_name if i == "" else "Failed"
@@ -108,10 +113,36 @@ def check_geom(data, type_str):
     """
     if type(data) is gpd.GeoDataFrame:
         data = data.geometry
+        
     return list(data.geom_type.values).count(type_str) == data.size
 
 
 def days_overlapped(start1, end1, start2, end2):
+    """
+    Calculates the number of days of overlap between periods
+    defined by start and end dates.
+    
+    :param start1: str
+        The start date of period 1.
+        
+    :param end1: str
+        The end date of period 1.
+    
+    :param start2: str
+        The start date of period 2.
+    
+    :param end2: str
+        The end date of period 2.
+        
+    :return: int
+        The number of days of overlap between 2 periods.
+        
+    test:
+    >>> dates1 = ["2002-02-12", "2005-10-12", "2006-04-12", "2008-10-12"]
+    >>> dates2 = ["2002-02-12", "2002-04-17", "2002-04-15", "2002-10-21"]
+    >>> assert days_overlapped(*dates1) == 0
+    >>> assert days_overlapped(*dates2) == 3
+    """
     start = date.fromisoformat(max(start1, start2))
     end = date.fromisoformat(min(end1, end2))
     delta = end - start
@@ -123,7 +154,7 @@ def days_overlapped(start1, end1, start2, end2):
         return 0
 
 
-def period_overlap(hydat_periods, pwqmn_periods):
+def period_overlap(ps1, ps2):
     """
     Caculates the number of days that overlap between two sets of
     periods. Period sets may be either list-like or DataFrame but
@@ -137,38 +168,62 @@ def period_overlap(hydat_periods, pwqmn_periods):
     If DataFrame, the set of periods must contain a 'P_Start' and
     a 'P_End' column.
     
-    :param hydat_periods: list-like or DataFrame
+    :param ps1: list-like or DataFrame
         The first set of periods.
     
-    :param pwqmn_periods: like-like or DataFrame
+    :param ps2: like-like or DataFrame
         The other set of periods.
+    
+    :return: int
+        The total number of days of overlap between ps1 and ps2.
+        
+    tests:
+    >>> periods1 = [["2002-02-12", "2005-10-12"], ["2006-04-12", "2008-10-12"]]
+    
+    >>> periods2 = [["2002-02-12", "2002-02-12"], ["2004-02-12", "2004-02-12"],
+                    ["2005-10-12", "2005-10-13"], ["2006-04-11", "2006-04-12"],
+                    ["2006-06-12", "2007-06-12"], ["2008-10-12", "2008-10-13"]]
+                
+    >>> periods3 = [["2005-10-10", "2006-04-20"]]
+                
+    >>> expected = 1 + 1 + 1 + 1 + 366 + 1
+    
+    >>> assert days_overlapped(*periods1[0], *periods2[0]) == 1
+    >>> assert days_overlapped(*periods1[0], *periods2[2]) == 1
+    >>> assert days_overlapped(*periods1[0], *periods2[3]) == 0
+    >>> assert days_overlapped(*periods1[1], *periods2[0]) == 0
+    >>> assert days_overlapped(*periods1[1], *periods2[3]) == 1
+    >>> assert days_overlapped(*periods1[0], "2005-10-10", "2005-10-13") == 3
+    >>> assert days_overlapped(*periods1[0], "2005-10-01", "2005-10-10") == 10
+    
+    >>> assert period_overlap(periods1, periods2) == expected
+    >>> assert period_overlap(periods1, periods3) == 12
     """
-
-    if type(hydat_periods) is type(pwqmn_periods):
+    if type(ps1) is type(ps2):
         p_ind = 0
         h_ind = 0
         total_overlap = 0
         
-        if type(hydat_periods) is DataFrame:
-            h_len = hydat_periods.shape[0]
-            p_len = pwqmn_periods.shape[0]
+        if type(ps1) is DataFrame:
+            h_len = ps1.shape[0]
+            p_len = ps2.shape[0]
             
-        elif type(hydat_periods) is list:
-            h_len = len(hydat_periods)
-            p_len = len(pwqmn_periods)
+        elif type(ps1) is list:
+            h_len = len(ps1)
+            p_len = len(ps2)
         
         while h_ind < h_len and p_ind < p_len:
             
-            if type(hydat_periods) is DataFrame:
-                h_row = hydat_periods.iloc[h_ind]
-                p_row = pwqmn_periods.iloc[p_ind]
+            if type(ps1) is DataFrame:
+                h_row = ps1.iloc[h_ind]
+                p_row = ps2.iloc[p_ind]
                 
                 h_start, h_end = h_row['P_Start'], h_row['P_End']
                 p_start, p_end = p_row['P_Start'], p_row['P_End']
                 
-            elif type(hydat_periods) is list:
-                h_start, h_end = hydat_periods[h_ind]
-                p_start, p_end = pwqmn_periods[p_ind]
+            elif type(ps1) is list:
+                h_start, h_end = ps1[h_ind]
+                p_start, p_end = ps2[p_ind]
             
             if h_end < p_start:
                 h_ind += 1
@@ -231,6 +286,8 @@ class BBox:
     >>> assert bbox1.sql_query('X', 'Y') == "(-80.0 <= X AND -79.5 >= X AND 45.0 <= Y AND 45.5 >= Y)"
     >>> assert bbox2.sql_query('X', 'Y') == "(-80.0 <= X AND -79.5 >= X AND 45.0 <= Y AND 45.5 >= Y)"
     
+    >>> assert BBox.sql_query(bbox1, 'X', 'Y') == "(-80.0 <= X AND -79.5 >= X AND 45.0 <= Y AND 45.5 >= Y)"
+    >>> assert BBox.sql_query(bbox2, 'X', 'Y') == "(-80.0 <= X AND -79.5 >= X AND 45.0 <= Y AND 45.5 >= Y)"
     """
     def __init__(self, min_x=None, max_x=None, min_y=None, max_y=None, crs=ccrs.Geodetic()):
         """
@@ -296,6 +353,10 @@ class BBox:
 
     @property
     def bounds(self):
+        """
+        The bounding coordinates of the BBox. In the order
+        minx, miny, maxx, maxy.
+        """
         return self.shape.bounds
     
     def sql_query(self, x_field, y_field) -> str:
@@ -328,7 +389,7 @@ class BBox:
         """
         Returns min_x, min_y, max_x, max_y of the bounding box.
 
-        :return:
+        :return: tuple of int of length 4
         """
         return self.bounds
 
@@ -418,10 +479,23 @@ class Period:
         self.end = end
 
     def is_empty(self):
+        """
+        :return: bool
+            True if the period has no start and no end date.
+        """
         return self.start is None and self.end is None
         
     @staticmethod
     def from_list(period):
+        """
+        Generates a period object from a list of 2 dates.
+        
+        :param period: list-like of str of length 2
+            List-like of (<start date>, <end date>).
+        
+        :return: Period object
+            The period.
+        """
         return Period(start=period[0], end=period[1])
 
     @staticmethod
@@ -530,7 +604,6 @@ class Period:
     
     @staticmethod
     def get_periods(dates=None,silent=True):
-
         """
             Returns the periods of consecutive dates from a provided list of dates.
 
@@ -611,7 +684,6 @@ class Period:
             Written,  Juliane Mai, January 2023
             Modified, James Wang, November 2023
         """
-
         # initialize return
         periods = []
 
@@ -638,6 +710,19 @@ class Period:
         
     @staticmethod
     def check_data_range(period, dates):
+        """
+        Checks that the dates in dates lie within period (inclusive).
+        
+        :param period: list-like of string of length 2
+            The period to check dates against.
+        
+        :param dates: list-like of string
+            Dates to check.
+            
+        :return: bool
+            Returns True if all dates in dates lies within the period,
+            False otherwise (inclusive).
+        """
         n = 0
         for ind, row in dates.iterrows():
             start = row['P_Start']
@@ -661,11 +746,12 @@ class Period:
                     n+=1
                     
         print(f"{n} date ranges were incorrect")
+        return n == 0
 
 
 class Timer:
     """
-    Just for timing operations to compare temporal efficiency
+    Just for timing operations to compare temporal efficiency.
     """
     def __init__(self):
         self.s_time = datetime.now()

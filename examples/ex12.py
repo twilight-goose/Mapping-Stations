@@ -14,17 +14,17 @@ import pandas as pd
 
 
 def check_equal(row):
-    if row['C station ID'] == row["pwqmn_id"]:
+    if row['Q station ID'] == row["hydat_id"]:
         return "same"
     else:
-        return row['C station ID']
+        return row['Q station ID']
 
 
 q_c_pairs = pd.read_csv(os.path.join(load_data.monday_path, "Q_C_pairs.csv"))
-h_subset = q_c_pairs["Q station ID"]
+p_subset = q_c_pairs["C station ID"]
 
-hydat = load_data.get_hydat_stations(subset=h_subset.to_list())
-pwqmn = load_data.get_pwqmn_stations()
+hydat = load_data.get_hydat_stations()
+pwqmn = load_data.get_pwqmn_stations(subset=p_subset)
 
 hydat = gdf_utils.point_gdf_from_df(hydat)
 pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
@@ -47,7 +47,7 @@ lines = gdf_utils.assign_stations(lines, pwqmn, prefix='pwqmn_')
 
 # convert the dataset to a network, then match the stations
 network = gdf_utils.hyriv_gdf_to_network(lines)
-edge_df = gdf_utils.dfs_search(network, max_distance=15000)
+edge_df = gdf_utils.dfs_search(network, prefix1="pwqmn_", prefix2="hydat_", max_distance=15000)
 
 edge_df.drop(columns=['path', 'seg_apart', "total_hydat_records",
                        "total_pwqmn_records"], inplace=True)
@@ -56,9 +56,9 @@ q_c_pairs = edge_df.merge(q_c_pairs, how='outer', right_on=['Q station ID', 'C s
                             left_on=['hydat_id', 'pwqmn_id'],
                 suffixes=('_q_c', '_hydat'))
                 
-q_c_pairs['C station ID'] = q_c_pairs.apply(check_equal, axis=1)
+q_c_pairs['Q station ID'] = q_c_pairs.apply(check_equal, axis=1)
 q_c_pairs.drop(columns=["name", "lat", "lon", "pos", "area_km2"], inplace=True)
 
 print(q_c_pairs)
 
-q_c_pairs.to_csv("q_c_pair_comparison.csv")
+q_c_pairs.to_csv("q_c_pair_comparison2.csv")

@@ -8,4 +8,5 @@ ex7.py: save to shapefile (no output)
 ex8.py: compare station matching between OHN and hydrorivers datasets, calculate the error between the two, and save it to "table.csv"
 ex9.py: loading lists of stations from .csv files and saving the station data to .csv files
 ex10.py: example of loading large lists of stations from .csv files and matching them.
-ex11.py: Load and match stations in "MondayFileGallery/Q_C_pairs.csv", then compare the matches.
+ex11.py: Load and match hydat stations in "MondayFileGallery/Q_C_pairs.csv", then compare the matches made.
+ex12.py: Load and match pwqmn stations in "MondayFileGallery/Q_C_pairs.csv", then compare the matches made.

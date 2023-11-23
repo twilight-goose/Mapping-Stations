@@ -46,8 +46,9 @@ def check_paths(proj_path: str, data_path: str, hydat_path: str,
                         | --HydroRIVERS_v10.na.shp
                         | + (5 shapefile dependency files)
                     | PWQMN_cleaned
-                        | -- Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv
+                        | --Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv
                     | MondayFileGallery
+                        | --q_c_pairs.csv
 
         :param proj_path: string
             Full project directory path.
@@ -59,7 +60,7 @@ def check_paths(proj_path: str, data_path: str, hydat_path: str,
             Full path to HYDAT data.
 
         :param pwqmn_path: string
-            Full path to Provincial Water Quality Monitoring Network data
+            Full path to Provincial Water Quality Monitoring Network data.
 
         :param monday_path: string
             Full path to data downloaded from Monday.com
