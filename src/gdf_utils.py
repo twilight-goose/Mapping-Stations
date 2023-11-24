@@ -535,13 +535,19 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
             raise ValueError('Invalid direction')
 
         if (cum_dist >= max_distance) or (len(edges) == 0) or (depth >= max_depth):
-            return -1, -1, -1, -1
+            return -1, -1, -1, -1, -1
 
         for u, v, data in edges:
             if type(data[prefix + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
                 
                 stations = data[prefix + 'data'].sort_values(
-                    by='dist_along', ascending=not direction) 
+                    by='dist_along', ascending=not direction)
+                
+                ids = []
+                dist_froms = []
+                dists = []
+                depths = []
+                path_last_segs = []
                 
                 for ind, series in stations.iterrows():
                     
@@ -550,20 +556,26 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                         dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist_along'])
 
                         if dist < max_distance:
-                            return series['Station_ID'], series['dist_from'], max(direct_dist, dist), \
-                                depth, series['geometry'], (u, v)[direction]
-                                   
-                        return -1, -1, -1, -1
+                        
+                            ids.append(series['Station_ID'])
+                            dist_froms.append(series['dist_from'])
+                            dists.append(max(direct_dist, dist))
+                            depths.append(depth)
+                            path_last_segs.append([series['geometry'], (u, v)[direction]])
+                        
+                        else:
+                            break
 
-            result = *dfs((u, v)[not direction], prefix2, direction,
-                          cum_dist + data['LENGTH_M'], depth + 1), \
-                      (u, v)[direction]
+                return ids, dist_froms, dists, depths, path_last_segs
+
+            result = *dfs((u, v)[not direction], prefix2, direction, cum_dist + data['LENGTH_M'], depth + 1), \
+                            (u, v)[direction]
 
             if result[0] != -1:
                 return result
         # This is only run if there are no edges and the function has
         # reached the end of the line
-        return -1, -1, -1, -1
+        return -1, -1, -1, -1, -1
     
     def add_to_matches(id1, id2, dist_from_1, dist_from_2, path, dist_, pos_, depth):
         """
@@ -591,36 +603,41 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
 
         if on_dist < max_distance:
             pos = 'On-' + ('Up' if station['dist_along'] > row['dist_along'] else 'Down')
-
             add_to_matches(station['Station_ID'], row['Station_ID'],
                            station['dist_from'], row['dist_from'],
                            LineString([station['geometry'], row['geometry']]),
                            on_dist, pos, 0)
 
-    def off_segment():
+    def off_segment(match_count):
         """
         Helper function defining algorithm behaviour for stations not
         on the same segment.
         """
         # Check for candidate stations upstream and downstream
-        down_id, down_from, down_dist, down_depth, *point_list = dfs(
-            v, prefix2, 0, data['LENGTH_M'] - station['dist_along'], 1
-        )
-        up_id, up_from, up_dist, up_depth, *point_list2 = dfs(
-            u, prefix2, 1, station['dist_along'], 1
-        )
-
+        down_id, down_from, down_dist, down_depth, down_seg, *point_list = dfs(
+                v, prefix2, 0, data['LENGTH_M'] - station['dist_along'], 1)
+                
+        up_id, up_from, up_dist, up_depth, up_seg, *point_list2 = dfs(
+                u, prefix2, 1, station['dist_along'], 1)
+        
+        point_list.append(station['geometry'])
         if down_id != -1:
-            point_list.append(station['geometry'])
-            add_to_matches(station['Station_ID'], down_id, station['dist_from'], down_from, 
-                            LineString(point_list),
-                           down_dist, 'Down', down_depth)
-
+            for i in range(len(down_id)):
+                pts = down_seg[i] + point_list
+                match_count += 1
+                add_to_matches(station['Station_ID'], down_id[i], station['dist_from'],
+                               down_from[i], LineString(pts), down_dist[i],
+                               "Down", down_depth[i])
+        
+        point_list2.append(station['geometry'])
         if up_id != -1:
-            point_list2.append(station['geometry'])
-            add_to_matches(station['Station_ID'], up_id, station['dist_from'], up_from,
-                           LineString(point_list2),
-                           up_dist, 'Up', up_depth)
+            for i in range(len(up_id)):
+                pts = up_seg + point_list2
+                match_count += 1
+                add_to_matches(station['Station_ID'], up_id[i], station['dist_from'],
+                               up_from[i], LineString(pts), up_dist[i],
+                               "Up", up_depth[i])
+        return match_count
     
     # ===================================================================== #
     # Instantiate dictionary to store matches
@@ -652,8 +669,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                             on_segment()
                     
                     for i in range(max_matches - match_count):
-                        # search for candidate stations on connected river segments
-                        off_segment()
+                        if match_count >= max_matches:
+                            break
+                        match_count = off_segment(match_count)
         
     matches = gpd.GeoDataFrame(data=matches, geometry='path', crs=Can_LCC_wkt)
     matches = assign_period_overlap(matches)

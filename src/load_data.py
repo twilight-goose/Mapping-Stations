@@ -101,7 +101,7 @@ def id_query_from_subset(subset, fields):
     id_list = []
     
     for st_id in subset:
-        if type(st_id) is not str:
+        if type(st_id) is not str or st_id.isdigit():
             id_list.append(str(st_id))
         else:
             id_list.append(f'"{st_id}"')
@@ -280,8 +280,12 @@ def generate_pwqmn_sql():
     return pwqmn_data
 
 
-interest_var = ["Nitrite", "Total Nitrogen; mixed forms",
-                "Total Phosphorus; mixed forms", "Orthophosphate as P filtered"]
+interest_var = ["Total Nitrogen; mixed forms as N Filtered",
+                "Nitrate as N Filtered",
+                "Total Nitrogen; mixed forms as N Unfiltered",
+                "Total Phosphorus; mixed forms",
+                "Orthophosphate as P Filtered",
+                "Total Phosphorus; mixed forms as P Unfiltered"]
 
 
 def pwqmn_create_stations():
@@ -301,9 +305,15 @@ def pwqmn_create_stations():
     curs = conn.execute('PRAGMA table_info(ALL_DATA)')
     fields = [field[1] for field in curs.fetchall()]
     
+    query = []
+    for i in interest_var:
+        query.append(f'"{i}"')
+    query = ", ".join(query)
+    query = f' WHERE Variable ||  " " || MethodSpeciation || " " || ResultSampleFraction in ({query})'
+    print(query)
     stations = pd.read_sql_query(
         "SELECT DISTINCT Station_ID, Station_Name, Longitude, Latitude FROM ALL_DATA" + 
-        build_sql_query(fields, Variable=interest_var), conn
+        query, conn
     )
     stations.to_sql('Stations', conn, index=False, if_exists='replace')
     conn.close()
@@ -320,7 +330,7 @@ def pwqmn_create_data_range():
     Table Name: Data_Range
     Fields: Station_ID, Start, End, Num_Days
     
-    Date processing code writter by Juliane Mai, January 2023
+    Date processing code written by Juliane Mai, January 2023
     Modified by James Wang, November 2023sample
     
     :return: DataFrame
@@ -328,7 +338,6 @@ def pwqmn_create_data_range():
     
     :modifies: database @ pwqmn_sql_path.
     """
-    
     def add_to_output(st_id, start, end):
         out_data['Station_ID'].append(st_id)
         out_data['P_Start'].append(start)
@@ -340,7 +349,12 @@ def pwqmn_create_data_range():
     curs = conn.execute('PRAGMA table_info(ALL_DATA)')
     fields = [field[1] for field in curs.fetchall()]
     
-    query = build_sql_query(fields, Variable=interest_var)
+    query = []
+    for i in interest_var:
+        query.append(f'"{i}"')
+    query = ", ".join(query)
+    query = f' WHERE Variable ||  " " || MethodSpeciation || " " || ResultSampleFraction in ({query})'
+    
     pwqmn_data = pd.read_sql_query("SELECT Station_ID, Date FROM ALL_DATA" + query, conn)
     
     pwqmn_data['Date'] = pd.to_datetime(pwqmn_data['Date'])
@@ -498,13 +512,13 @@ def get_pwqmn_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
     """
     timer.start()
     
-    station_df = get_pwqmn_data('Stations', to_csv=to_csv, **q_kwargs)
+    station_df = get_pwqmn_data('Stations', to_csv=False, **q_kwargs)
 
     if station_df.empty:
         print("Chosen query resulted in empty GeoDataFrame.")
     else:
         if to_csv:
-            station_df.to_csv()
+            station_df.to_csv(f"{to_csv}.csv")
     
     timer.stop()
     return station_df

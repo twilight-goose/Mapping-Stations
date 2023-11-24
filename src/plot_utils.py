@@ -164,10 +164,11 @@ def plot_g_series(g_series: gpd.GeoSeries, crs=Can_LCC_wkt, ax=None,
             lines = []
             for geom in g_series:
                 lines.append(*ax.plot(*geom.xy, **kwargs))
+        
+        return lines
     except IndexError:
         print("Plotting failed. The GeoSeries has no geometry.")
-
-    return lines
+        return None
 
 
 def draw_network(p_graph, **kwargs):
