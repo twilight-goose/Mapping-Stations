@@ -408,17 +408,12 @@ def annotate_stations(*station_sets, adjust=True, ax=None):
         print("adjust keyword overriden. Text positions not adjusted because there are too many.")
 
 
-def plot_match_array(match_df):
+def plot_match_array(edge_df, add_to_plot=None, shape=None):
     """
-    Creates and displays a series of plots in a matplotlib window;
-    one for each pwqmn station in match_df.
     
-    :param match_df: DataFrame
-        A Dataframe of similar or identical structure to one produced
-        by the gdf_utils.dfs_search(). Must contain the following fields:
-        - hydat_id
-        - pwqmn_id
-        - path
+    :param edge_df:
+    :param shape:
+    :param add_to_plot:
 
     :return:
     """
@@ -439,9 +434,14 @@ def plot_match_array(match_df):
         cur_ax.plot([end.x], [end.y], color='red', zorder=6, marker='o')
         text.append(cur_ax.text(end.x, end.y, group_row['pwqmn_id']))
 
+        if add_to_plot is not None:
+            for i in add_to_plot:
+                if callable(i):
+                    i(ax=cur_ax)
+
         adjust_text(text)
 
-    grouped = match_df.groupby(by='pwqmn_id')
+    grouped = edge_df.groupby(by='pwqmn_id')
 
     if shape is None:
         cols = np.ceil(np.sqrt(len(grouped.groups.keys()))) + 1
@@ -498,6 +498,26 @@ def add_scalebar(ax=None):
     ax.add_artist(ScaleBar(1, location='lower right', box_alpha=0.75))
 
 
+def show():
+    """
+    Wrapper function for calling plt.show() from functions that don't
+    import matplotlib.
+
+    :return:
+    """
+    plt.show()
+
+
+def close():
+    """
+    Wrapper function for calling plt.close() from functions that don't
+    import matplotlib.
+
+    :return:
+    """
+    plt.close()
+
+
 def timed_display(seconds=2):
     """
     Displays the current matplotlib.pyplot plot, and automatically
@@ -511,3 +531,7 @@ def timed_display(seconds=2):
     plt.show(block=False)
     plt.pause(seconds)
     plt.close()
+
+
+def get_ax():
+    return plt.subplot(projection=lambert)

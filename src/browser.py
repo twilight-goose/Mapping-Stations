@@ -6,6 +6,52 @@ import plot_utils
 from gen_util import lambert, geodetic
 
 
+# def legend_pick():
+#     t = np.linspace(0, 1)
+#     y1 = 2 * np.sin(2 * np.pi * t)
+#     y2 = 4 * np.sin(2 * np.pi * 2 * t)
+#
+#     fig, ax = plt.subplots()
+#     ax.set_title('Click on legend line to toggle line on/off')
+#     line1, = ax.plot(t, y1, lw=2, label='1 Hz')
+#     line2, = ax.plot(t, y2, lw=2, label='2 Hz')
+#     leg = ax.legend(fancybox=True, shadow=True)
+#
+#     lines = [line1, line2]
+#     lined = {}  # Will map legend lines to original lines.
+#     for legline, origline in zip(leg.get_lines(), lines):
+#         origline.set_picker(True)  # Enable picking on the legend line.
+#         lined[origline] = legline
+#
+#     def on_pick(event):
+#         # On the pick event, find the original line corresponding to the legend
+#         # proxy line, and toggle its visibility.
+#         origline = event.artist
+#         legline = lined[origline]
+#         visible = not origline.get_visible()
+#         origline.set_visible(visible)
+#         # Change the alpha on the line in the legend, so we can see what lines
+#         # have been toggled.
+#         legline.set_alpha(1.0 if visible else 0.2)
+#         fig.canvas.draw()
+#
+#     fig.canvas.mpl_connect('pick_event', on_pick)
+#     plt.show()
+
+
+# if __name__ == '__main__':
+#     fig, ax = plt.subplots()
+#     line = Line2D([0, 1], [0, 1], marker='o', markerfacecolor='red')
+#     ax.add_line(line)
+#
+#     linebuilder = LineBuilder(line)
+#
+#     ax.set_title('click to create lines')
+#     ax.set_xlim(-2, 2)
+#     ax.set_ylim(-2, 2)
+#     plt.show()
+
+
 def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
     class PointBrowser:
         def __init__(self):

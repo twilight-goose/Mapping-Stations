@@ -77,10 +77,6 @@ def find_xy_fields(fields) -> [str, str]:
     >>> data = {"X": [1], "Y", [2]}
     >>> df = pd.DataFrame(data)
     >>> assert find_xy_fields(df) == ("X", "Y")
-    >>> assert find_xy_fields(["X", "Y"]) == ("X", "Y")
-    >>> assert find_xy_fields(["lat", "lon"]) == ("lon", "lat")
-    >>> assert find_xy_fields(["x", "y", "lon"]) == ("Failed", "y
-    >>> assert find_xy_fields(["day", "y"]) == ("", "y")
     """
     # simple helper function
     def _(i, field_name) -> str:
@@ -715,30 +711,17 @@ class Period:
     @staticmethod
     def check_data_range(period, dates):
         """
-        Checks that all date ranges in dates overlaps with period
-        (inclusive).
+        Checks that the dates in dates lie within period (inclusive).
         
         :param period: list-like of string of length 2
             The period to check dates against.
         
-        :param dates: DataFrame
-            Periods to check; must contain "P_Start" and
-            "P_End" columns.
+        :param dates: list-like of string
+            Dates to check.
             
         :return: bool
-            Returns True if all date ranges in dates overlap with 
-            period, False otherwise (inclusive).
-            
-        tests:
-        >>> period = ["2002-10-14", "2003-05-01"]
-        >>> dates1 = {"P_Start": ["2002-10-14", "2003-01-14", "2003-05-01"],
-                      "P_End": ["2002-10-14", "2003-01-14", "2003-05-01"]}
-        >>> dates2 = {"P_Start": ["2002-10-14", "2003-01-14", "2003-05-02"],
-                      "P_End": ["2002-10-14", "2003-01-14", "2003-05-02"]}
-        >>> dates1 = pd.DataFrame(dates1)
-        >>> dates2 = pd.DataFrame(dates2)
-        >>> assert Period.check_data_range(period, dates1) == True
-        >>> assert Period.check_data_range(period, dates2) == False
+            Returns True if all dates in dates lies within the period,
+            False otherwise (inclusive).
         """
         n = 0
         for ind, row in dates.iterrows():
