@@ -134,8 +134,7 @@ def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame)
         lines have only two vertices.
     """
     # Assert that points contains only Point features
-    assert len(points.groupby(by=points.geometry.geom_type).groups) == 1,\
-        "GeoDataFrame expected to only contain Points."
+    assert check_geom(stations, "Point") == 1, "GeoDataFrame expected to only contain Points."
 
     # Spatial manipulation is performed in Lambert conformal conic
     # but the geometry of the original datasets are not changed.
@@ -323,7 +322,30 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     return edges.merge(pd.DataFrame(data=temp_data), on='unique_ind', how='left')
 
 
-def delineate_matches(match_df, subset=None):
+def delineate_matches(match_df):
+    """
+    For each PWQMN and HYDAT station in match_df, delineates the
+    watershed basin using the Watershed_Delineation library developed
+    by Kasope Okubadejo and returns a copy of match_df with 3 added
+    fields:
+        - ws_size_hydat:
+            area of the delineated watershed of the hydat station
+        - ws_size_pwqmn
+            area of the delineated watershed of the pwqmn station
+        - ws_overlap
+            overlapping area between the hydat station watershed and
+            pwqmn station watershed
+    
+    :param match_df: DataFrame
+        DataFrame of a similar structure as that produced by
+        dfs_search(). Must contain the following fields:
+            - hydat_id
+            - pwqmn_id
+    
+    :return: DataFrame
+        Copy of the input DataFrame with additional watershed fields
+        calculated.
+    """
     hydat_stations = load_data.get_hydat_stations(subset=match_df['hydat_id'].to_list())
     pwqmn_stations = load_data.get_pwqmn_stations(subset=match_df['pwqmn_id'].to_list())
     
@@ -331,7 +353,6 @@ def delineate_matches(match_df, subset=None):
     pwqmn_stations = pwqmn_stations[['Station_ID', 'Latitude', 'Longitude']]
     
     stations = pd.concat([hydat_stations, pwqmn_stations], axis=0)
-    print(stations)
     stations.rename(columns={'Latitude': 'lat', 'Longitude': 'lon'}, inplace=True)
     
     dem = os.path.join(load_data.proj_path, "..", "Watershed_Delineation", "src", "PySheds", "data", "n40w090_dem.tif")
@@ -343,19 +364,23 @@ def delineate_matches(match_df, subset=None):
     
     delineate(dem, basins=stations, output_fname="watersheds", id_field='Station_ID')
     
-    return assign_delineations(match_df)
-    
-
-def assign_delineations(match_df):
     watersheds = gpd.read_file("watersheds.geojson")
     watersheds = watersheds.query('LABEL == 1')
-    watersheds.assign(ws_size=h_watersheds.geometry.area)
+    watersheds = watersheds.assign(ws_size=watersheds.geometry.to_crs(crs=Can_LCC_wkt).area)
     
     # Keep only the Station_IDs and geometry area
-    watersheds = watersheds[['Station_ID', 'hws_size']]
+    watersheds = watersheds[['Station_ID', 'geometry', 'ws_size']]
+    watersheds.rename(columns={'geometry': 'wshed_geom'}, inplace=True)
     
+    match_df['pwqmn_id'] = match_df['pwqmn_id'].astype(str)
     match_df = match_df.merge(watersheds, how='left', left_on='hydat_id', right_on='Station_ID')
-    match_df = match_df.merge(watersheds, how='left', left_on='pwqmn_id', right_on='Station_ID')
+    match_df = match_df.merge(watersheds, how='left', left_on='pwqmn_id', right_on='Station_ID',
+                              suffixes=("_hydat", "_pwqmn"))
+    
+    match_df = match_df.assign(overlap=match_df['wshed_geom_hydat'].intersection(match_df['wshed_geom_pwqmn']).area)
+    
+    match_df.drop(columns=['wshed_geom_hydat', 'wshed_geom_pwqmn', 'Station_ID_hydat',
+                           'Station_ID_pwqmn'], inplace=True)
     
     return match_df
 
@@ -396,8 +421,7 @@ def assign_period_overlap(match_df):
   
 
 def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
-               max_distance=5000, max_depth=10, id_query=None, max_matches=10,
-               **kwargs):
+               max_distance=5000, max_depth=10, max_matches=10, **kwargs):
     """
     For the station closest to each network edge denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -418,7 +442,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
     DataFrames. MUST contain a 'dist_along' and 'dist_from' column.
 
     For stations located on the same river segment/network edge,
-    distance between matched stations is the max of the direct
+    distance between matched stations is the greater of the direct
     distance between the stations and distance along the network.
     
     By restricting max_matches and increasing max_distance +
@@ -448,11 +472,6 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         station to search for a match. The greater the resolution of the
         dataset used to build the network, the greater this value should
         be. (HYDAT -> 10; OHN -> 100)
-
-    :param id_query: list-like of string or None (default)
-        One dimensional array with a list of station ids to include/
-        exclude in matching. Limiting the stations to assign improves
-        efficiency.
         
     :param max_matches: int (default=10)
         Approximate maximum number of candidates to locate per origin
@@ -632,7 +651,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         point_list2.append(station['geometry'])
         if up_id != -1:
             for i in range(len(up_id)):
-                pts = up_seg + point_list2
+                pts = up_seg[i] + point_list2
                 match_count += 1
                 add_to_matches(station['Station_ID'], up_id[i], station['dist_from'],
                                up_from[i], LineString(pts), up_dist[i],
@@ -654,9 +673,6 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
 
         # check for the presence of origin station data
         if type(pref_1_data) in [pd.DataFrame, gpd.GeoDataFrame]:
-            if not id_query is None:
-                mod = "not " if query_kwargs.get('invert', False) else ""
-                pref_1_data = pref_1_data.query(f'Station_ID {mod}in @id_query')
             if not pref_1_data.empty:
                 # for each origin station on the edge
                 stations = pref_1_data.sort_values(by='dist_along', ascending=True)
@@ -781,10 +797,11 @@ def check_hyriv_network(digraph: nx.DiGraph) -> float:
 def straighten(lines):
     """
     Produces a set of lines from the start and end point of
-    each line in liens.
+    each line in lines.
 
     :param lines: GeoDataFrame
-        The line features to straighten. Must contain only lines.
+        The line features to straighten. Must contain only shapely
+        Line objects that contain 'boundary' and 'crs' attributes.
 
     :return: GeoDataFrame
         The straightened lines.
@@ -811,42 +828,3 @@ def __draw_network__(p_graph, ax=None, **kwargs):
     positions = {n: [n[0], n[1]] for n in list(p_graph.nodes)}
     nx.draw(p_graph, pos=positions, ax=ax, node_size=3, **kwargs)
 
-
-def subset_df(df: pd.DataFrame, **kwargs):
-    """
-    Subsets a DataFrame (or GeoDataFrame) based on a set of keyword
-    arguments. It is expected that the fields necessary to subset
-    the DataFrame based on each keyword are present.
-    
-    In most cases, the field required to subset the data is the same
-    as the key of the keyword argument, and are case-sensitive. The
-    following keys are case-insensitive and require other fields:
-    
-    |key      |value type      |required fields |
-    |---------|----------------|----------------|
-    extent     list-like        Longitude
-                                Latitude
-
-    :param df:
-    :param kwargs:
-    :return:
-    """
-    for key in kwargs.keys():
-        value = kwargs[key]
-
-        # Extents subsetting untested
-        if key.upper() == 'EXTENT':
-            if type(value) in [list, tuple]:
-                minx, miny, maxx, maxy = value
-            elif type(value) is BBox:
-                minx, miny, maxx, maxy = value.bounds
-            df = df.query('@minx <= Longitude <= @maxx and'
-                          '@miny <= Longitude <= @maxy')
-        else:
-            if type(value) in [list, tuple]:
-                mod = 'in'
-            else:
-                mod = '=='
-            df = df.query(f'{key} {mod} @value')
-
-    return df

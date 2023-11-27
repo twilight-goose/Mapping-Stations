@@ -231,8 +231,16 @@ def generate_pwqmn_sql():
 
     Creates a connection to the sql database (if it doesn't exist it
     is created), reads all columns from the PWQMN data, then writes it
-    to the sql database as the 'ALL_DATA' table. If a 'ALL_DATA' table 
-    exists already, that table is overwritten by the new data.
+    to the sql database as the 'ALL_DATA' table. Also generates a
+    'Data_Range' table and a 'Stations' table from the pwqmn data. If
+    any of the tables already exist, they are replaced.
+
+    The 'Stations' table stores each unique station that has a record
+    of a variable of interest by it's name, ID, latitude, and longitude.
+    
+    The 'Data_Range' table stores periods where either Nitrogen or
+    Phosphurus data is available for each pwqmn station using a start
+    and end date.
 
     Renames certain fields to standardize the column names between PWQMN
     and HYDAT data.
@@ -286,13 +294,19 @@ interest_var = ["Total Nitrogen; mixed forms as N Filtered",
                 "Total Phosphorus; mixed forms",
                 "Orthophosphate as P Filtered",
                 "Total Phosphorus; mixed forms as P Unfiltered"]
+                
+interest_var_query = []
+for i in interest_var:
+    interest_var_query.append(f'"{i}"')
+interest_var_query = ", ".join(interest_var_query)
+interest_var_query = f' WHERE Variable ||  " " || MethodSpeciation || " " || ResultSampleFraction in ({interest_var_query})'
 
 
 def pwqmn_create_stations():
     """
     Adds a 'Stations' table to the PWQMN sqlite3 database. The table
-    stores a each unique station that has one of the variables of
-    interest with it's name, ID, latitude, and longitude.
+    stores each unique station that has a record of a variable of
+    interest by it's name, ID, latitude, and longitude.
     
     :return: DataFrame
         The created SQL table as a DataFrame.
@@ -305,15 +319,9 @@ def pwqmn_create_stations():
     curs = conn.execute('PRAGMA table_info(ALL_DATA)')
     fields = [field[1] for field in curs.fetchall()]
     
-    query = []
-    for i in interest_var:
-        query.append(f'"{i}"')
-    query = ", ".join(query)
-    query = f' WHERE Variable ||  " " || MethodSpeciation || " " || ResultSampleFraction in ({query})'
-    print(query)
     stations = pd.read_sql_query(
-        "SELECT DISTINCT Station_ID, Station_Name, Longitude, Latitude FROM ALL_DATA" + 
-        query, conn
+        'SELECT DISTINCT Station_ID, Station_Name, Longitude, Latitude FROM ALL_DATA' + 
+        interest_var_query, conn
     )
     stations.to_sql('Stations', conn, index=False, if_exists='replace')
     conn.close()
@@ -349,13 +357,8 @@ def pwqmn_create_data_range():
     curs = conn.execute('PRAGMA table_info(ALL_DATA)')
     fields = [field[1] for field in curs.fetchall()]
     
-    query = []
-    for i in interest_var:
-        query.append(f'"{i}"')
-    query = ", ".join(query)
-    query = f' WHERE Variable ||  " " || MethodSpeciation || " " || ResultSampleFraction in ({query})'
-    
-    pwqmn_data = pd.read_sql_query("SELECT Station_ID, Date FROM ALL_DATA" + query, conn)
+    pwqmn_data = pd.read_sql_query('SELECT Station_ID, Date FROM ALL_DATA' + 
+                                   interest_var_query, conn)
     
     pwqmn_data['Date'] = pd.to_datetime(pwqmn_data['Date'])
     pwqmn_data['Date'] = pwqmn_data['Date'].dt.strftime("%Y-%m-%d")
@@ -528,6 +531,38 @@ def get_pwqmn_data_range(to_csv=False, **q_kwargs):
     """
     Retrieves the data ranges of PWQMN stations with variables of
     interest according to query arguments.
+    
+    :param q_kwargs: additional keyword arguments
+        Additional keyword arguments to apply to the query.
+        Potential q_kwargs key + type:
+        
+        period: Tuple/list of length 2 or Period object
+            Tuple/list of (<start date>, <end date>); dates can be 
+            either <str> in format "YYYY-MM-DD" or None; If None, all 
+            dates after(before) the start(end) date are retrieved.
+
+        subset: string or list-like/Series of string
+            The ID to retrieve or a list, tuple, Series of IDs, or file
+            path of a .csv file to load IDs from. If file path, IDs
+            will be read from the 'Station_ID' field.
+             
+        bbox: BBox object
+            BBox object defining area of interest.
+        
+        sample: <positive nonzero int>
+            Number of (random) stationsz to read from the table.
+            
+        other: value or list of values
+            Where the keyword is the field name, and the passed
+            value is either a single value or list of values
+            with which the field will be queryed.
+            
+            examples:
+            brand="Adidas" will add 'brand == "Adidas"' to the
+                query expression.
+            brand=["Adidas", "Nike", "Puma"] will add
+                'brand in ("Adidas", "Nike", "Puma")'
+    
     """
     return get_pwqmn_data('Data_Range', to_csv=to_csv, **q_kwargs)
 
