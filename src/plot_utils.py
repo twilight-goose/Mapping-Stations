@@ -15,6 +15,31 @@ from matplotlib_scalebar.scalebar import ScaleBar
 
 
 # ========================================================================= ##
+# License ================================================================= ##
+# ========================================================================= ##
+
+
+# Copyright (c) 2023 James Wang - jcw4698(at)gmail.com
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# ========================================================================= ##
 # Script Constants ======================================================== ##
 # ========================================================================= ##
 
@@ -425,6 +450,7 @@ def plot_match_array(match_df):
     def plot_subplot(n):
         cur_ax = ax[n // shape[1]][n % shape[1]]
         cur_ax.set_box_aspect(1)
+        
         g_series = gpd.GeoSeries(group['path'], crs=Can_LCC_wkt)
         add_map_to_plot(extent=g_series.total_bounds, ax=cur_ax, extent_crs=lambert)
         add_grid_to_plot(ax=cur_ax)
@@ -443,10 +469,9 @@ def plot_match_array(match_df):
 
     grouped = match_df.groupby(by='pwqmn_id')
 
-    if shape is None:
-        cols = np.ceil(np.sqrt(len(grouped.groups.keys()))) + 1
-        rows = np.ceil(len(grouped.groups.keys()) / cols)
-        shape = int(rows), int(cols)
+    cols = np.ceil(np.sqrt(len(grouped.groups.keys()))) + 1
+    rows = np.ceil(len(grouped.groups.keys()) / cols)
+    shape = int(rows), int(cols)
 
     fig, ax = plt.subplots(nrows=shape[0], ncols=shape[1],
                            subplot_kw={'projection': lambert, 'aspect': 'equal'},
@@ -480,7 +505,6 @@ def plot_flow_timeseries(flow_data: pd.DataFrame or gpd.GeoDataFrame,
     :param flow_data: DataFrame or GeoDataFrame
     """
     
-
 
 def add_scalebar(ax=None):
     """

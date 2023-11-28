@@ -24,15 +24,31 @@ GeoDataFrame and GeoSeries parameters are expected to have assigned
 CRSs. Operations affected by coordinate system distortions will attempt 
 to convert input geometries to Canada Lambert Conformal Conic, which is
 defined by Can_LCC_wkt, and will produce output referenced in this CRS.
-
-
 """
-
 
 # ========================================================================= ##
 # License ================================================================= ##
 # ========================================================================= ##
 
+# Copyright (c) 2023 James Wang - jcw4698(at)gmail.com
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
 # ========================================================================= ##
 # Data Conversion ========================================================= ##
@@ -134,7 +150,7 @@ def connect_points_to_feature(points: gpd.GeoDataFrame, other: gpd.GeoDataFrame)
         lines have only two vertices.
     """
     # Assert that points contains only Point features
-    assert check_geom(stations, "Point") == 1, "GeoDataFrame expected to only contain Points."
+    assert check_geom(points, "Point") == 1, "GeoDataFrame expected to only contain Points."
 
     # Spatial manipulation is performed in Lambert conformal conic
     # but the geometry of the original datasets are not changed.
@@ -289,7 +305,7 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     if edges.crs != Can_LCC_wkt:
         edges = edges.to_crs(crs=Can_LCC_wkt)
     
-    if len_f:
+    if len_f and len_f in edges.columns:
         conversion = {'m': 1, 'km': 1000}[len_unit]
         edges = edges.assign(LENGTH_M=edges[len_f] * conversion)
     elif not (len_f in edges.columns):
@@ -333,8 +349,10 @@ def delineate_matches(match_df):
         - ws_size_pwqmn
             area of the delineated watershed of the pwqmn station
         - ws_overlap
-            overlapping area between the hydat station watershed and
+            area of overlap between the hydat station watershed and
             pwqmn station watershed
+            
+    All fields are in m^2
     
     :param match_df: DataFrame
         DataFrame of a similar structure as that produced by
@@ -345,6 +363,10 @@ def delineate_matches(match_df):
     :return: DataFrame
         Copy of the input DataFrame with additional watershed fields
         calculated.
+    
+    :saves: watersheds.geojson
+        Geojson containing polygons of the delineated watersheds for
+        each station.
     """
     hydat_stations = load_data.get_hydat_stations(subset=match_df['hydat_id'].to_list())
     pwqmn_stations = load_data.get_pwqmn_stations(subset=match_df['pwqmn_id'].to_list())
@@ -355,14 +377,12 @@ def delineate_matches(match_df):
     stations = pd.concat([hydat_stations, pwqmn_stations], axis=0)
     stations.rename(columns={'Latitude': 'lat', 'Longitude': 'lon'}, inplace=True)
     
-    dem = os.path.join(load_data.proj_path, "..", "Watershed_Delineation", "src", "PySheds", "data", "n40w090_dem.tif")
-    
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    sys.path.append(dir_path + '/../../Watershed_Delineation/src/PySheds')
+    sys.path.append(dir_path + os.path.join("..", "..", "Watershed_Delineation", "src", "PySheds"))
 
     from main import delineate
     
-    delineate(dem, basins=stations, output_fname="watersheds", id_field='Station_ID')
+    delineate(basins=stations, id_field='Station_ID')
     
     watersheds = gpd.read_file("watersheds.geojson")
     watersheds = watersheds.query('LABEL == 1')

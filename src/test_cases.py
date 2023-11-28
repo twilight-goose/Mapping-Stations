@@ -9,20 +9,35 @@ import os
 import sys
 import pandas as pd
 import numpy as np
-# sys.path.insert(0,
-    # os.path.join(
-        # os.path.dirname(load_data.proj_path),
-        # 'Watershed_Delineation',
-        # 'src',
-        # 'PySheds')
-# )
-# import main as pyshed_main
 
     
 # ========================================================================= ##
 # License ================================================================= ##
 # ========================================================================= ##
-    
+
+# Copyright (c) 2023 James Wang - jcw4698(at)gmail.com
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# ========================================================================= ##
+# ========================================================================= ##
+# ========================================================================= ##
     
 def test_hydat_load():
     subset = ['02LA019', '02KF009', '02KF004', '04MC001']
@@ -91,47 +106,4 @@ def test_hydat_load():
     assert out_data['Station_ID'] == ["02EB004", "02EB004", "02EB004"]
     assert out_data['P_Start'] == ['2010-05-01', '2010-08-26', '2010-09-12']
     assert out_data['P_End'] == ['2010-06-11', '2010-09-07', '2010-09-29']
-
-
-# ========================================================================= ##
-# License ================================================================= ##
-
-def main():
-    timer = Timer()
     
-    return
-    
-    bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
-
-    hydat = load_data.get_hydat_stations(bbox=bbox)
-    pwqmn = load_data.get_pwqmn_stations(bbox=bbox)
-
-    lines = load_data.load_rivers(bbox=bbox)
-    hydat = gdf_utils.point_gdf_from_df(hydat)
-    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
-
-    lines = gdf_utils.assign_stations(lines, hydat, prefix='hydat_')
-    lines = gdf_utils.assign_stations(lines, pwqmn, prefix='pwqmn_')
-
-    network = gdf_utils.hyriv_gdf_to_network(lines)
-
-    edge_df = gdf_utils.dfs_search(network, max_distance=300000)
-
-    print(edge_df.drop(columns='path').to_string())
-
-    browser.match_browser(hydat, network, pwqmn, edge_df, bbox, color='blue')
-    # network_compare()
-    
-    # output = "output"
-    # if not os.path.isdir(output):
-        # os.mkdir(output)
-    
-    # basins = load_data.get_monday_files()['basins.csv']
-    # dem = os.path.join(load_data.data_path, "n40w090_dem.tif")
-    # pyshed_main.delineate(dem, output, basins)
-    
-    timer.stop()
-
-
-if __name__ == "__main__":
-    main()

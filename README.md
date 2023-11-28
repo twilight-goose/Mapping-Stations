@@ -25,7 +25,8 @@ conda install -n env-conda-3.9.18 -c conda-forge momepy=0.6.0
 conda install -n env-conda-3.9.18 -c conda-forge networkx=3.1
 conda install -n env-conda-3.9.18 -c conda-forge matplotlib-scalebar0.8.1
 conda install -n env-conda-3.9.18 -c conda-forge adjusttext=0.7.3.1
-conda instlal -n env-conda-3.9.18 -c conda-forge pytests=7.4.3
+conda install -n env-conda-3.9.18 -c conda-forge pytests
+conda install -n env-conda-3.9.18 -c conda-forge pysheds=0.3.5
 ```
 
 A number of other dependencies will come with geopandas. You can check the version of each of these dependencies
@@ -85,6 +86,10 @@ Once you have pyproj version 3.5.0 installed, you should have all required depen
 Next, you need to configure project structure and data paths.
 
 ### 4. Configuring Project Structure and Data Paths
+In addition to Mapping-Stations, you will need [this fork](https://github.com/twilight-goose/Watershed_Delineation/tree/patch-1)
+of the Watershed_Delineation repository created by [Kasope Okubadejo](https://github.com/kokubadejo). 
+Omitting most of the files included in the repositories, the downloaded data and watershed
+delineation repository should be structured and named as follows if you do not intend to change file paths within scripts.
 ```
 <project_folder>
     | data
@@ -99,10 +104,13 @@ Next, you need to configure project structure and data paths.
             |--hydat.sqlite3
         | MondayFileGallery
             | --q_c_pairs.csv
+		| OHN (needed to run ex5 & ex8)
         | PWQMN_cleaned
             |--Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv
 	| errors
 	| examples
+		| ex1.py - ex12.py
+		| --example_index.md
 	| plots
     | src
 		| --gen_util.py
@@ -110,12 +118,15 @@ Next, you need to configure project structure and data paths.
 		| --plot_utils.py
 		| --load_data.py
 		| --browser.py
-|Watershed_Delineation
+		
+|Watershed_Delineation (https://github.com/twilight-goose/Watershed_Delineation/tree/patch-1)
 	| src
 		| PySheds
 			| --main.py
 			| data
-				| --n40w90_dem.tif
+				| Rasters
+					| --hyd_na_dir_15s.tif
+					| --hyd_na_acc_15s.tif
 ```
 Data loading functions within these python files assumes the above project structure. To load
 data/files from directories or files with different names, data file paths can be modified near the
@@ -134,8 +145,6 @@ STATIONS must contain the following fields:
 - STATION_NAME
 - LONGITUDE
 - LATITUDE
-- DRAINAGE_AREA_GROSS
-- DRAINAGE_AREA_EFFECT
     
 DLY_FLOWS must contain **STATION_NUMBER** and one of the following sets of fields (or
 another field name compatible with Period.sql_query()):
@@ -144,7 +153,9 @@ another field name compatible with Period.sql_query()):
 - YEAR_FROM and YEAR_TO
 - DATE
 
-The PWQMN dataset is expected to contain the following fields, and a missing one will result in ValueErrors.
+The PWQMN dataset is expected to contain the following fields, and a missing one will result in KeyErrors.
+If certain fields are not present, they can be removed from the dictionaries in load_data.generate_pwqmn_sql()
+to bypass the KeyErrors.
 ```
 'MonitoringLocationName',
 'MonitoringLocationID',
@@ -233,12 +244,14 @@ Steps for matching stations:
 3. Assign stations to the river dataset
 - Each station within a certain distance of a river segment will be 'assigned' to
 the closest river segment
-- Stations assigned to a river segment have their attributes stored as attributes
-of that river segment, which are carried over when the dataset is converted to a
-networkX directed graph.
+- Stations assigned to a river segment have their attributes stored in containers,
+which are written to attributes of the river segment and are carried over when the
+dataset is converted to a networkX directed graph.
 4. Convert the river dataset to a network graph. This enables the search algorithm
 to be run and builds directionality.
 5. Run the matching algorithm (dfs_search)
+
+For a more detailed breakdown of matching and distance, see mapping-stations.pptx
 
 
 ## Output Accuracy Table
@@ -299,4 +312,4 @@ Table produced using test_cases.network_compare()
 
 ### Compared to Manual Matching
 As of submission @8c9d254, the algorithm is able to match all stations manually matched in q_c_pairs.csv.
-
+See ex11.py and ex12.py to run the code necessary for the comparison.

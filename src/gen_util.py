@@ -7,6 +7,35 @@ from datetime import date
 from shapely import Polygon, Point
 
 
+# ========================================================================= ##
+# License ================================================================= ##
+# ========================================================================= ##
+
+# Copyright (c) 2023 James Wang - jcw4698(at)gmail.com
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# ========================================================================= ##
+# ========================================================================= ##
+# ========================================================================= ##
+
+# Lambert conformal conic paramaters
 central_lon = -85
 central_lat = 40
 stand_parallel_1 = 50
@@ -53,6 +82,11 @@ lambert = ccrs.LambertConformal(central_longitude=central_lon,
                                                     stand_parallel_2))
 
 
+# ========================================================================= ##
+# Functions =============================================================== ##
+# ========================================================================= ##
+
+
 def find_xy_fields(fields) -> [str, str]:
     """
     Searches a list, tuple, or pandas DataFrame for specific field
@@ -68,7 +102,7 @@ def find_xy_fields(fields) -> [str, str]:
 
     :return: list-like of strings of length 2
         The result of the search for x and y fields, where each item
-        in the list is either the field name or "Failed"
+        in the list is either the field name or "Failed".
         i.e:
             [<X field name> or "Failed", <Y field name> or "Failed"]
             
@@ -104,7 +138,8 @@ def find_xy_fields(fields) -> [str, str]:
 
 def check_geom(data, type_str):
     """
-    Checks if all geometry in data is of type type_str.
+    Checks if all geometry in data is of type type_str using
+    GeoSeries.geom_type.
 
     :param data: GeoDataFrame or GeoSeries
         The dataset to check.
@@ -113,7 +148,7 @@ def check_geom(data, type_str):
         The type of geometry to check for.
 
     :return: bool
-        True if all geometry in data is of type type_str
+        True if all geometry in data is of type type_str.
     """
     if type(data) is gpd.GeoDataFrame:
         data = data.geometry

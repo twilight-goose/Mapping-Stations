@@ -19,7 +19,6 @@ and saving of files.
 # License ================================================================= ##
 # ========================================================================= ##
 
-
 # Copyright (c) 2023 James Wang - jcw4698(at)gmail.com
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -40,6 +39,46 @@ and saving of files.
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# ========================================================================= ##
+# Data File Paths ========================================================= ##
+# ========================================================================= ##
+
+
+# Set up path strings to streamline reading from paths
+cwd = os.path.dirname(__file__)
+proj_path = os.path.dirname(cwd)
+data_path = os.path.join(proj_path, "data")
+shp_save_path = os.path.join(data_path, "shapefiles")
+
+
+# Paths to obtain data from
+hydat_path = os.path.join(data_path, "Hydat", "Hydat.sqlite3")
+pwqmn_path = os.path.join(data_path, "PWQMN_cleaned", "Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
+pwqmn_sql_path = os.path.join(data_path, "PWQMN_cleaned", "PWQMN.sqlite3")
+monday_path = os.path.join(data_path, "MondayFileGallery")
+hydroRIVERS_path = os.path.join(data_path, os.path.join("Hydro_RIVERS_v10", "HydroRIVERS_v10_na.shp"))
+
+
+# Before loading anything, check that the data paths exist
+check_files.check_paths(proj_path, data_path, hydat_path, pwqmn_path, monday_path,
+                        hydroRIVERS_path)
+                        
+# ========================================================================= ##
+# Constants =============================================================== ##
+# ========================================================================= ##
+
+interest_var = ["Total Nitrogen; mixed forms as N Filtered",
+                "Nitrate as N Filtered",
+                "Total Nitrogen; mixed forms as N Unfiltered",
+                "Total Phosphorus; mixed forms",
+                "Orthophosphate as P Filtered",
+                "Total Phosphorus; mixed forms as P Unfiltered"]
+                
+interest_var_query = []
+for i in interest_var:
+    interest_var_query.append(f'"{i}"')
+interest_var_query = ", ".join(interest_var_query)
+interest_var_query = f' WHERE Variable ||  " " || MethodSpeciation || " " || ResultSampleFraction in ({interest_var_query})'
 
 # ========================================================================= ##
 # ID Query Builder ======================================================== ##
@@ -286,20 +325,6 @@ def generate_pwqmn_sql():
     connection.close()
     
     return pwqmn_data
-
-
-interest_var = ["Total Nitrogen; mixed forms as N Filtered",
-                "Nitrate as N Filtered",
-                "Total Nitrogen; mixed forms as N Unfiltered",
-                "Total Phosphorus; mixed forms",
-                "Orthophosphate as P Filtered",
-                "Total Phosphorus; mixed forms as P Unfiltered"]
-                
-interest_var_query = []
-for i in interest_var:
-    interest_var_query.append(f'"{i}"')
-interest_var_query = ", ".join(interest_var_query)
-interest_var_query = f' WHERE Variable ||  " " || MethodSpeciation || " " || ResultSampleFraction in ({interest_var_query})'
 
 
 def pwqmn_create_stations():
@@ -565,41 +590,6 @@ def get_pwqmn_data_range(to_csv=False, **q_kwargs):
     
     """
     return get_pwqmn_data('Data_Range', to_csv=to_csv, **q_kwargs)
-
-
-# ========================================================================= ##
-# Data File Paths ========================================================= ##
-# ========================================================================= ##
-
-
-# Set up path strings to streamline reading from paths
-cwd = os.path.dirname(__file__)
-proj_path = os.path.dirname(cwd)
-data_path = os.path.join(proj_path, "data")
-shp_save_path = os.path.join(data_path, "shapefiles")
-
-
-# Paths to obtain data from
-hydat_path = os.path.join(data_path, "Hydat", "Hydat.sqlite3")
-pwqmn_path = os.path.join(data_path, "PWQMN_cleaned", "Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
-pwqmn_sql_path = os.path.join(data_path, "PWQMN_cleaned", "PWQMN.sqlite3")
-monday_path = os.path.join(data_path, "MondayFileGallery")
-hydroRIVERS_path = os.path.join(data_path, os.path.join("Hydro_RIVERS_v10", "HydroRIVERS_v10_na.shp"))
-
-
-# Before loading anything, check that the data paths exist
-check_files.check_paths(proj_path, data_path, hydat_path, pwqmn_path, monday_path,
-                        hydroRIVERS_path)
-
-# Check if "PWQMN.sqlite3" already exists. If it doesn't, generate a
-# sqlite3 database from the pwqmn data, to accelerate future data
-# loading and querying
-try:
-    check_files.check_path(pwqmn_sql_path)
-except FileNotFoundError:
-    generate_pwqmn_sql()
-
-timer = Timer()
 
 
 # ========================================================================= ##
@@ -1038,3 +1028,17 @@ def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
             'hydat': get_hydat_station_data(period=period, bbox=bbox),
             'pwqmn': get_pwqmn_station_data(period=period, bbox=bbox),
             'hydroRIVERS': load_rivers(bbox=bbox)}
+
+
+# ========================================================================= ##
+# Run on Import =========================================================== ##
+# ========================================================================= ##
+
+
+# Check if "PWQMN.sqlite3" already exists. If it doesn't, generate a
+# sqlite3 database from the pwqmn data, to accelerate future data
+# loading and querying
+try:
+    check_files.check_path(pwqmn_sql_path)
+except FileNotFoundError:
+    generate_pwqmn_sql()
