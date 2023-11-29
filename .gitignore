@@ -74,3 +74,73 @@ data/nov-09-subsets/Hydat_sqlite3.csv
 *.geojson
 *.ini
 dist_by_delta_drainage.csv
+*.json
+*.zip
+src/datastream/Total Phosphorus, mixed forms_observations.csv
+src/datastream/Total Phosphorus, mixed forms_full_data_range.csv
+src/datastream/Total Phosphorus, mixed forms_duplicates.csv
+src/datastream/Total Nitrogen, mixed forms_observations.csv
+src/datastream/Total Nitrogen, mixed forms_full_data_range.csv
+src/datastream/Total Nitrogen, mixed forms_duplicates.csv
+src/datastream/Soluble Reactive Phosphorus (SRP)_observations.csv
+src/datastream/Soluble Reactive Phosphorus (SRP)_full_data_range.csv
+src/datastream/Soluble Reactive Phosphorus (SRP)_duplicates.csv
+src/datastream/Phosphorus, hydrolyzable_observations.csv
+src/datastream/Phosphorus, hydrolyzable_full_data_range.csv
+src/datastream/Phosphorus, hydrolyzable_duplicates.csv
+src/datastream/Orthophosphate_observations.csv
+src/datastream/Orthophosphate_full_data_range.csv
+src/datastream/Orthophosphate_duplicates.csv
+src/datastream/Organic phosphorus_observations.csv
+src/datastream/Organic phosphorus_full_data_range.csv
+src/datastream/Organic phosphorus_duplicates.csv
+src/datastream/Organic Nitrogen_observations.csv
+src/datastream/Organic Nitrogen_full_data_range.csv
+src/datastream/Organic Nitrogen_duplicates.csv
+src/datastream/Nitrate_observations.csv
+src/datastream/Nitrate_full_data_range.csv
+src/datastream/Nitrate_duplicates.csv
+src/datastream/Inorganic nitrogen (nitrate and nitrite)_observations.csv
+src/datastream/Inorganic nitrogen (nitrate and nitrite)_full_data_range.csv
+src/datastream/Inorganic nitrogen (nitrate and nitrite)_duplicates.csv
+src/datastream/Inorganic nitrogen (ammonia, nitrate and nitrite)_observations.csv
+src/datastream/Inorganic nitrogen (ammonia, nitrate and nitrite)_full_data_range.csv
+src/datastream/Inorganic nitrogen (ammonia, nitrate and nitrite)_duplicates.csv
+src/datastream/Total Phosphorus, mixed forms_full_data_range.csv
+src/datastream/Total Phosphorus, mixed forms_duplicates.csv
+src/datastream/Total Nitrogen, mixed forms_full_data_range.csv
+src/datastream/Total Nitrogen, mixed forms_duplicates.csv
+src/datastream/Soluble Reactive Phosphorus (SRP)_full_data_range.csv
+src/datastream/Soluble Reactive Phosphorus (SRP)_duplicates.csv
+src/datastream/Phosphorus, hydrolyzable_full_data_range.csv
+src/datastream/Phosphorus, hydrolyzable_duplicates.csv
+src/datastream/Orthophosphate_full_data_range.csv
+src/datastream/Orthophosphate_duplicates.csv
+src/datastream/Organic phosphorus_full_data_range.csv
+src/datastream/Organic phosphorus_duplicates.csv
+src/datastream/Organic Nitrogen_full_data_range.csv
+src/datastream/Organic Nitrogen_duplicates.csv
+src/datastream/Nitrate_full_data_range.csv
+src/datastream/Nitrate_duplicates.csv
+src/datastream/Inorganic nitrogen (nitrate and nitrite)_full_data_range.csv
+src/datastream/Inorganic nitrogen (nitrate and nitrite)_duplicates.csv
+src/datastream/Inorganic nitrogen (ammonia, nitrate and nitrite)_full_data_range.csv
+src/datastream/Inorganic nitrogen (ammonia, nitrate and nitrite)_duplicates.csv
+src/datastream/Total Phosphorus, mixed forms_full_data_range.csv
+src/datastream/Total Phosphorus, mixed forms_duplicates.csv
+src/datastream/Total Nitrogen, mixed forms_full_data_range.csv
+src/datastream/Total Nitrogen, mixed forms_duplicates.csv
+src/datastream/Soluble Reactive Phosphorus (SRP)_full_data_range.csv
+src/datastream/Soluble Reactive Phosphorus (SRP)_duplicates.csv
+src/datastream/Phosphorus, hydrolyzable_full_data_range.csv
+src/datastream/Phosphorus, hydrolyzable_duplicates.csv
+src/datastream/Orthophosphate_full_data_range.csv
+src/datastream/Orthophosphate_duplicates.csv
+src/datastream/Organic phosphorus_full_data_range.csv
+src/datastream/Organic phosphorus_duplicates.csv
+src/datastream/Organic Nitrogen_full_data_range.csv
+src/datastream/Organic Nitrogen_duplicates.csv
+src/datastream/Nitrate_full_data_range.csv
+src/datastream/Nitrate_duplicates.csv
+src/datastream/Inorganic nitrogen (nitrate and nitrite)_full_data_range.csv
+src/datastream/Inorganic nitrogen (nitrate and nitrite)_duplicates.csv

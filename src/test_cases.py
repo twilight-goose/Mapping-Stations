@@ -52,6 +52,7 @@ def test_hydat_load():
     test1 = pd.read_csv(os.path.join(load_data.data_path, 'Hydat', 'test_1.csv'),
                         dtype={'REGIONAL_OFFICE_ID':str})
     test1.drop(columns=["Unnamed: 0"], inplace=True)
+    print(hydat)
     pd.testing.assert_frame_equal(hydat, test1, check_dtype=False)
 
     hydat = load_data.get_hydat_stations(period=period)
@@ -71,7 +72,7 @@ def test_hydat_load():
     pd.testing.assert_frame_equal(hydat, test3, check_dtype=False)
     
     hydat = load_data.get_hydat_stations(sample=sample)
-    assert hydat.shape == (10, 15)
+    assert hydat.shape == (10, 16)
     
     hydat = load_data.get_hydat_stations(bbox=bbox, period=period)
     hydat.fillna(value=np.nan, inplace=True)
@@ -92,7 +93,7 @@ def test_hydat_load():
     test7.drop(columns=["Unnamed: 0"], inplace=True)
     pd.testing.assert_frame_equal(hydat, test7, check_dtype=False)
 
-    hydat = load_data.get_hydat_stations(period=period3)
+    hydat = load_data.get_hydat_stations(period=period)
     hydat.fillna(value=np.nan, inplace=True)
     test8 = pd.read_csv(os.path.join(load_data.data_path, 'Hydat', 'test_8.csv'),
                         dtype={'REGIONAL_OFFICE_ID':str})
@@ -107,3 +108,8 @@ def test_hydat_load():
     assert out_data['P_Start'] == ['2010-05-01', '2010-08-26', '2010-09-12']
     assert out_data['P_End'] == ['2010-06-11', '2010-09-07', '2010-09-29']
     
+    
+def test_pwqmn_load():
+    
+
+

@@ -449,69 +449,6 @@ class Period:
     examples:
         1: Period.<function name>(period)
         2: <Period obj>.<function name>()
-        
-    tests (require pytests):
-    
-        period1 = ['2020-10-11', None]
-        period2 = [None, '2020-10-11']
-        period3 = ['2020-09-11', '2020-10-11']
-        
-        assert Period.check_period(period1) is None
-        assert Period.check_period(period2) is None
-        assert Period.check_period(period3) is None
-        
-        # invalid periods
-        pytest.raises(ValueError, Period.check_period, ['2010-10-11', '2009-11-11'])
-        pytest.raises(ValueError, Period.check_period, "2022-10-11")
-        pytest.raises(ValueError, Period.check_period, ["2022-10-11"])
-        pytest.raises(ValueError, Period.check_period, ["", "", ""])
-        
-        assert Period.sql_query(period1, ['DATE']) == \
-            "(strftime('%Y-%m-%d', '2020-10-11') <= DATE AND DATE <= strftime('%Y-%m-%d', '9999-12-31'))"
-        assert Period.sql_query(period1, ['YEAR_FROM', 'YEAR_TO']) == \
-            "(strftime('%Y', '2020-10-11') <= YEAR_FROM AND YEAR_FROM <= strftime('%Y', '9999-12-31')) OR " + \
-            "(strftime('%Y', '2020-10-11') <= YEAR_TO AND YEAR_TO <= strftime('%Y', '9999-12-31')) OR " + \
-            "(YEAR_FROM <= strftime('%Y', '2020-10-11') AND strftime('%Y', '2020-10-11') <= YEAR_TO) OR " + \
-            "(YEAR_FROM <= strftime('%Y', '9999-12-31') AND strftime('%Y', '9999-12-31') <= YEAR_TO)"
-        assert Period.sql_query(period1, ['YEAR', 'MONTH']) == \
-            "(strftime('%Y-%m', '2020-10-11') <= " + \
-            "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') AND " + \
-            "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') <= " + \
-            "strftime('%Y-%m', '9999-12-31'))"
-            
-        assert Period.sql_query(period2, ['DATE']) == \
-            "(strftime('%Y-%m-%d', '0000-01-01') <= DATE AND DATE <= strftime('%Y-%m-%d', '2020-10-11'))"
-        assert Period.sql_query(period2, ['YEAR_FROM', 'YEAR_TO']) == \
-            "(strftime('%Y', '0000-01-01') <= YEAR_FROM AND YEAR_FROM <= strftime('%Y', '2020-10-11')) OR " + \
-            "(strftime('%Y', '0000-01-01') <= YEAR_TO AND YEAR_TO <= strftime('%Y', '2020-10-11')) OR " + \
-            "(YEAR_FROM <= strftime('%Y', '0000-01-01') AND strftime('%Y', '0000-01-01') <= YEAR_TO) OR " + \
-            "(YEAR_FROM <= strftime('%Y', '2020-10-11') AND strftime('%Y', '2020-10-11') <= YEAR_TO)"
-        assert Period.sql_query(period2, ['YEAR', 'MONTH']) == \
-            "(strftime('%Y-%m', '0000-01-01') <= " + \
-            "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') AND " + \
-            "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') <= " + \
-            "strftime('%Y-%m', '2020-10-11'))"
-            
-        assert Period.sql_query(period3, ['DATE']) == \
-            "(strftime('%Y-%m-%d', '2020-09-11') <= DATE AND DATE <= strftime('%Y-%m-%d', '2020-10-11'))"
-        assert Period.sql_query(period3, ['YEAR_FROM', 'YEAR_TO']) == \
-            "(strftime('%Y', '2020-09-11') <= YEAR_FROM AND YEAR_FROM <= strftime('%Y', '2020-10-11')) OR " + \
-            "(strftime('%Y', '2020-09-11') <= YEAR_TO AND YEAR_TO <= strftime('%Y', '2020-10-11')) OR " + \
-            "(YEAR_FROM <= strftime('%Y', '2020-09-11') AND strftime('%Y', '2020-09-11') <= YEAR_TO) OR " + \
-            "(YEAR_FROM <= strftime('%Y', '2020-10-11') AND strftime('%Y', '2020-10-11') <= YEAR_TO)"
-        assert Period.sql_query(period3, ['YEAR', 'MONTH']) == \
-            "(strftime('%Y-%m', '2020-09-11') <= " + \
-            "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') AND " + \
-            "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') <= " + \
-            "strftime('%Y-%m', '2020-10-11'))"
-            
-        dates = ['1991-02-01', '1991-02-02', '1991-02-03', '1991-02-04', '1991-02-05', '1991-02-06', '1991-02-07']
-        periods = Period.get_periods(dates=dates,silent=True)
-        assert periods == [['1991-02-01', '1991-02-07']]
-
-        dates = ['1991-02-01', '1991-02-02', '1991-02-03', '1991-02-05', '1991-02-06', '1991-02-07']
-        periods = Period.get_periods(dates=dates,silent=True)
-        assert periods == [['1991-02-01', '1991-02-03'], ['1991-02-05', '1991-02-07']]
     """
     def __init__(self, start=None, end=None):
         self.start = start
@@ -543,11 +480,15 @@ class Period:
         Checks that period is in a valid period format. Raises an error
         if it's in an invalid format, with a message describing the issue.
 
-        :param period: the period to be checked
+        :param period: list or tuple or None
+            The period to be checked
+
+        :return: True
+            If the period is valid, returns True. Otherwise, raises a ValueError.
 
         :raises ValueError:
 
-                if period is not valid. period is valid if it is either:
+                Ff period is not valid. period is valid if it is either:
 
                     Tuple/list of (<start date>, <end date>); dates can be
                     either <str> in format "YYYY-MM-DD" or None
@@ -555,6 +496,21 @@ class Period:
                     or
 
                     None
+        
+        tests:
+            period1 = ['2020-10-11', None]
+            period2 = [None, '2020-10-11']
+            period3 = ['2020-09-11', '2020-10-11']
+            
+            assert Period.check_period(period1) is None
+            assert Period.check_period(period2) is None
+            assert Period.check_period(period3) is None
+            
+            # invalid periods
+            pytest.raises(ValueError, Period.check_period, ['2010-10-11', '2009-11-11'])
+            pytest.raises(ValueError, Period.check_period, "2022-10-11")
+            pytest.raises(ValueError, Period.check_period, ["2022-10-11"])
+            pytest.raises(ValueError, Period.check_period, ["", "", ""])
         """
         if period is not None:
             if type(period) in (list, tuple) and len(period) != 2:
@@ -564,6 +520,8 @@ class Period:
                 raise ValueError(f"Period of wrong type, {type(period)} found.")
             elif not (period[0] is None) and not (period[1] is None) and period[0] >= period[1]:
                 raise ValueError("Period start date must be the same as or after the end date.")
+                
+        return True
 
     def sql_query(period, fields) -> str:
         """
@@ -591,6 +549,50 @@ class Period:
 
             If period (from outer scope) has date bounds, returns a SQL
             query string.
+        
+        tests:
+            period1 = ['2020-10-11', None]
+            period2 = [None, '2020-10-11']
+            period3 = ['2020-09-11', '2020-10-11']
+            
+            assert Period.sql_query(period1, ['DATE']) == \
+                "(strftime('%Y-%m-%d', '2020-10-11') <= DATE AND DATE <= strftime('%Y-%m-%d', '9999-12-31'))"
+            assert Period.sql_query(period1, ['YEAR_FROM', 'YEAR_TO']) == \
+                "(strftime('%Y', '2020-10-11') <= YEAR_FROM AND YEAR_FROM <= strftime('%Y', '9999-12-31')) OR " + \
+                "(strftime('%Y', '2020-10-11') <= YEAR_TO AND YEAR_TO <= strftime('%Y', '9999-12-31')) OR " + \
+                "(YEAR_FROM <= strftime('%Y', '2020-10-11') AND strftime('%Y', '2020-10-11') <= YEAR_TO) OR " + \
+                "(YEAR_FROM <= strftime('%Y', '9999-12-31') AND strftime('%Y', '9999-12-31') <= YEAR_TO)"
+            assert Period.sql_query(period1, ['YEAR', 'MONTH']) == \
+                "(strftime('%Y-%m', '2020-10-11') <= " + \
+                "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') AND " + \
+                "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') <= " + \
+                "strftime('%Y-%m', '9999-12-31'))"
+                
+            assert Period.sql_query(period2, ['DATE']) == \
+                "(strftime('%Y-%m-%d', '0000-01-01') <= DATE AND DATE <= strftime('%Y-%m-%d', '2020-10-11'))"
+            assert Period.sql_query(period2, ['YEAR_FROM', 'YEAR_TO']) == \
+                "(strftime('%Y', '0000-01-01') <= YEAR_FROM AND YEAR_FROM <= strftime('%Y', '2020-10-11')) OR " + \
+                "(strftime('%Y', '0000-01-01') <= YEAR_TO AND YEAR_TO <= strftime('%Y', '2020-10-11')) OR " + \
+                "(YEAR_FROM <= strftime('%Y', '0000-01-01') AND strftime('%Y', '0000-01-01') <= YEAR_TO) OR " + \
+                "(YEAR_FROM <= strftime('%Y', '2020-10-11') AND strftime('%Y', '2020-10-11') <= YEAR_TO)"
+            assert Period.sql_query(period2, ['YEAR', 'MONTH']) == \
+                "(strftime('%Y-%m', '0000-01-01') <= " + \
+                "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') AND " + \
+                "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') <= " + \
+                "strftime('%Y-%m', '2020-10-11'))"
+                
+            assert Period.sql_query(period3, ['DATE']) == \
+                "(strftime('%Y-%m-%d', '2020-09-11') <= DATE AND DATE <= strftime('%Y-%m-%d', '2020-10-11'))"
+            assert Period.sql_query(period3, ['YEAR_FROM', 'YEAR_TO']) == \
+                "(strftime('%Y', '2020-09-11') <= YEAR_FROM AND YEAR_FROM <= strftime('%Y', '2020-10-11')) OR " + \
+                "(strftime('%Y', '2020-09-11') <= YEAR_TO AND YEAR_TO <= strftime('%Y', '2020-10-11')) OR " + \
+                "(YEAR_FROM <= strftime('%Y', '2020-09-11') AND strftime('%Y', '2020-09-11') <= YEAR_TO) OR " + \
+                "(YEAR_FROM <= strftime('%Y', '2020-10-11') AND strftime('%Y', '2020-10-11') <= YEAR_TO)"
+            assert Period.sql_query(period3, ['YEAR', 'MONTH']) == \
+                "(strftime('%Y-%m', '2020-09-11') <= " + \
+                "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') AND " + \
+                "strftime('%Y-%m', YEAR || '-' || SUBSTR('00' || MONTH, -2, 2) || '-01') <= " + \
+                "strftime('%Y-%m', '2020-10-11'))"
         """
         def formatter(f_name):
             return f"({p_start_str} <= {f_name} AND {f_name} <= {p_end_str})"
@@ -693,7 +695,15 @@ class Period:
             >>> periods = get_periods(dates=dates,silent=True)
             >>> print("periods = {}".format(periods))
             periods = [['1991-02-01', '1991-02-03'], ['1991-02-05', '1991-02-07']]
+            
+            tests:
+                dates = ['1991-02-01', '1991-02-02', '1991-02-03', '1991-02-04', '1991-02-05', '1991-02-06', '1991-02-07']
+                periods = Period.get_periods(dates=dates,silent=True)
+                assert periods == [['1991-02-01', '1991-02-07']]
 
+                dates = ['1991-02-01', '1991-02-02', '1991-02-03', '1991-02-05', '1991-02-06', '1991-02-07']
+                periods = Period.get_periods(dates=dates,silent=True)
+                assert periods == [['1991-02-01', '1991-02-03'], ['1991-02-05', '1991-02-07']]
 
             License
             -------

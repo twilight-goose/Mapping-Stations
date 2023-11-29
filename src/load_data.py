@@ -1,7 +1,7 @@
 import os.path
 import sqlite3
 import check_files
-from gen_util import find_xy_fields, BBox, Period, Timer
+from gen_util import find_xy_fields, BBox, Period
 
 import pandas as pd
 from geopandas import read_file
@@ -538,8 +538,6 @@ def get_pwqmn_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
     :return: <pandas DataFrame>
         PWQMN stations (ID, Name, Lat, Lon) with variables of interest.
     """
-    timer.start()
-    
     station_df = get_pwqmn_data('Stations', to_csv=False, **q_kwargs)
 
     if station_df.empty:
@@ -547,8 +545,7 @@ def get_pwqmn_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
     else:
         if to_csv:
             station_df.to_csv(f"{to_csv}.csv")
-    
-    timer.stop()
+            
     return station_df
 
 
@@ -616,8 +613,6 @@ def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
         i.e
             {<str filename>: <pandas DataFrame>,  ...}
     """
-    timer.start()
-
     # create a dictionary to index .csv data based on filename
     data_dict = {}
 
@@ -640,7 +635,6 @@ def load_csvs(path: str, bbox=None) -> {str: pd.DataFrame}:
         else:
             data_dict[file] = df
 
-    timer.stop()
     return data_dict
 
 
@@ -761,8 +755,6 @@ def get_hydat_data(tbl_name, get_fields='*', to_csv=False, **q_kwargs):
         assert hydat == pd.read_csv(os.path.join(data_path, 'Hydat', 'test_8.csv'))
     
     """
-    timer.start()
-
     # create a sqlite3 connection to the hydat data
     print(f"Creating a connection to '{hydat_path}'")
     conn = sqlite3.connect(hydat_path) 
@@ -1007,9 +999,7 @@ def load_rivers(path=hydroRIVERS_path, sample=None, bbox=None):
         HydroRIVERS data as a LineString GeoDataFrame.
     """
     print(f"Loading rivers from '{path}'")
-    if bbox is None:
-        bbox = None
-    else:
+    if not bbox is None:
         bbox = BBox.to_tuple(bbox)
     return read_file(path, rows=sample, bbox=bbox)
 

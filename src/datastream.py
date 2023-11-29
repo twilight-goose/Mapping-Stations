@@ -74,17 +74,89 @@ api_prefix = "https://api.datastream.org/v1/odata/v4/"
 headers = {'x-api-key': '{0}'.format(DATASTREAM_API_KEY)}
 
 
-def build_api_str(endpoint, variable, select=None, skip=None, top=10000):
-    query = [f"$filter=CharacteristicName%20eq%20%27{variable}%27",
-             f"$top={top}"]
-             
-    if not select is None:
-        query.append(f"$select=" + "%2C".join(select))
+def build_api_str(endpoint, variable, top=10000, **kwargs):
+    """
+    Constructs a Datastream api request string from provided
+    parameters.
     
-    if not skip is None:
-        query.append(f"skiptoken=Id%3A{skip}")
+    :param endpoint: str
+        API endpoint to request data from.
+        
+    :param variable: str or list-like of str
+        CharacteristicName(s) to filter the data request by.
+        Requesting more than 1 variable while also filtering by
+        extent may lead to unintended behaviour.
     
+    :param top: int (default=10000)
+        Number of rows to retrieve from Datastream.
+    
+    :param kwargs: keyword arguments
+        Additional arguments to add to the api request.
+        Keywords with special behaviour:
+            
+            extent: list-like of float of length 4
+                Latitude/Longitude bounding box to add
+                to api request (minx, miny, maxx, maxy).
+                
+                ex: extent=(-80, 42, -77, 45)
+                
+            select: str of list-like of str
+                Names of data to request from datastream.
+                See file head for valid selct by values.
+                
+                ex: select="MonitoringLocationID"
+                    select=["MonitoringLocationID", "MonitoringLocationType"]
+            
+            skip: int
+                Index of the row to start from.
+                
+                ex: skip=10
+        
+        For keywords without special behaviour, they will be
+        formatted as follows:
+            
+            $<key>=<value>
+    
+    :return: str
+        The API request string.
+        
+    examples:
+        api_str = build_api_str(
+            "Records", "Orthophosphate", top=10,
+            extent=(-80, 40, -77, 42),
+            select=["Id", "MonitoringLocationID", "MonitoringLocationName",
+                    "ActivityStartDate", "ActivityStartTime", "ActivityEndDate",
+                    "ResultSampleFraction", "ResultValue", "ResultUnit"]
+        )
+    """
+    if type(variable) is str:
+        variable = [variable]
+        
+    variable = [f"CharacteristicName eq '{v}'" for v in variable]
+    query = [f"$top={top}", f"$filter=" + " or ".join(variable)]
+    
+    for key in kwargs:
+        value = kwargs.get(key)
+        
+        if key == "extent":
+            q_parts = [f"'{value[0]}' lte MonitoringLocationLongitude",
+                       f"'{value[1]}' lte MonitoringLocationLatitude",
+                       f"'{value[2]}' gte MonitoringLocationLongitude",
+                       f"'{value[3]}' gte MonitoringLocationLatitude"]
+            query[1] += " and " + " and ".join(q_parts)
+        elif key == "select":
+            query.append(f"$select=" + ",".join(value))
+        elif key == "skip":
+            query.append(f"skiptoken=Id:{value}")
+        else:
+            query.append(f"${key}={value}")
+        
     query = "&".join(query)
+    query = query.replace(" ", "%20")
+    query = query.replace(",", "%2C")
+    query = query.replace("'", "%27")
+    query = query.replace(":", "%3A")
+    
     return api_prefix + endpoint + "?" + query
     
 
@@ -93,6 +165,7 @@ variables_P = [    "Orthophosphate",
                    "Soluble Reactive Phosphorus (SRP)",
                    "Total Phosphorus, mixed forms",
                    "Organic phosphorus"]
+                   
 variables_N = [    "Inorganic nitrogen (ammonia, nitrate and nitrite)",
                    "Inorganic nitrogen (nitrate and nitrite)",
                    "Nitrate",
@@ -100,32 +173,88 @@ variables_N = [    "Inorganic nitrogen (ammonia, nitrate and nitrite)",
                    "Total Nitrogen, mixed forms"]
 
 
-def generate_data_range(variable):
-    def add_to_output(st_id, start, end):
-        out_data['Station_ID'].append(st_id)
-        out_data['P_Start'].append(start)
-        out_data['P_End'].append(end)
-        delta = date.fromisoformat(end) - date.fromisoformat(start)
-        out_data['Num_Days'].append(delta.days + 1)
+def api_request(endpoint, variable, select=None, top=None, **kwargs):
+    """
+    Requests data from the Datastream api.
     
-    def add_to_duplicates(st_id, sub_df, i):
-        duplicates['Ind'].append(sub_df['Id'].iloc[i])
-        duplicates['Station_ID'].append(st_id)
-        duplicates['ActivityStartDate'].append(sub_df['Date'].iloc[i])
-        duplicates['ActivityEndDate'].append(sub_df['ActivityEndDate'].iloc[i])
+    :param endpoint: str
+        API endpoint to request data from.
+        
+    :param variable: str or list-like of str
+        CharacteristicName(s) to filter the data request by.
+        Requesting more than 1 variable while also filtering by
+        extent may lead to unintended behaviour.
     
-    def add_to_data_range(st_id, start, end, num):
-        full_ranges['Station_ID'].append(st_id)
-        full_ranges['Start'].append(start)
-        full_ranges['End'].append(end)
-        full_ranges['Num_Days'].append(num)
+    :param select: str or list-like of str or None (default)
+        Names of data to request from datastream. If nothing is
+        provided, requests specific sets of data based on the
+        chosen endpoint.
+        
+    :param top: int or None (default)
+        Number of rows to retrieve from Datastream. If None,
+        retrieves all data.
+    
+    :param kwargs: keyword arguments
+        Additional arguments to add to the api request.
+        Keywords with special behaviour:
+            
+            extent: list-like of float of length 4
+                Latitude/Longitude bounding box to add
+                to api request (minx, miny, maxx, maxy).
+                
+                ex: extent=(-80, 42, -77, 45)
+            
+            skip: int
+                Index of the row to start from.
+                
+                ex: skip=10
+                
+            count: {'true'}
+                Whether or not to get the count of records,
+                instead of the data itself.
+        
+        For keywords without special behaviour, they will be
+        formatted as follows:
+            
+            $<key>=<value>
+    
+    :return: DataFrame
+        The data retreived from the request.
+        
+    examples:
+        data = api_request(
+            "Records", "Orthophosphate",
+            extent=(-80, 40, -77, 42),
+            select=["Id", "MonitoringLocationID", "MonitoringLocationName",
+                    "ActivityStartDate", "ActivityStartTime", "ActivityEndDate",
+                    "ResultSampleFraction", "ResultValue", "ResultUnit"])
+        
+        data = api_request(
+            "Records", ["Orthophosphate", "Nitrate"],
+            top=500,
+            select=["Id", "MonitoringLocationID", "MonitoringLocationName",
+                    "ActivityStartDate", "ActivityStartTime", "ActivityEndDate",
+                    "ResultSampleFraction", "ResultValue", "ResultUnit"])
+    """
+    o_select = ["Id", "LocationId", "ActivityStartDate",
+                "ActivityStartTime", "ActivityEndDate", "CharacteristicName",
+                "ResultSampleFraction", "ResultValue", "ResultUnit"]
+                                    
+    r_select = ["Id", "MonitoringLocationID", "MonitoringLocationName",
+                "ActivityStartDate", "ActivityStartTime", "ActivityEndDate",
+                "ResultSampleFraction", "ResultValue", "ResultUnit"]
     
     all_results = []
-
-    api_str = build_api_str(endpoint="Observations",
-                            variable=variable,
-                            select=["Id", "LocationId", "ActivityStartDate", "ActivityEndDate",
-                                    "ResultValue"])
+    
+    if select is None:
+        if endpoint == "Observations":
+            select = o_select
+        elif endpoint == "Records":
+            select = r_select
+    
+    api_str = build_api_str(
+        endpoint=endpoint, variable=variable, top=top, select=select,
+        **kwargs)
                             
     has_data = True
     print(api_str)
@@ -142,7 +271,10 @@ def generate_data_range(variable):
         else:
             break
             
-        if not data.get("@odata.nextLink") is None:
+        if not data.get("@odata.nextLink") is None and \
+                (not top is None and len(all_results) < top) and \
+                kwargs.get('count') is None:
+                
             print("loaded 10,000 records. Loading more...")
             api_str = data.get("@odata.nextLink")
         else:
@@ -150,20 +282,32 @@ def generate_data_range(variable):
             break
     
     all_results = pd.DataFrame(all_results)
-    all_results = all_results.dropna(subset="ResultValue")
-    all_results.rename(columns={"LocationId": "Station_ID", "ActivityStartDate": "Date"},
-                       inplace=True)
+    if kwargs.get('count') is None:
+        all_results.dropna(subset="ResultValue", inplace=True)
+    return all_results
+
+
+def generate_data_range(variable):
+    def add_to_output(a, b, c):
+        pass
+
+    def add_to_data_range(st_id, start, end, num):
+        full_ranges['Station_ID'].append(st_id)
+        full_ranges['Start'].append(start)
+        full_ranges['End'].append(end)
+        full_ranges['Num_Days'].append(num)
+    
+    all_results = api_request("Records", variable)
     
     ### same as pwqmn_create_data_range() core code
-    grouped = all_results.groupby(by=["Station_ID"])
+    grouped = all_results.groupby(by=["MonitoringLocationID"])
     
-    duplicates = {"Ind": [], "Station_ID": [], "ActivityStartDate": [], "ActivityEndDate": []}
-    out_data = {'Station_ID': [], 'P_Start': [], 'P_End': [], 'Num_Days': []}
+    duplicates = []
     full_ranges = {'Station_ID': [], 'Start': [], 'End': [], 'Num_Days': []}
     
     for key, sub_df in grouped:
-        sub_df = sub_df.sort_values(by="Date")
-        dates = sub_df['Date'].to_list()
+        sub_df = sub_df.sort_values(by="ActivityStartDate")
+        dates = sub_df['ActivityStartDate'].to_list()
         
         add_to_data_range(key[0], dates[0], dates[-1], len(set(dates)))
         
@@ -179,8 +323,7 @@ def generate_data_range(variable):
                 str_last = datetime.strptime(last, "%Y-%m-%d")
                 
                 if str_date == str_last:
-                    add_to_duplicates(key[0], sub_df, i)
-                    add_to_duplicates(key[0], sub_df, i - 1))
+                    duplicates.append(sub_df.iloc[i])
                 
                 if  str_date != str_last + timedelta(days=1) and str_date != str_last:
                     add_to_output(key[0], start, last)
@@ -190,19 +333,26 @@ def generate_data_range(variable):
             i += 1
         add_to_output(key[0], start, last)
       
-    out_data = pd.DataFrame(out_data)
     duplicates = pd.DataFrame(duplicates)
     full_ranges = pd.DataFrame(full_ranges)
     ###
     
-    out_data.to_csv(f"datastream/{variable}.csv")
+    all_results.to_csv(f"datastream/{variable}_observations.csv")
     duplicates.to_csv(f"datastream/{variable}_duplicates.csv")
     full_ranges.to_csv(f"datastream/{variable}_full_data_range.csv")
     
+    
+    all_results.to_json(f"datastream_jsons/{variable}_observations.json")
+    duplicates.to_json(f"datastream_jsons/{variable}_duplicates.json")
+    full_ranges.to_json(f"datastream_jsons/{variable}_full_data_range.json")
+    
 
 def main():
-    #for var in variables_N:
-    #    generate_data_range(var)
+    # print(api_request("Records", "Organic phosphorus"))
+
+    
+    for var in variables_N:
+        generate_data_range(var)
     
     for var in variables_P:
         generate_data_range(var)
