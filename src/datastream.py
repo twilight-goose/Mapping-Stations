@@ -288,9 +288,34 @@ def api_request(endpoint, variable, select=None, top=None, **kwargs):
 
 
 def generate_data_range(variable):
-    def add_to_output(a, b, c):
-        pass
-
+    """
+    Creates and saves .json and .csv files containing
+    the date ranges and number of days where variable
+    data is available.
+    
+    Outputs to "/datastream" and "/datastream_jsons"
+    
+    variable_observations.ext:
+        All observations retrieved from the datastream.
+        
+    variable_duplicates.ext:
+        All instances of multiple observations being recorded
+        for the same date.
+    
+    variable_full_data_range.ext:
+        The first date and last date that observations were recorded
+        for each station, and the total number of records made within
+        that time period.
+        
+        Station_ID: StationID
+        Start: Date of first record
+        End: Date of last record
+        Num_Days: Number of unique dates that records are available for
+    
+    :param variable: str
+        The CharacteristicName to request data for and
+        build date ranges for.
+    """
     def add_to_data_range(st_id, start, end, num):
         full_ranges['Station_ID'].append(st_id)
         full_ranges['Start'].append(start)
@@ -311,36 +336,18 @@ def generate_data_range(variable):
         
         add_to_data_range(key[0], dates[0], dates[-1], len(set(dates)))
         
-        start = None
-        last = None
+        for i in range(1, len(dates)):
+            if dates[i] == dates[i - 1]:
+                duplicates.append(sub_df.iloc[i - 1])
+                duplicates.append(sub_df.iloc[i])
         
-        i = 0
-        for idate in dates:
-            if start is None:
-                start = idate
-            else:
-                str_date = datetime.strptime(idate, "%Y-%m-%d")
-                str_last = datetime.strptime(last, "%Y-%m-%d")
-                
-                if str_date == str_last:
-                    duplicates.append(sub_df.iloc[i])
-                
-                if  str_date != str_last + timedelta(days=1) and str_date != str_last:
-                    add_to_output(key[0], start, last)
-                    start = idate
-                    
-            last = idate
-            i += 1
-        add_to_output(key[0], start, last)
-      
     duplicates = pd.DataFrame(duplicates)
     full_ranges = pd.DataFrame(full_ranges)
     ###
-    
+
     all_results.to_csv(f"datastream/{variable}_observations.csv")
     duplicates.to_csv(f"datastream/{variable}_duplicates.csv")
     full_ranges.to_csv(f"datastream/{variable}_full_data_range.csv")
-    
     
     all_results.to_json(f"datastream_jsons/{variable}_observations.json")
     duplicates.to_json(f"datastream_jsons/{variable}_duplicates.json")
