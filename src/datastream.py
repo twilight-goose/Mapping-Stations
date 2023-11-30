@@ -381,23 +381,22 @@ def drange_from_json(path):
     return drange
     
 
-def get_dranges(dirpath):
+def get_dranges(dirpath=datastream_path):
+    """
+    
+    """
     all_data = {}
 
     for file in filter(lambda x:x.endswith(".json"), os.listdir(dirpath)):
         
-        drange = drange_from_json(os.path.join(datastream_path, file))
+        drange = drange_from_json(os.path.join(dirpath, file))
         all_data[file[:-5]] = drange
     
     return all_data
 
-def main():
-    data = get_dranges(datastream_path)
 
-    for i in data:
-        print(i)
-    return
-    
+def main():
+    return 
     for var in variables_N:
         generate_data_range(var)
     
