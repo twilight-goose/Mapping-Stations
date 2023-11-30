@@ -56,6 +56,7 @@ hydat_path = os.path.join(data_path, "Hydat", "Hydat.sqlite3")
 pwqmn_path = os.path.join(data_path, "PWQMN_cleaned", "Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv")
 pwqmn_sql_path = os.path.join(data_path, "PWQMN_cleaned", "PWQMN.sqlite3")
 monday_path = os.path.join(data_path, "MondayFileGallery")
+datastream_path = os.path.join(data_path, "datastream")
 hydroRIVERS_path = os.path.join(data_path, os.path.join("Hydro_RIVERS_v10", "HydroRIVERS_v10_na.shp"))
 
 
@@ -590,6 +591,12 @@ def get_pwqmn_data_range(to_csv=False, **q_kwargs):
 
 
 # ========================================================================= ##
+# DataStream ============================================================= ##
+# ========================================================================= ##
+
+
+
+# ========================================================================= ##
 # CSV Loaders ============================================================= ##
 # ========================================================================= ##
 
@@ -972,6 +979,11 @@ def hydat_create_data_range(unittest=False):
     return out_data
     
 
+# ========================================================================= ##
+# River Network =========================================================== ##
+# ========================================================================= ##
+
+
 def load_rivers(path=hydroRIVERS_path, sample=None, bbox=None):
     """
     Loads HydroRIVERS_v10.shp as a geopandas GeoDataFrame. The
@@ -1002,22 +1014,6 @@ def load_rivers(path=hydroRIVERS_path, sample=None, bbox=None):
     if not bbox is None:
         bbox = BBox.to_tuple(bbox)
     return read_file(path, rows=sample, bbox=bbox)
-
-
-def load_all(period=None, bbox=None) -> {str: pd.DataFrame}:
-    """
-    Loads all data from the paths declared at the top of the file
-
-    :return: dict(<str>: <Pandas DataFrame>, ...)
-        Dictionary of length n + 2, where n is the number of files in
-        the 'monday_path' directory.
-        i.e
-            {<str dataset name> : <pandas DataFrame>, ...}
-    """
-    return {**get_monday_files(),
-            'hydat': get_hydat_station_data(period=period, bbox=bbox),
-            'pwqmn': get_pwqmn_station_data(period=period, bbox=bbox),
-            'hydroRIVERS': load_rivers(bbox=bbox)}
 
 
 # ========================================================================= ##

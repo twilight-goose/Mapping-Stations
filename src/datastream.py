@@ -67,6 +67,7 @@ import pandas as pd
 from datetime import datetime
 from datetime import timedelta
 from datetime import date
+from load_data import datastream_path
 
 
 DATASTREAM_API_KEY = "qoaJ6s42ryD2wGezfzkDhx9qSek1YGal"
@@ -352,11 +353,50 @@ def generate_data_range(variable):
     all_results.to_json(f"datastream_jsons/{variable}_observations.json")
     duplicates.to_json(f"datastream_jsons/{variable}_duplicates.json")
     full_ranges.to_json(f"datastream_jsons/{variable}_full_data_range.json")
+ 
+
+def drange_from_json(path):
+    def sort_by_date(obs_dict):
+        return obs_dict["ActivityStartDate"]
+    
+    with open(path, 'r', encoding='utf-8') as ff:
+
+        data = json.load(ff)['value']
+        drange = []
+        
+        for st_dict in data:
+            out_dict = st_dict.copy()
+            del out_dict['observations']
+
+            obs_dates = pd.DataFrame(st_dict['observations'])
+            obs_dates = obs_dates['ActivityStartDate'].to_list()
+            
+            out_dict['First Date'] = obs_dates[0]
+            out_dict["Last Date"] = obs_dates[-1]
+            out_dict["Total Observations"] = len(obs_dates)
+            out_dict["Unique Days"] = len(set(obs_dates))
+            
+            drange.append(out_dict)
+
+    return drange
     
 
-def main():
-    # print(api_request("Records", "Organic phosphorus"))
+def get_dranges(dirpath):
+    all_data = {}
 
+    for file in filter(lambda x:x.endswith(".json"), os.listdir(dirpath)):
+        
+        drange = drange_from_json(os.path.join(datastream_path, file))
+        all_data[file[:-5]] = drange
+    
+    return all_data
+
+def main():
+    data = get_dranges(datastream_path)
+
+    for i in data:
+        print(i)
+    return
     
     for var in variables_N:
         generate_data_range(var)
