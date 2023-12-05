@@ -791,6 +791,10 @@ def get_hydat_remarks(to_csv=False, **q_kwargs) -> pd.DataFrame:
                           
                           
 def get_hydat_data_range(to_csv=False, **q_kwargs) -> pd.DataFrame:
+    try:
+        return get_hydat_data('Data_Range', to_csv=to_csv, **q_kwargs)
+    except pd.errors.DatabaseError:
+        hydat_create_data_range()
     return get_hydat_data('Data_Range', to_csv=to_csv, **q_kwargs)
 
 
@@ -954,7 +958,7 @@ def hydat_create_data_range(unittest=False):
                         last = idate
             
         add_to_output(st_id, start, last)
-    
+
     if type(unittest) is pd.DataFrame:
         grouped = unittest.groupby('STATION_NUMBER')
         out_data = {'Station_ID': [], 'P_Start': [], 'P_End': [], 'Num_Days': []} 

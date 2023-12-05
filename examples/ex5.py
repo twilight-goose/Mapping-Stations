@@ -41,7 +41,7 @@ def main():
     print(edge_df.drop(columns='path').to_string())
 
     # plot the matches in an interactive plot
-    browser.match_browser(hydat, network, pwqmn, edge_df, bbox, color='blue')
+    browser.match_browser(hydat, pwqmn, network, edge_df, bbox, color='blue')
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import percentileofscore
 
 from shapely import LineString, Point
+import shapely
 import momepy
 import networkx as nx
 
@@ -334,9 +335,10 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     for ind, data in grouped:
         temp_data['unique_ind'].append(ind)
         temp_data[prefix + 'data'].append(data)
-
-    return edges.merge(pd.DataFrame(data=temp_data), on='unique_ind', how='left')
-
+    
+    matches = edges.merge(pd.DataFrame(data=temp_data), on='unique_ind', how='left')
+    matches.drop(columns=['unique_ind', 'other'], inplace=True)
+    return matches
 
 def delineate_matches(match_df):
     """
@@ -439,6 +441,38 @@ def assign_period_overlap(match_df):
     return match_df.assign(data_overlap=overlap_lst, total_hydat_records=h_count,
                            total_pwqmn_records=p_count)
   
+
+def get_true_path(match_df: pd.DataFrame, network: nx.DiGraph):
+    """
+    """
+    
+    true_paths = []
+    
+    for path in match_df['path']:
+        coords = path.coords
+        
+        if len(coords) >= 3:
+            origin = Point(coords[-1])
+            orig_on_net = Point(coords[-2])
+
+            cand = Point(coords[0])
+            cand_on_net = Point(coords[1])
+
+            true_path = [cand, cand_on_net]
+                        
+            for i in range(len(coords[3:-2])):
+                for u, v, data in network.edges(nbunch=[coords[i + 2], coords[i + 3]], data=True):
+                    if u == coords[i + 2] and v == coords[i + 3]:
+                        true_path += data['geometry'].coords
+
+            true_path += [orig_on_net, origin]
+            true_paths.append(shapely.remove_repeated_points(LineString(true_path)))
+        
+        else:
+            true_paths.append(path)
+
+    return gpd.GeoSeries(true_paths, crs=Can_LCC_wkt)
+
 
 def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                max_distance=5000, max_depth=10, max_matches=10, **kwargs):

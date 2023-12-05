@@ -3,6 +3,8 @@ import matplotlib.table as mpl_table
 from matplotlib_scalebar.scalebar import ScaleBar
 
 import plot_utils
+import gdf_utils
+import load_data
 from gen_util import lambert, geodetic
 
 
@@ -35,7 +37,36 @@ from gen_util import lambert, geodetic
 # ========================================================================= ##
 
 
-def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
+def match_browser(origin, cand, network, match_df, bbox, origin_pref="hydat",
+                  cand_pref="pwqmn"):
+    """
+    Creates and opens a basic interactive matplotlib window for exploring
+    matches created by gdf_utils.dfs_search()
+    
+    :param origin: GeoDataFrame
+        The origin stations.
+    
+    :param cand: GeoDataFrame
+        The candidate stations.
+    
+    :param network: networkx DiGraph
+        The network passed to dfs_search() that stations were assigned
+        to and that was used for the station matching.
+    
+    :param match_df: DataFrame
+        The output from dfs_search that holds the origin/candidate
+        station matches and information.
+        
+    :param bbox: BBox object
+        The extent of the interactive map.
+        
+    :param origin_pref: str
+        The name to use for the origin data.
+    
+    :param cand_pref: str
+        The name to use for the candidate data.
+    
+    """
     class PointBrowser:
         def __init__(self):
             self.event_ind = 0
@@ -59,21 +90,21 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
 
             ax2.clear()
 
-            if self.event_artist == hydat_artist:
-                data_key_1 = 'hydat_id'
-                data_key_2 = 'pwqmn_id'
-                data = hydat.iloc[self.event_ind]
-                ax2.set_title('HYDAT Station Info')
-            elif self.event_artist == pwqmn_artist:
-                data_key_1 = 'pwqmn_id'
-                data_key_2 = 'hydat_id'
-                data = pwqmn.iloc[self.event_ind]
-                ax2.set_title('PWQMN Station Info')
+            if self.event_artist == origin_artist:
+                data_key_1 = origin_pref + '_id'
+                data_key_2 = cand_pref + '_id'
+                data = origin.iloc[self.event_ind]
+                ax2.set_title(origin_pref.upper() + ' Station Info')
+            elif self.event_artist == cand_artist:
+                data_key_1 = cand_pref + '_id'
+                data_key_2 = origin_pref + '_id'
+                data = cand.iloc[self.event_ind]
+                ax2.set_title(cand_pref.upper() + ' Station Info')
 
             for key in list(data.keys())[:-1]:
                 display_data.append((key, str(data[key])))
 
-            for ind, row in edge_df.iterrows():
+            for ind, row in match_df.iterrows():
                 if row[data_key_1] == data['Station_ID']:
                     display_data.append((f'Match: {row[data_key_2]}', f"{row['dist']} m"))
 
@@ -100,21 +131,25 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
     ax2.set_box_aspect(1)
     ax2.set_facecolor('white')
 
-    hydat_artist = plot_utils.plot_gdf(hydat, ax=ax, picker=True, pickradius=3, color='blue', zorder=5)[0]
-    pwqmn_artist = plot_utils.plot_gdf(pwqmn, ax=ax, picker=True, pickradius=3, color='red', zorder=4)[0]
-
+    origin_artist = plot_utils.plot_gdf(origin, ax=ax, picker=True, pickradius=3, color='blue', zorder=5)[0]
+    cand_artist = plot_utils.plot_gdf(cand, ax=ax, picker=True, pickradius=3, color='red', zorder=4)[0]
+    
+    rivers = load_data.load_rivers(bbox=bbox)
+    
+    plot_utils.plot_gdf(rivers, ax=ax, color="blue")
     plot_utils.draw_network(network, ax=ax)
-    plot_utils.plot_paths(edge_df, ax=ax)
+    # edge_df['path'] = gdf_utils.get_true_path(edge_df, network)
+    plot_utils.plot_paths(match_df, ax=ax, alpha=0.65)
 
     browser = PointBrowser()
 
     fig.canvas.mpl_connect('pick_event', browser.on_pick)
 
-    plot_utils.annotate_stations(hydat, pwqmn, ax=ax)
+    plot_utils.annotate_stations(origin, cand, ax=ax)
 
     legend_elements = [
-        {'label': 'HYDAT', 'renderer': hydat_artist},
-        {'label': 'PWQMN', 'renderer': pwqmn_artist},
+        {'label': origin_pref.upper(), 'renderer': origin_artist},
+        {'label': cand_pref.upper(), 'renderer': cand_artist},
         {'label': 'On', 'color': 'orange', 'symbol': 'line'},
         {'label': 'Downstream', 'color': 'pink', 'symbol': 'line'},
         {'label': 'Upstream', 'color': 'purple', 'symbol': 'line'}
@@ -124,7 +159,7 @@ def match_browser(hydat, network, pwqmn, edge_df, bbox, **kwargs):
 
     ax.set_axis_on()
 
-    ax.set_title('Matching HYDAT (Blue) to PWQMN (Red) Stations')
+    ax.set_title(f'Matching {origin_pref.upper()} (Blue) to {cand_pref.upper()} (Red) Stations')
     ax.add_artist(ScaleBar(1, location='lower right', box_alpha=0.75))
 
     gridliner = ax.gridlines(draw_labels=True, x_inline=False, y_inline=False, dms=False,

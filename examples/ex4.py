@@ -29,13 +29,13 @@ def main():
     network = gdf_utils.hyriv_gdf_to_network(lines)
 
     # match hydat to pwqmn stations
-    edge_df = gdf_utils.dfs_search(network)
+    match_df = gdf_utils.dfs_search(network, max_distance=100000)
 
     # display the list of matches
-    print(edge_df.drop(columns='path').to_string())
+    print(match_df.drop(columns='path').to_string())
 
     # plot the matches in an interactive plot
-    browser.match_browser(hydat, network, pwqmn, edge_df, bbox, color='blue')
+    browser.match_browser(hydat, pwqmn, network, match_df, bbox)
     
 
 if __name__ == "__main__":
