@@ -282,7 +282,7 @@ def plot_df(df: pd.DataFrame, ax=None, crs=Can_LCC_wkt, **kwargs):
         return None
 
 
-def plot_paths(path_df, ax=None, filter=""):
+def plot_paths(path_df, ax=None, filter="", **kwargs):
     """
     Plots geometry data of a DataFrame with a specific structure.
     Accepts the output from gdf_utils.dfs_search(), plots paths
@@ -320,7 +320,7 @@ def plot_paths(path_df, ax=None, filter=""):
         else:
             color = 'grey'
         if ind.startswith(filter) or filter == "":
-            plot_g_series(group['path'], ax=ax, color=color, linewidth=3)
+            plot_g_series(group['path'], ax=ax, color=color, linewidth=3, **kwargs)
 
 
 def configure_legend(legend_elements: list, ax=None, loc='upper right',
