@@ -23,73 +23,21 @@ conda install -n env-conda-3.9.18 -c conda-forge matplotlib=3.8.0
 conda install -n env-conda-3.9.18 -c conda-forge cartopy=0.22.0
 conda install -n env-conda-3.9.18 -c conda-forge momepy=0.6.0
 conda install -n env-conda-3.9.18 -c conda-forge networkx=3.1
-conda install -n env-conda-3.9.18 -c conda-forge matplotlib-scalebar0.8.1
+conda install -n env-conda-3.9.18 -c conda-forge matplotlib-scalebar=0.8.1
 conda install -n env-conda-3.9.18 -c conda-forge adjusttext=0.7.3.1
-conda install -n env-conda-3.9.18 -c conda-forge pytests
+conda install -n env-conda-3.9.18 -c conda-forge pytest
 conda install -n env-conda-3.9.18 -c conda-forge pysheds=0.3.5
+conda install -n env-conda-3.9.18 -c conda-forge area
 ```
 
-A number of other dependencies will come with geopandas. You can check the version of each of these dependencies
-by opening a python terminal, importing geopandas, and calling geopandas.show_versions()
-```bash
-python
-
-import geopandas
-geopandas.show_versions()
-```
-If geopandas and python have been correctly installed, you will see something akin to:
-```
-SYSTEM INFO
------------
-python     : 3.9.18 | packaged by conda-forge | (main, Aug 30 2023, 03:40:31) [MSC v.1929 64 bit (AMD64)]
-executable : <location of python executable>
-machine    : <Machine>
-
-GEOS, GDAL, PROJ INFO
----------------------
-GEOS       : 3.11.2
-GEOS lib   : None
-GDAL       : 3.7.0
-GDAL data dir: None
-PROJ       : 9.2.0i
-PROJ data dir: <proj data directory>
-
-PYTHON DEPENDENCIES
--------------------
-geopandas  : 0.14.0
-numpy      : 1.26.0
-pandas     : 2.1.0
-pyproj     : 3.5.0
-shapely    : 2.0.1
-fiona      : 1.9.4
-geoalchemy2: None
-geopy      : 2.4.0
-matplotlib : 3.8.0
-mapclassify: 2.5.0
-pygeos     : None
-pyogrio    : None
-psycopg2   : None
-pyarrow    : None
-rtree      : 1.0.1
-```
-Versions of geopandas after 0.14.0 should install up-to-date releases of PROG and PYPROJ, but if you have a PROJ version less than 9.2.0 and/or a pyproj version less than 3.5.0, they need to be updated.
-
-### 3b: Updating proj and pyproj
-To update proj and pyproj, run the following commands in Anaconda Prompt. Pyproj version 3.5.0 works with
-releases of PROJ that implemented a crucial bugfix (reported [here](https://github.com/geopandas/geopandas/issues/2874)).
-
-```
-conda update -n env-conda-3.9.18 -c conda-forge pyproj
-```
-
-Once you have pyproj version 3.5.0 installed, you should have all required dependencies.
 Next, you need to configure project structure and data paths.
 
 ### 4. Configuring Project Structure and Data Paths
 In addition to Mapping-Stations, you will need [this fork](https://github.com/twilight-goose/Watershed_Delineation/tree/patch-1)
 of the Watershed_Delineation repository created by [Kasope Okubadejo](https://github.com/kokubadejo). 
-Omitting most of the files included in the repositories, the downloaded data and watershed
-delineation repository should be structured and named as follows if you do not intend to change file paths within scripts.
+Omitting many of the files included in the repositories, the downloaded data and watershed
+delineation repository should be structured and named as follows if you do not intend to change
+file paths within scripts.
 ```
 <project_folder>
     | data
@@ -103,15 +51,22 @@ delineation repository should be structured and named as follows if you do not i
         | Hydat
             |--hydat.sqlite3
         | MondayFileGallery
-            | --q_c_pairs.csv
+            | --Q_C_pairs.csv (for ex11 and ex12)
 		| OHN (needed to run ex5 & ex8)
+			| --Ontario_Hydro_Network_(OHN)_-_Watercourse.dbf
+			| --Ontario_Hydro_Network_(OHN)_-_Watercourse.prj
+			| --Ontario_Hydro_Network_(OHN)_-_Watercourse.sbn
+			| --Ontario_Hydro_Network_(OHN)_-_Watercourse.sbx
+			| --Ontario_Hydro_Network_(OHN)_-_Watercourse.shp
+			| --Ontario_Hydro_Network_(OHN)_-_Watercourse.shx
         | PWQMN_cleaned
             |--Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv
         | datastream
+		| shapefiles
 	| errors
 	| examples
 		| ex1.py - ex12.py
-		| --example_index.md
+		| --example_index.md	[contains information about the examples]
 	| plots
     | src
 		| --gen_util.py
@@ -128,6 +83,7 @@ delineation repository should be structured and named as follows if you do not i
 				| Rasters
 					| --hyd_na_dir_15s.tif
 					| --hyd_na_acc_15s.tif
+		| RabPro
 ```
 Data loading functions within these python files assumes the above project structure. To load
 data/files from directories or files with different names, data file paths can be modified near the
@@ -135,7 +91,7 @@ top of "/src/load_data.py". Anything beyond changing file and folder names is **
 
 Functions in "src/load_data.py" were designed to accommodate specific versions of the Hydat and PWQMN
 datasets. Specifically, HYDAT dataset tables are expected to have a field exactly named "STATION_NUMBER".
-The HYDAT dataset is also expected to contain the following tables:
+The HYDAT sqlite3 dataset is also expected to contain the following tables:
 
 - STATIONS
 - DLY_FLOWS
@@ -181,7 +137,7 @@ to bypass the KeyErrors.
 ```
 
 The HYDAT and PWQMN data used in this project were pre-processed by [Juliane Mai](https://github.com/julemai).
-The pre-processed data may be obtainable from the following links (you will need to have pop-ups either enabled or set to ask)
+The pre-processed data may be obtainable from the following links (you will need to have pop-ups either enabled or set to ask).
 
 Hydat Data: http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip \
 PWQMN Data: http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip \
@@ -192,6 +148,7 @@ Raw data is available from these links:
 Hydat Data: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/ \
 HydroRIVERS: https://www.hydrosheds.org/products/hydrorivers \
 PWQMN Data: https://greatlakesdatastream.ca/explore/#/dataset/f3877597-9114-4ace-ad6f-e8a68435c0ba/
+OHN Data: https://geohub.lio.gov.on.ca/datasets/a222f2996e7c454f9e8d028aa05995d3/explore
 
 ### Provincial (Stream) Water Quality Monitoring Network (PWQMN) data
 The following are Juliane's steps for pre-processing the PWQMN data (2023-09-10).
