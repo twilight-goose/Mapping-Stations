@@ -745,7 +745,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                         match_count = off_segment(match_count)
 
     matches = gpd.GeoDataFrame(data=matches, geometry='path', crs=Can_LCC_wkt)
-    matches = assign_period_overlap(matches)
+    # matches = assign_period_overlap(matches)
 
     return matches
 
