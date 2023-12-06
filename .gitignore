@@ -1,3 +1,5 @@
+src/__pycache__/*.pyc
+data/.DS_Store
 
 data/Hydat.sqlite3/Hydat.sqlite3
 Hydat.sqlite3.zip
