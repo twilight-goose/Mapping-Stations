@@ -151,3 +151,16 @@ match_df = gdf_utils.dfs_search(network, max_distance=10000, prefix1="origin",
 match_df.drop(columns=['path', 'seg_apart'], inplace=True)
 print(match_df.to_string())
 match_df.to_json("table.json")
+lines = gdf_utils.assign_stations(lines, hydat, prefix="hydat_", max_distance=10000)
+lines = gdf_utils.assign_stations(lines, origin, prefix="origin_", max_distance=10000)
+
+network = gdf_utils.hyriv_gdf_to_network(lines)
+
+match_df = gdf_utils.dfs_search(    network,
+                                    max_distance=1000000,   # in [m]
+                                    prefix1="origin_",    # list of stations to find a match for
+                                    prefix2="hydat_",     # all stations to find a match from
+                            )
+match_df.drop(columns=['path', 'seg_apart'], inplace=True)
+print(match_df.to_string())
+match_df.to_csv(os.path.join(output_folder,"table.csv"))
