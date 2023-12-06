@@ -380,7 +380,7 @@ def delineate_matches(match_df):
     stations.rename(columns={'Latitude': 'lat', 'Longitude': 'lon'}, inplace=True)
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    sys.path.append(dir_path + os.path.join("..", "..", "Watershed_Delineation", "src", "PySheds"))
+    sys.path.append(dir_path + os.path.join("/..", "..", "Watershed_Delineation", "src", "PySheds"))
 
     from main import delineate
 
