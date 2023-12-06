@@ -14,7 +14,7 @@ import momepy
 import networkx as nx
 
 """
-Overview: 
+Overview:
 
 Provides a variety of functions for conversion and manipulation of
 data; primarily that which is related to GeoPandas GeoDataFrames.
@@ -22,7 +22,7 @@ This includes data structures provided by Pandas, Shapely, and
 NetworkX.
 
 GeoDataFrame and GeoSeries parameters are expected to have assigned
-CRSs. Operations affected by coordinate system distortions will attempt 
+CRSs. Operations affected by coordinate system distortions will attempt
 to convert input geometries to Canada Lambert Conformal Conic, which is
 defined by Can_LCC_wkt, and will produce output referenced in this CRS.
 """
@@ -305,7 +305,7 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
         stations = stations.to_crs(crs=Can_LCC_wkt)
     if edges.crs != Can_LCC_wkt:
         edges = edges.to_crs(crs=Can_LCC_wkt)
-    
+
     if len_f and len_f in edges.columns:
         conversion = {'m': 1, 'km': 1000}[len_unit]
         edges = edges.assign(LENGTH_M=edges[len_f] * conversion)
@@ -335,7 +335,7 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     for ind, data in grouped:
         temp_data['unique_ind'].append(ind)
         temp_data[prefix + 'data'].append(data)
-    
+
     matches = edges.merge(pd.DataFrame(data=temp_data), on='unique_ind', how='left')
     matches.drop(columns=['unique_ind', 'other'], inplace=True)
     return matches
@@ -353,57 +353,57 @@ def delineate_matches(match_df):
         - ws_overlap
             area of overlap between the hydat station watershed and
             pwqmn station watershed
-            
+
     All fields are in m^2
-    
+
     :param match_df: DataFrame
         DataFrame of a similar structure as that produced by
         dfs_search(). Must contain the following fields:
             - hydat_id
             - pwqmn_id
-    
+
     :return: DataFrame
         Copy of the input DataFrame with additional watershed fields
         calculated.
-    
+
     :saves: watersheds.geojson
         Geojson containing polygons of the delineated watersheds for
         each station.
     """
     hydat_stations = load_data.get_hydat_stations(subset=match_df['hydat_id'].to_list())
     pwqmn_stations = load_data.get_pwqmn_stations(subset=match_df['pwqmn_id'].to_list())
-    
+
     hydat_stations = hydat_stations[['Station_ID', 'Latitude', 'Longitude']]
     pwqmn_stations = pwqmn_stations[['Station_ID', 'Latitude', 'Longitude']]
-    
+
     stations = pd.concat([hydat_stations, pwqmn_stations], axis=0)
     stations.rename(columns={'Latitude': 'lat', 'Longitude': 'lon'}, inplace=True)
-    
+
     dir_path = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(dir_path + os.path.join("..", "..", "Watershed_Delineation", "src", "PySheds"))
 
     from main import delineate
-    
+
     delineate(basins=stations, id_field='Station_ID')
-    
+
     watersheds = gpd.read_file("watersheds.geojson")
     watersheds = watersheds.query('LABEL == 1')
     watersheds = watersheds.assign(ws_size=watersheds.geometry.to_crs(crs=Can_LCC_wkt).area)
-    
+
     # Keep only the Station_IDs and geometry area
     watersheds = watersheds[['Station_ID', 'geometry', 'ws_size']]
     watersheds.rename(columns={'geometry': 'wshed_geom'}, inplace=True)
-    
+
     match_df['pwqmn_id'] = match_df['pwqmn_id'].astype(str)
     match_df = match_df.merge(watersheds, how='left', left_on='hydat_id', right_on='Station_ID')
     match_df = match_df.merge(watersheds, how='left', left_on='pwqmn_id', right_on='Station_ID',
                               suffixes=("_hydat", "_pwqmn"))
-    
+
     match_df = match_df.assign(overlap=match_df['wshed_geom_hydat'].intersection(match_df['wshed_geom_pwqmn']).area)
-    
+
     match_df.drop(columns=['wshed_geom_hydat', 'wshed_geom_pwqmn', 'Station_ID_hydat',
                            'Station_ID_pwqmn'], inplace=True)
-    
+
     return match_df
 
 
@@ -411,46 +411,47 @@ def assign_period_overlap(match_df):
     """
     Caculates the number of days where data is available for each pair
     of stations in match_df. Called automatically by dfs_search().
-    
+
     :param match_df: DataFrame
         DataFrame of matched stations. Must contain 'hydat_id'
         and 'pwqmn_id'.
-    
+
     :return: DataFrame
         The original DataFrame with an additional 'data_overlap' column.
     """
     hydat_dr = get_hydat_data_range(subset=match_df['hydat_id'].to_list())
     pwqmn_dr = get_pwqmn_data_range(subset=match_df['pwqmn_id'].to_list())
-    
+
     overlap_lst = []
     h_count = []
     p_count = []
-    
+
     for ind, row in match_df.iterrows():
-        hydat_ps = hydat_dr.query('Station_ID == @row["hydat_id"]')
+        hydat_id = row["hydat_id"]
+        hydat_ps = hydat_dr.query('Station_ID == @hydat_id')
         # cast pwqmn_id to an int because using the @ operator in .query()
         # makes the id into a string for some reason
         pwqmn_id = int(row["pwqmn_id"])
         pwqmn_ps = pwqmn_dr.query('Station_ID == @pwqmn_id')
-        
+
         h_count.append(hydat_ps['Num_Days'].sum())
         p_count.append(pwqmn_ps['Num_Days'].sum())
-        
+
         overlap_lst.append(period_overlap(hydat_ps, pwqmn_ps))
-    
+
     return match_df.assign(data_overlap=overlap_lst, total_hydat_records=h_count,
                            total_pwqmn_records=p_count)
-  
+
 
 def get_true_path(match_df: pd.DataFrame, network: nx.DiGraph):
     """
     """
-    
+
     true_paths = []
-    
+
     for path in match_df['path']:
         coords = path.coords
-        
+
         if len(coords) >= 3:
             origin = Point(coords[-1])
             orig_on_net = Point(coords[-2])
@@ -459,7 +460,7 @@ def get_true_path(match_df: pd.DataFrame, network: nx.DiGraph):
             cand_on_net = Point(coords[1])
 
             true_path = [cand, cand_on_net]
-                        
+
             for i in range(len(coords[3:-2])):
                 for u, v, data in network.edges(nbunch=[coords[i + 2], coords[i + 3]], data=True):
                     if u == coords[i + 2] and v == coords[i + 3]:
@@ -467,7 +468,7 @@ def get_true_path(match_df: pd.DataFrame, network: nx.DiGraph):
 
             true_path += [orig_on_net, origin]
             true_paths.append(shapely.remove_repeated_points(LineString(true_path)))
-        
+
         else:
             true_paths.append(path)
 
@@ -498,11 +499,11 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
     For stations located on the same river segment/network edge,
     distance between matched stations is the greater of the direct
     distance between the stations and distance along the network.
-    
+
     By restricting max_matches and increasing max_distance +
     max_depth, the user can locate the closest X number of stations
     without limits on distance from origin station.
-    
+
     :param network: NetworkX Directed Graph
         The graph to search. Must contain station data stored as
         edge attributes.
@@ -526,7 +527,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         station to search for a match. The greater the resolution of the
         dataset used to build the network, the greater this value should
         be. (HYDAT -> 10; OHN -> 100)
-        
+
     :param max_matches: int (default=10)
         Approximate maximum number of candidates to locate per origin
         station.
@@ -612,30 +613,30 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
 
         for u, v, data in edges:
             if type(data[prefix + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
-                
+
                 stations = data[prefix + 'data'].sort_values(
                     by='dist_along', ascending=not direction)
-                
+
                 ids = []
                 dist_froms = []
                 dists = []
                 depths = []
                 path_last_segs = []
-                
+
                 for ind, series in stations.iterrows():
-                    
+
                     if series['Station_ID'] not in matches[prefix + 'id']:
                         direct_dist = station['geometry'].distance(series['geometry'])
                         dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist_along'])
 
                         if dist < max_distance:
-                        
+
                             ids.append(series['Station_ID'])
                             dist_froms.append(series['dist_from'])
                             dists.append(max(direct_dist, dist))
                             depths.append(depth)
                             path_last_segs.append([series['geometry'], (u, v)[direction]])
-                        
+
                         else:
                             break
 
@@ -649,7 +650,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         # This is only run if there are no edges and the function has
         # reached the end of the line
         return -1, -1, -1, -1, -1
-    
+
     def add_to_matches(id1, id2, dist_from_1, dist_from_2, path, dist_, pos_, depth):
         """
         Helper function that adds a set of values to a dictionary with specific keys.
@@ -689,10 +690,10 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         # Check for candidate stations upstream and downstream
         down_id, down_from, down_dist, down_depth, down_seg, *point_list = dfs(
                 v, prefix2, 0, data['LENGTH_M'] - station['dist_along'], 1)
-                
+
         up_id, up_from, up_dist, up_depth, up_seg, *point_list2 = dfs(
                 u, prefix2, 1, station['dist_along'], 1)
-        
+
         point_list.append(station['geometry'])
         if down_id != -1:
             for i in range(len(down_id)):
@@ -701,7 +702,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                 add_to_matches(station['Station_ID'], down_id[i], station['dist_from'],
                                down_from[i], LineString(pts), down_dist[i],
                                "Down", down_depth[i])
-        
+
         point_list2.append(station['geometry'])
         if up_id != -1:
             for i in range(len(up_id)):
@@ -711,7 +712,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                                up_from[i], LineString(pts), up_dist[i],
                                "Up", up_depth[i])
         return match_count
-    
+
     # ===================================================================== #
     # Instantiate dictionary to store matches
     matches = {prefix1 + 'id': [], prefix2 + 'id' : [],
@@ -721,7 +722,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
     # check each edge for origin stations
     for u, v, data in network.out_edges(data=True):
         match_count = 0
-        
+
         pref_1_data = data[prefix1 + 'data']
         pref_2_data = data[prefix2 + 'data']
 
@@ -730,24 +731,24 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
             if not pref_1_data.empty:
                 # for each origin station on the edge
                 stations = pref_1_data.sort_values(by='dist_along', ascending=True)
-                
+
                 for ind, station in stations.iterrows():
                     # Check if there are candidate stations on the same river segment
                     if type(pref_2_data) in [pd.DataFrame, gpd.GeoDataFrame]:
                         for ind, row in pref_2_data.iterrows():
                             match_count += 1
                             on_segment()
-                    
+
                     for i in range(max_matches - match_count):
                         if match_count >= max_matches:
                             break
                         match_count = off_segment(match_count)
-        
+
     matches = gpd.GeoDataFrame(data=matches, geometry='path', crs=Can_LCC_wkt)
     matches = assign_period_overlap(matches)
-    
+
     return matches
-    
+
 
 
 def hyriv_gdf_to_network(hyriv_gdf: gpd.GeoDataFrame, plot=False, show=False) -> nx.DiGraph:
@@ -881,4 +882,3 @@ def __draw_network__(p_graph, ax=None, **kwargs):
         ax = plt.axes()
     positions = {n: [n[0], n[1]] for n in list(p_graph.nodes)}
     nx.draw(p_graph, pos=positions, ax=ax, node_size=3, **kwargs)
-
