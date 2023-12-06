@@ -331,16 +331,16 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
 
     grouped = stations.groupby(by='unique_ind', sort=False)
 
-    temp_data = {'unique_ind': [], prefix + 'data': []}
+    temp_data = {'unique_ind': [], prefix + '_data': []}
     for ind, data in grouped:
         temp_data['unique_ind'].append(ind)
-        temp_data[prefix + 'data'].append(data)
+        temp_data[prefix + '_data'].append(data)
 
     matches = edges.merge(pd.DataFrame(data=temp_data), on='unique_ind', how='left')
     matches.drop(columns=['unique_ind', 'other'], inplace=True)
     return matches
 
-def delineate_matches(match_df):
+def delineate_matches(match_df, prefix1, data_1, prefix2, data_2):
     """
     For each PWQMN and HYDAT station in match_df, delineates the
     watershed basin using the Watershed_Delineation library developed
@@ -358,10 +358,26 @@ def delineate_matches(match_df):
 
     :param match_df: DataFrame
         DataFrame of a similar structure as that produced by
-        dfs_search(). Must contain the following fields:
-            - hydat_id
-            - pwqmn_id
-
+        dfs_search(). Must contain "{prefix1}_id" and "{prefix2}_id"
+  
+    :param prefix1: str
+        Prefix of the first station id field.
+        i.e. "hydat" => searches for "hydat_id"
+    
+    :param data_1: DataFrame
+        The station data associated with stations in "{prefix1}id".
+        Must contain a latitude/longitude field. Must contain a
+        Station_ID field.
+        
+    :param prefix2: str
+        Prefix of the second station id field.
+        i.e. "hydat" => searches for "hydat_id"
+    
+    :param data_2: DataFrame
+        The station data associated with stations in "{prefix2}_id".
+        Must contain a latitude/longitude field. Must contain a
+        Station_ID field.
+    
     :return: DataFrame
         Copy of the input DataFrame with additional watershed fields
         calculated.
@@ -370,22 +386,24 @@ def delineate_matches(match_df):
         Geojson containing polygons of the delineated watersheds for
         each station.
     """
-    hydat_stations = load_data.get_hydat_stations(subset=match_df['hydat_id'].to_list())
-    pwqmn_stations = load_data.get_pwqmn_stations(subset=match_df['pwqmn_id'].to_list())
-
-    hydat_stations = hydat_stations[['Station_ID', 'Latitude', 'Longitude']]
-    pwqmn_stations = pwqmn_stations[['Station_ID', 'Latitude', 'Longitude']]
-
-    stations = pd.concat([hydat_stations, pwqmn_stations], axis=0)
-    stations.rename(columns={'Latitude': 'lat', 'Longitude': 'lon'}, inplace=True)
+    def normalize(df):
+        x, y = find_xy_fields(df)
+        return df.rename(columns={x: "lon", y: "lat"})
+    
+    print("Loading stations")
+    data_1 = normalize(data_1)[['Station_ID', 'lat', 'lon']]
+    data_2 = normalize(data_2)[['Station_ID', 'lat', 'lon']]
+    
+    stations = pd.concat([data_1, data_2], axis=0)
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    sys.path.append(dir_path + os.path.join("/..", "..", "Watershed_Delineation", "src", "PySheds"))
+    sys.path.append(dir_path + os.path.join("/..", "..", "Watershed_Delineation_branch", "src", "PySheds"))
 
     from main import delineate
 
     delineate(basins=stations, id_field='Station_ID')
-
+    
+    print("Loading delineated watersheds and performing comparisons")
     watersheds = gpd.read_file("watersheds.geojson")
     watersheds = watersheds.query('LABEL == 1')
     watersheds = watersheds.assign(ws_size=watersheds.geometry.to_crs(crs=Can_LCC_wkt).area)
@@ -394,59 +412,85 @@ def delineate_matches(match_df):
     watersheds = watersheds[['Station_ID', 'geometry', 'ws_size']]
     watersheds.rename(columns={'geometry': 'wshed_geom'}, inplace=True)
 
-    match_df['pwqmn_id'] = match_df['pwqmn_id'].astype(str)
-    match_df = match_df.merge(watersheds, how='left', left_on='hydat_id', right_on='Station_ID')
-    match_df = match_df.merge(watersheds, how='left', left_on='pwqmn_id', right_on='Station_ID',
-                              suffixes=("_hydat", "_pwqmn"))
+    match_df[pref_1 + '_id'] = match_df[pref_1 + '_id'].astype(str)
+    match_df[pref_2 + '_id'] = match_df[pref_2 + '_id'].astype(str)
+    
+    match_df = match_df.merge(watersheds, how='left', left_on=pref_1 + '_id', right_on='Station_ID')
+    match_df = match_df.merge(watersheds, how='left', left_on=pref_2 + '_id', right_on='Station_ID',
+                              suffixes=("_" + pref_1, "_" + pref_2))
 
-    match_df = match_df.assign(overlap=match_df['wshed_geom_hydat'].intersection(match_df['wshed_geom_pwqmn']).area)
+    match_df = match_df.assign(overlap=match_df['wshed_geom_' + pref_1].intersection(match_df['wshed_geom_' + pref_2]).area)
 
-    match_df.drop(columns=['wshed_geom_hydat', 'wshed_geom_pwqmn', 'Station_ID_hydat',
-                           'Station_ID_pwqmn'], inplace=True)
+    match_df.drop(columns=['wshed_geom_hydat', 'wshed_geom_pwqmn', 'Station_ID_' + pref_1,
+                           'Station_ID_' + pref_2], inplace=True)
 
     return match_df
 
 
-def assign_period_overlap(match_df):
+def assign_period_overlap(match_df, prefix1, drange_1, prefix2, drange_2):
     """
     Caculates the number of days where data is available for each pair
-    of stations in match_df. Called automatically by dfs_search().
+    of stations in match_df from data ranges.
 
     :param match_df: DataFrame
-        DataFrame of matched stations. Must contain 'hydat_id'
-        and 'pwqmn_id'.
+        DataFrame of matched stations. Must contain '{prefix1}_id'
+        and '{prefix2}_id'.
+        
+    :param prefix1: str
+        Prefix of the first station id field.
+        i.e. "hydat" => searches for "hydat_id"
+    
+    :param drange_1: DataFrame
+        Station data ranges of stations in "{prefix1}_id".
+        Must contain "P_Start", "P_End", "Num_Days", and 
+        Station_ID" fields. Data ranges can be generated by
+        passing DataFrames holding observation data to
+        gen_util.generate_data_range().
 
+    :param prefix2: str
+        Prefix of the second station id field.
+        i.e. "pwqmn" => searches for "pwqmn_id"
+    
+    :param drange_2: DataFrame
+        Station data ranges of stations in "{prefix2}_id".
+        Must contain "P_Start", "P_End", "Num_Days", and 
+        Station_ID" fields. Data ranges can be generated by
+        passing DataFrames holding observation data to
+        gen_util.generate_data_range().
+    
     :return: DataFrame
-        The original DataFrame with an additional 'data_overlap' column.
+        The original DataFrame with additional 'data_overlap',s
+        'total_{prefix1}_records', and 'total_{prefix2}_records' columns.
     """
-    hydat_dr = get_hydat_data_range(subset=match_df['hydat_id'].to_list())
-    pwqmn_dr = get_pwqmn_data_range(subset=match_df['pwqmn_id'].to_list())
-
     overlap_lst = []
     h_count = []
     p_count = []
 
     for ind, row in match_df.iterrows():
-        hydat_id = row["hydat_id"]
-        hydat_ps = hydat_dr.query('Station_ID == @hydat_id')
-        # cast pwqmn_id to an int because using the @ operator in .query()
-        # makes the id into a string for some reason
-        pwqmn_id = int(row["pwqmn_id"])
-        pwqmn_ps = pwqmn_dr.query('Station_ID == @pwqmn_id')
+        # cast ids because using the @ operator in .query()
+        # makes the id into a string for some reason and
+        # introduces other weird behaviour
+        set_1_id = row[f"{prefix1}_id"]
+        set_1_ps = drange_1.query('Station_ID == @set_1_id')
+        
+        set_2_id = row[f"{prefix2}_id"]
+        set_2_ps = drange_2.query('Station_ID == @set_2_id')
 
-        h_count.append(hydat_ps['Num_Days'].sum())
-        p_count.append(pwqmn_ps['Num_Days'].sum())
+        set_1_count.append(set_1_ps['Num_Days'].sum())
+        set_2_count.append(set_2_ps['Num_Days'].sum())
 
-        overlap_lst.append(period_overlap(hydat_ps, pwqmn_ps))
-
-    return match_df.assign(data_overlap=overlap_lst, total_hydat_records=h_count,
-                           total_pwqmn_records=p_count)
+        overlap_lst.append(period_overlap(set_1_ps, set_2_ps))
+    
+    match_df = match_df.assign(data_overlap=overlap_lst)
+    match_df[f"total_{prefix1}_records"] = set_1_count
+    match_df[f"total_{prefix2}_records"] = set_2_count
+    
+    return match_df
 
 
 def get_true_path(match_df: pd.DataFrame, network: nx.DiGraph):
     """
     """
-
     true_paths = []
 
     for path in match_df['path']:
@@ -475,7 +519,7 @@ def get_true_path(match_df: pd.DataFrame, network: nx.DiGraph):
     return gpd.GeoSeries(true_paths, crs=Can_LCC_wkt)
 
 
-def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
+def dfs_search(network: nx.DiGraph, prefix1='hydat', prefix2='pwqmn',
                max_distance=5000, max_depth=10, max_matches=10, **kwargs):
     """
     For the station closest to each network edge denoted by prefix1,
@@ -508,11 +552,11 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         The graph to search. Must contain station data stored as
         edge attributes.
 
-    :param prefix1: string (default='hydat_')
+    :param prefix1: string (default='hydat')
         Prefix denoting the network edge attribute holding origin
         station data.
 
-    :param prefix2: string (default='pwqmn_')
+    :param prefix2: string (default='pwqmn')
         Prefix denoting the network edge attribute holding candidate
         station data.
 
@@ -612,9 +656,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
             return -1, -1, -1, -1, -1
 
         for u, v, data in edges:
-            if type(data[prefix + 'data']) in [pd.DataFrame, gpd.GeoDataFrame]:
+            if type(data[prefix + '_data']) in [pd.DataFrame, gpd.GeoDataFrame]:
 
-                stations = data[prefix + 'data'].sort_values(
+                stations = data[prefix + '_data'].sort_values(
                     by='dist_along', ascending=not direction)
 
                 ids = []
@@ -625,7 +669,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
 
                 for ind, series in stations.iterrows():
 
-                    if series['Station_ID'] not in matches[prefix + 'id']:
+                    if series['Station_ID'] not in matches[prefix + '_id']:
                         direct_dist = station['geometry'].distance(series['geometry'])
                         dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist_along'])
 
@@ -655,10 +699,10 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
         """
         Helper function that adds a set of values to a dictionary with specific keys.
         """
-        matches[prefix1 + 'id'].append(id1)
-        matches[prefix2 + 'id'].append(id2)
-        matches[prefix1 + 'dist_from_net'].append(dist_from_1)
-        matches[prefix2 + 'dist_from_net'].append(dist_from_2)
+        matches[prefix1 + '_id'].append(id1)
+        matches[prefix2 + '_id'].append(id2)
+        matches[prefix1 + '_dist_from_net'].append(dist_from_1)
+        matches[prefix2 + '_dist_from_net'].append(dist_from_2)
         matches['path'].append(path)
         matches['dist'].append(dist_)
         matches['pos'].append(pos_)
@@ -715,16 +759,16 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
 
     # ===================================================================== #
     # Instantiate dictionary to store matches
-    matches = {prefix1 + 'id': [], prefix2 + 'id' : [],
-               prefix1 + 'dist_from_net': [], prefix2 + 'dist_from_net': [],
+    matches = {prefix1 + '_id': [], prefix2 + '_id' : [],
+               prefix1 + '_dist_from_net': [], prefix2 + '_dist_from_net': [],
                'path': [], 'dist': [], 'pos': [], 'seg_apart': []}
 
     # check each edge for origin stations
     for u, v, data in network.out_edges(data=True):
         match_count = 0
 
-        pref_1_data = data[prefix1 + 'data']
-        pref_2_data = data[prefix2 + 'data']
+        pref_1_data = data[prefix1 + '_data']
+        pref_2_data = data[prefix2 + '_data']
 
         # check for the presence of origin station data
         if type(pref_1_data) in [pd.DataFrame, gpd.GeoDataFrame]:
@@ -745,8 +789,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat_', prefix2='pwqmn_',
                         match_count = off_segment(match_count)
 
     matches = gpd.GeoDataFrame(data=matches, geometry='path', crs=Can_LCC_wkt)
-    matches = assign_period_overlap(matches)
-
+    
     return matches
 
 

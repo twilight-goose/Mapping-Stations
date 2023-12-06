@@ -18,7 +18,7 @@ conda create -n env-conda-3.9.18 python=3.9.18
 conda activate env-conda-3.9.18
 
 conda install -n env-conda-3.9.18 -c conda-forge pandas=2.1.1
-conda install -n env-conda-3.9.18 -c conda-forge geopandas-0.14.0
+conda install -n env-conda-3.9.18 -c conda-forge geopandas=0.14.0
 conda install -n env-conda-3.9.18 -c conda-forge matplotlib=3.8.0
 conda install -n env-conda-3.9.18 -c conda-forge cartopy=0.22.0
 conda install -n env-conda-3.9.18 -c conda-forge momepy=0.6.0
@@ -86,6 +86,46 @@ file paths within scripts.
 					| --hyd_na_acc_15s.tif
 		| RabPro
 ```
+
+The HYDAT and PWQMN data used in this project were pre-processed by [Juliane Mai](https://github.com/julemai).
+The pre-processed data may be obtainable from the following links (you will need to have pop-ups either enabled or set to ask).
+
+Hydat Data: http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip \
+PWQMN Data: http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip \
+Monday Files: https://github.com/twilight-goose/Mapping-Stations/tree/main/data/MondayFileGallery
+
+Raw data is available from these links:
+
+Hydat Data: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/ \
+HydroRIVERS: https://www.hydrosheds.org/products/hydrorivers \
+- download the North and Central America shapefile
+PWQMN Data: https://greatlakesdatastream.ca/explore/#/dataset/f3877597-9114-4ace-ad6f-e8a68435c0ba/
+OHN Data: https://geohub.lio.gov.on.ca/datasets/a222f2996e7c454f9e8d028aa05995d3/explore
+- Go to the shapefile
+- click download options
+- download previously generated version (unless you have a lot of time)
+
+### Provincial (Stream) Water Quality Monitoring Network (PWQMN) data
+The following are Juliane's steps for pre-processing the PWQMN data (2023-09-10).
+
+The data need to be manually downloaded through:
+https://greatlakesdatastream.ca/explore/#/dataset/f3877597-9114-4ace-ad6f-e8a68435c0ba/ \
+Then click the download button appearing on that website.
+
+Name: `Provincial_Water_Quality_Monitoring_Network_PWQMN.csv` (data) \
+Name: `Provincial_Water_Quality_Monitoring_Network_PWQMN_metadata.csv` (metadata)
+
+The datafile is a comma-separated file but several entries contain
+commas themselves. The entry is then in double-quotes, e.g.,
+123,"ABC, DEV 23",345,534.202,"abd,dged,sdg",2,4
+The handling of this in the code takes ages. Hence, we clean the data
+from those double-quotes and commas and replace them by semi-colons,
+e.g.,
+123,ABC;DEV;23,345,534.202,abd;dged;sdg,2,4
+using:
+awk -F'"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", ";", $i) } 1' Provincial_Water_Quality_Monitoring_Network_PWQMN.csv > Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv
+
+
 Data loading functions within these python files assumes the above project structure. To load
 data/files from directories or files with different names, data file paths can be modified near the
 top of "/src/load_data.py". Anything beyond changing file and folder names is **not recommended**.
@@ -137,44 +177,6 @@ to bypass the KeyErrors.
 'LaboratorySampleID'
 ```
 
-The HYDAT and PWQMN data used in this project were pre-processed by [Juliane Mai](https://github.com/julemai).
-The pre-processed data may be obtainable from the following links (you will need to have pop-ups either enabled or set to ask).
-
-Hydat Data: http://juliane-mai.com/resources/data_nandita/Hydat.sqlite3.zip \
-PWQMN Data: http://juliane-mai.com/resources/data_nandita/Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip \
-Monday Files: https://github.com/twilight-goose/Mapping-Stations/tree/main/data/MondayFileGallery
-
-Raw data is available from these links:
-
-Hydat Data: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/ \
-HydroRIVERS: https://www.hydrosheds.org/products/hydrorivers \
-- download the North and Central America shapefile
-PWQMN Data: https://greatlakesdatastream.ca/explore/#/dataset/f3877597-9114-4ace-ad6f-e8a68435c0ba/
-OHN Data: https://geohub.lio.gov.on.ca/datasets/a222f2996e7c454f9e8d028aa05995d3/explore
-- Go to the shapefile
-- click download options
-- download previously generated version (unless you have a lot of time)
-
-### Provincial (Stream) Water Quality Monitoring Network (PWQMN) data
-The following are Juliane's steps for pre-processing the PWQMN data (2023-09-10).
-
-The data need to be manually downloaded through:
-https://greatlakesdatastream.ca/explore/#/dataset/f3877597-9114-4ace-ad6f-e8a68435c0ba/ \
-Then click the download button appearing on that website.
-
-Name: `Provincial_Water_Quality_Monitoring_Network_PWQMN.csv` (data) \
-Name: `Provincial_Water_Quality_Monitoring_Network_PWQMN_metadata.csv` (metadata)
-
-The datafile is a comma-separated file but several entries contain
-commas themselves. The entry is then in double-quotes, e.g.,
-123,"ABC, DEV 23",345,534.202,"abd,dged,sdg",2,4
-The handling of this in the code takes ages. Hence, we clean the data
-from those double-quotes and commas and replace them by semi-colons,
-e.g.,
-123,ABC;DEV;23,345,534.202,abd;dged;sdg,2,4
-using:
-awk -F'"' -v OFS='' '{ for (i=2; i<=NF; i+=2) gsub(",", ";", $i) } 1' Provincial_Water_Quality_Monitoring_Network_PWQMN.csv > Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv
-
 ## Module Overview
 The load_data.py module, as its name implies, is used for the loading of data. This is where
 file path constants can be found and modified.
@@ -197,8 +199,34 @@ and it's relevance is limited to its exact use case - creating and opening data 
 
 
 ## Use Cases and Usage Examples
-Refer to `../examples/` and `../examples/example index.md` for examples and explainations.
+Refer to `../examples/` for example with explanations.
+```
+ex1.py: FAST :: basic plotting
+ex2.py: FAST :: displays how stations are 'snapped' to river networks (you will need to zoom
+				in to see the conencting lines).
+ex3.py: DONT RUN :: Loading stations from shapefiles (don't run, points1.shp and points2.shp don't exist.)
+ex4.py: FAST :: match browser. Load all stations within a specificed lat/lon bounding box,
+				load and assign data range overlaps, and create an interactive plot allowing
+				the user to click on stations and see a list of matches.
+ex5.py: FAST :: same as ex4, except uses the OHN dataset for rivers.
+ex6.py: FAST :: match array
+ex7.py: FAST :: save to shapefile (no output)
+ex8.py: REALLY SLOW :: compare station matching between OHN and hydrorivers datasets, calculate the
+						error between the two, and save it to "table.csv"
+ex9.py: FAST :: loading lists of stations from .csv files and saving the station data to .csv files
+ex10.py: REALLY SLOW :: example of loading large lists of stations from .csv files and matching them.
 
+	        Some things to potentially change in main.py of PySheds
+			(in Kasope's GitHub)
+
+            line 40: FLDIR = os.path.join(os.path.dirname(__file__), "data", "Rasters", "hyd_na_dir_15s.tif")
+            line 41: FLACC = os.path.join(os.path.dirname(__file__), "data", "Rasters", "hyd_na_acc_15s.tif")
+
+	        line 144: lons = basins['lon'].tolist()
+
+ex11.py: FAST :: Load and match hydat stations in "MondayFileGallery/Q_C_pairs.csv", then compare the matches made.
+ex12.py: Load and match pwqmn stations in "MondayFileGallery/Q_C_pairs.csv", then compare the matches made.
+```
 
 ## Matching and Distance Criteria
 Steps for matching stations:
@@ -216,6 +244,8 @@ to be run and builds directionality.
 
 For a more detailed breakdown of matching and distance, see mapping-stations.pptx
 
+Note: The first time loading PWMQN data (and any instance after deleting the database)
+will take longer than usual, as it is generating the pwqmn sqlite3 database.
 
 ## Output Accuracy Table
 ### Zone 1: Southern/Central Ontario

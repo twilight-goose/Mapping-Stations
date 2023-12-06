@@ -22,8 +22,8 @@ def main(timed=False):
     hydat = gdf_utils.point_gdf_from_df(hydat)
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
 
-    lines = gdf_utils.assign_stations(lines, hydat, prefix='origin_')
-    lines = gdf_utils.assign_stations(lines, pwqmn, prefix='candidate_')
+    lines = gdf_utils.assign_stations(lines, hydat, prefix='origin')
+    lines = gdf_utils.assign_stations(lines, pwqmn, prefix='candidate')
 
     network = gdf_utils.hyriv_gdf_to_network(lines)
 

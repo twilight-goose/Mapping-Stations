@@ -328,7 +328,7 @@ def generate_pwqmn_sql():
     return pwqmn_data
 
 
-def pwqmn_create_stations():
+def pwqmn_create_stations(interest_var_query=interest_var_query):
     """
     Adds a 'Stations' table to the PWQMN sqlite3 database. The table
     stores each unique station that has a record of a variable of
@@ -355,7 +355,7 @@ def pwqmn_create_stations():
     return stations
     
 
-def pwqmn_create_data_range():
+def pwqmn_create_data_range(interest_var_query=interest_var_query):
     """
     Adds a 'Data_Range' table to the PWQMN sqlite3 database. The table
     stores periods where either Nitrogen or Phosphurus data is 
@@ -385,34 +385,8 @@ def pwqmn_create_data_range():
     
     pwqmn_data = pd.read_sql_query('SELECT Station_ID, Date FROM ALL_DATA' + 
                                    interest_var_query, conn)
-    
-    pwqmn_data['Date'] = pd.to_datetime(pwqmn_data['Date'])
-    pwqmn_data['Date'] = pwqmn_data['Date'].dt.strftime("%Y-%m-%d")
-    
-    grouped = pwqmn_data.groupby(by=['Station_ID'])
-    
-    out_data = {'Station_ID': [], 'P_Start': [], 'P_End': [], 'Num_Days': []}
-    
-    for key, sub_df in grouped:
-        dates = sub_df['Date'].sort_values().to_list()
-        start = None
-        last = None
-        
-        for idate in dates:
-            if start is None:
-                start = idate
-            else:
-                str_date = datetime.strptime(idate, "%Y-%m-%d")
-                str_last = datetime.strptime(last, "%Y-%m-%d")
-                
-                if  str_date != str_last + timedelta(days=1) and str_date != str_last:
-                    add_to_output(key[0], start, last)
-                    start = idate
-                    
-            last = idate
-        add_to_output(key[0], start, last)
       
-    out_data = pd.DataFrame(out_data)
+    out_data = Period.generate_data_range(pwqmn_data)
     out_data.to_sql('Data_Range', conn, index=False, if_exists='replace')
     
     conn.close()

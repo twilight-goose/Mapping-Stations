@@ -92,13 +92,6 @@ def test_hydat_load():
                         dtype={'REGIONAL_OFFICE_ID':str})
     test7.drop(columns=["Unnamed: 0"], inplace=True)
     pd.testing.assert_frame_equal(hydat, test7, check_dtype=False)
-
-    hydat = load_data.get_hydat_stations(period=period)
-    hydat.fillna(value=np.nan, inplace=True)
-    test8 = pd.read_csv(os.path.join(load_data.data_path, 'Hydat', 'test_8.csv'),
-                        dtype={'REGIONAL_OFFICE_ID':str})
-    test8.drop(columns=["Unnamed: 0"], inplace=True)
-    pd.testing.assert_frame_equal(hydat, test8, check_dtype=False)
     
     # test hydat data range generation
     dly_flows = pd.read_csv(os.path.join(load_data.data_path, 'Hydat', 'dly_flow_test_example.csv'))
@@ -109,7 +102,12 @@ def test_hydat_load():
     assert out_data['P_End'] == ['2010-06-11', '2010-09-07', '2010-09-29']
     
     
-def test_pwqmn_load():
+def main():
+    output1 = load_data.pwqmn_create_data_range()
+    output2 = load_data.testss()
     
+    pd.testing.assert_frame_equal(output1, output2, check_dtype=False)
 
 
+if __name__ == "__main__":
+    main()

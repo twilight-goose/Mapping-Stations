@@ -44,18 +44,22 @@ def main():
                 
     # Load river dataset and assign stations to the segments
     lines = load_data.load_rivers(bbox=bbox)
-    lines = gdf_utils.assign_stations(lines, hydat, prefix='hydat_')
-    lines = gdf_utils.assign_stations(lines, pwqmn, prefix='pwqmn_')
+    lines = gdf_utils.assign_stations(lines, hydat, prefix='hydat')
+    lines = gdf_utils.assign_stations(lines, pwqmn, prefix='pwqmn')
 
     # convert the dataset to a network, then match the stations
     network = gdf_utils.hyriv_gdf_to_network(lines)
-    edge_df = gdf_utils.dfs_search(network, max_distance=15000)
+    match_df = gdf_utils.dfs_search(network, max_distance=15000)
     
+    hydat_dr = get_hydat_data_range(subset=match_df['hydat_id'].to_list())
+    pwqmn_dr = get_pwqmn_data_range(subset=match_df['pwqmn_id'].to_list())
+    match_df = gdf_utils.assign_period_overlap(
+                        match_df, 'hydat', hydat_dr, "pwqmn", pwqmn_dr)
     # delineate the matches
-    edge_df = gdf_utils.delineate_matches(edge_df)
+    match_df = gdf_utils.delineate_matches(match_df, "hydat", hydat, "pwqmn", pwqmn)
 
     # # display the list of matches
-    print(edge_df.drop(columns='path').to_string())
+    print(match_df.drop(columns='path').to_string())
 
 
 if __name__ == "__main__":

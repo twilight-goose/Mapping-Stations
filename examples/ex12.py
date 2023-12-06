@@ -45,8 +45,8 @@ def main():
                 
     # Load river dataset and assign stations to the segments
     lines = load_data.load_rivers(bbox=bbox)
-    lines = gdf_utils.assign_stations(lines, hydat, prefix='hydat_')
-    lines = gdf_utils.assign_stations(lines, pwqmn, prefix='pwqmn_')
+    lines = gdf_utils.assign_stations(lines, hydat, prefix='hydat')
+    lines = gdf_utils.assign_stations(lines, pwqmn, prefix='pwqmn')
 
     # convert the dataset to a network, then match the stations
     network = gdf_utils.hyriv_gdf_to_network(lines)

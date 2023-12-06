@@ -1,6 +1,6 @@
 import cartopy.crs as ccrs
 import geopandas as gpd
-from pandas import DataFrame
+import pandas as pd
 from datetime import datetime
 from datetime import timedelta
 from datetime import date
@@ -100,7 +100,7 @@ def find_xy_fields(fields) -> [str, str]:
         The object to search. If a Pandas DataFrame is passed,
         column values will be used. 
 
-    :return: list-like of strings of length 2
+    :return: list-like of str of length 2
         The result of the search for x and y fields, where each item
         in the list is either the field name or "Failed".
         i.e:
@@ -123,7 +123,7 @@ def find_xy_fields(fields) -> [str, str]:
     # initiate x and y
     x, y = "", ""
     
-    if type(fields) is DataFrame:
+    if type(fields) is pd.DataFrame:
         fields = fields.columns.values
     # Iterate through dataframe field names
     for field in fields:
@@ -174,7 +174,7 @@ def days_overlapped(start1, end1, start2, end2):
         The end date of period 2.
         
     :return: int
-        The number of days of overlap between 2 periods.
+        The number of days of overlap between the 2 periods.
         
     test:
     >>> dates1 = ["2002-02-12", "2005-10-12", "2006-04-12", "2008-10-12"]
@@ -202,7 +202,9 @@ def period_overlap(ps1, ps2):
     If list-like, a set of periods must be of the shape (N, 2) where
     N is the number of periods within the set, and the first element
     (index 0) is the start date and the second element (index 1) is
-    the end date.
+    the end date. If a period set has overlapping dates,
+    ie (["2020-10-12", "2020-10-17"], ["2020-10-17", "2020-10-25"])
+    unexpected behaviour may occur.
     
     If DataFrame, the set of periods must contain a 'P_Start' and
     a 'P_End' column.
@@ -243,41 +245,55 @@ def period_overlap(ps1, ps2):
         h_ind = 0
         total_overlap = 0
         
-        if type(ps1) is DataFrame:
+        if type(ps1) is pd.DataFrame:
+            ps1 = ps1.sort_values(by="P_Start")
+            ps2 = ps2.sort_values(by="P_Start")
+            
             h_len = ps1.shape[0]
             p_len = ps2.shape[0]
             
         elif type(ps1) is list:
+            ps1 = ps1.sort()
+            ps2 = ps2.sort()
+        
             h_len = len(ps1)
             p_len = len(ps2)
         
         while h_ind < h_len and p_ind < p_len:
             
-            if type(ps1) is DataFrame:
-                h_row = ps1.iloc[h_ind]
-                p_row = ps2.iloc[p_ind]
-                
-                h_start, h_end = h_row['P_Start'], h_row['P_End']
-                p_start, p_end = p_row['P_Start'], p_row['P_End']
+            if type(ps1) is pd.DataFrame:
+                h_start, h_end = ps1.iloc[h_ind]['P_Start'], ps1.iloc[h_ind]['P_End']
+                p_start, p_end = ps2.iloc[p_ind]['P_Start'], ps2.iloc[p_ind]['P_End']
                 
             elif type(ps1) is list:
                 h_start, h_end = ps1[h_ind]
                 p_start, p_end = ps2[p_ind]
             
+            # check if the current periods overlap
             if h_end < p_start:
                 h_ind += 1
             elif p_end < h_start:
                 p_ind += 1
             else:
+                # if the current periods overlap, calculate the overlap
+                # and add it to the total_days of overlap
                 overlap = days_overlapped(h_start, h_end, p_start, p_end)
                 if overlap >= 1:
                     total_overlap += overlap
-                    
+                
+                # overlap between these two periods has been calculated,
+                # so move to the next two periods
                 if h_end > p_end:
+                    # if h_end > p_end, the next p period could overlap with
+                    # the current h period, so increment only p
                     p_ind += 1
                 elif h_end < p_end:
+                # if h_end < p_end, the next h period could overlap with
+                    # the current h period, so increment only h
                     h_ind += 1
                 else:
+                    # if h_end == p_end the periods ended on the same day
+                    # and neither of them can overlap with the next periods
                     p_ind += 1
                     h_ind += 1
                     
@@ -395,6 +411,9 @@ class BBox:
         """
         The bounding coordinates of the BBox. In the order
         minx, miny, maxx, maxy.
+        
+        :return: tuple of int   
+            The bounding coorindates of the BBox.
         """
         return self.shape.bounds
     
@@ -427,8 +446,10 @@ class BBox:
     def to_tuple(self):
         """
         Returns min_x, min_y, max_x, max_y of the bounding box.
+        Wrapper for the bounds property.
 
         :return: tuple of int of length 4
+            The bounding coorindates of the BBox.
         """
         return self.bounds
 
@@ -470,7 +491,7 @@ class Period:
             List-like of (<start date>, <end date>).
         
         :return: Period object
-            The period.
+            A Period object representing the date range.
         """
         return Period(start=period[0], end=period[1])
 
@@ -649,7 +670,6 @@ class Period:
             Returns the periods of consecutive dates from a provided list of dates.
 
 
-
             Definition
             ----------
             def get_periods(dates,silent=True):
@@ -756,6 +776,52 @@ class Period:
         periods.append([start, last])
 
         return periods
+    
+    def generate_data_range(obs):
+        """
+        
+        
+        :param obs: DataFrame
+            DataFrame containing observation data. Must contain
+            "Date" and "Station_ID" fields.
+        
+        :return: DataFrame
+            The date ranges.
+        """
+        def add_to_output(st_id, start, end):
+            out_data['Station_ID'].append(st_id)
+            out_data['P_Start'].append(start)
+            out_data['P_End'].append(end)
+            delta = date.fromisoformat(end) - date.fromisoformat(start)
+            out_data['Num_Days'].append(delta.days + 1)
+        
+        obs['Date'] = pd.to_datetime(obs['Date'])
+        obs['Date'] = obs['Date'].dt.strftime("%Y-%m-%d")
+        
+        grouped = obs.groupby(by="Station_ID")
+        
+        out_data = {'Station_ID': [], 'P_Start': [], 'P_End': [], 'Num_Days': []}
+        
+        for key, sub_df in grouped:
+            dates = sub_df['Date'].sort_values().to_list()
+            start = None
+            last = None
+            
+            for idate in dates:
+                if start is None:
+                    start = idate
+                else:
+                    str_date = datetime.strptime(idate, "%Y-%m-%d")
+                    str_last = datetime.strptime(last, "%Y-%m-%d")
+                    
+                    if  str_date != str_last + timedelta(days=1) and str_date != str_last:
+                        add_to_output(key, start, last)
+                        start = idate
+                        
+                last = idate
+            add_to_output(key, start, last)
+      
+        return pd.DataFrame(out_data)
         
     @staticmethod
     def check_data_range(period, dates):

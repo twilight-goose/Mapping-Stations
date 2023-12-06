@@ -27,8 +27,8 @@ def main():
     print('ohn networking')
     ohn_lines = load_data.load_rivers(path=path)
     # assign stations
-    ohn_lines = gdf_utils.assign_stations(ohn_lines, hydat, prefix='hydat_')
-    ohn_lines = gdf_utils.assign_stations(ohn_lines, pwqmn, prefix='pwqmn_')
+    ohn_lines = gdf_utils.assign_stations(ohn_lines, hydat, prefix='hydat')
+    ohn_lines = gdf_utils.assign_stations(ohn_lines, pwqmn, prefix='pwqmn')
     # convert to network
     ohn_network = gdf_utils.hyriv_gdf_to_network(ohn_lines)
 
@@ -36,8 +36,8 @@ def main():
     print('hydrorivers networking')
     hydroRIVERS_lines = load_data.load_rivers()
     # assign stations
-    hydroRIVERS_lines = gdf_utils.assign_stations(hydroRIVERS_lines, hydat, prefix='hydat_')
-    hydroRIVERS_lines = gdf_utils.assign_stations(hydroRIVERS_lines, pwqmn, prefix='pwqmn_')
+    hydroRIVERS_lines = gdf_utils.assign_stations(hydroRIVERS_lines, hydat, prefix='hydat')
+    hydroRIVERS_lines = gdf_utils.assign_stations(hydroRIVERS_lines, pwqmn, prefix='pwqmn')
     # convert to network 
     hydroRIVERS_network = gdf_utils.hyriv_gdf_to_network(hydroRIVERS_lines)
 

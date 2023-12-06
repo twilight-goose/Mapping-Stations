@@ -26,8 +26,8 @@ def main():
     pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
     
     # "Assign" stations to the river network
-    lines = gdf_utils.assign_stations(lines, hydat, prefix='hydat_')
-    lines = gdf_utils.assign_stations(lines, pwqmn, prefix='pwqmn_')
+    lines = gdf_utils.assign_stations(lines, hydat, prefix='hydat')
+    lines = gdf_utils.assign_stations(lines, pwqmn, prefix='pwqmn')
     
     # convert river dataset to a network
     network = gdf_utils.hyriv_gdf_to_network(lines)
