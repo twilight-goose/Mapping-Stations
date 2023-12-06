@@ -42,6 +42,7 @@ import load_data
 import geopandas as gpd
 import pandas as pd
 import browser
+from gen_util import Can_LCC_wkt
 
 input_file    = os.path.join("..", "data", "datastream", "Total_Phosphorus_mixed_forms_obs.json")
 output_folder = os.path.join("..", "data", "datastream")
@@ -79,8 +80,6 @@ if not os.path.exists(output_folder):
 
 
 del parser, args
-
-
 
 
 print("")
@@ -130,34 +129,25 @@ for dd in data['value'][start:end]:
 lines = load_data.load_rivers()
 
 hydat = load_data.get_hydat_stations()
-origin = gdf_utils.point_gdf_from_df(pd.DataFrame(stations))
+hydat = gdf_utils.point_gdf_from_df(hydat)
 
-lines = gdf_utils.assign_stations(hydat, prefix="hydat_")
-lines = gdf_utils.assign_stations(origin, prefix="origin_")
+origin = pd.DataFrame(stations)
+origin = origin.assign(Station_ID=origin['id'])
+origin = gdf_utils.point_gdf_from_df(origin)
+
+hydat.to_file(os.path.join(load_data.shp_save_path, 'hydat.shp'))
+origin.to_file(os.path.join(load_data.shp_save_path, 'origin.shp'))
+
+lines = gdf_utils.assign_stations(lines, hydat, prefix="hydat_")
+lines = gdf_utils.assign_stations(lines, origin, prefix="origin_")
 
 network = gdf_utils.hyriv_gdf_to_network(lines)
 
-match_df = gdf_utils.dfs_search(network, max_distance=10000, prefix1="hydat_",
-                                prefix2="origin_")
-                                
-print(match_df)
-
-browser.match_browser(origin, hydat, network, match_df, None, origin_pref="origin_",
-                        cand_pref="hydat_")
-
-'''
-for iistation,istation in enumerate(stations):
-
-    print("")
-    print("----------------------------------------------")
-    print("Working on finding matching streamflow gauge for water quality station {} of {}: id={} (lat={},lon={})".format(
-        iistation+1,
-        len(stations),
-        istation['id'],
-        istation['lat'],
-        istation['lon']))
-    print("----------------------------------------------")
-
-    
-    # James, add code to match this station ...
-'''
+match_df = gdf_utils.dfs_search(    network,
+                                    max_distance=10000,   # in [m]
+                                    prefix1="origin_",    # list of stations to find a match for
+                                    prefix2="hydat_",     # all stations to find a match from
+                            )
+match_df.drop(columns=['path', 'seg_apart'], inplace=True)
+print(match_df.to_string())
+match_df.to_csv(os.path.join(output_folder,"table.csv"))
