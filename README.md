@@ -40,18 +40,18 @@ delineation repository should be structured and named as follows if you do not i
 file paths within scripts.
 ```
 <project_folder>
-    | data
-        | Hydro_RIVERS_v10
-            |--HydroRIVERS_v10_na.dbf
-            |--HydroRIVERS_v10_na.prj
-            |--HydroRIVERS_v10_na.sbn
-            |--HydroRIVERS_v10_na.sbx
-            |--HydroRIVERS_v10_na.shp
-            |--HydroRIVERS_v10_na.shx
-        | Hydat
-            |--hydat.sqlite3
-        | MondayFileGallery
-            | --Q_C_pairs.csv (for ex11 and ex12)
+	| data
+		| Hydro_RIVERS_v10
+			|--HydroRIVERS_v10_na.dbf
+			|--HydroRIVERS_v10_na.prj
+			|--HydroRIVERS_v10_na.sbn
+			|--HydroRIVERS_v10_na.sbx
+			|--HydroRIVERS_v10_na.shp
+			|--HydroRIVERS_v10_na.shx
+		| Hydat
+			|--hydat.sqlite3
+		| MondayFileGallery
+			| --Q_C_pairs.csv (for ex11 and ex12)
 		| OHN (needed to run ex5 & ex8)
 			| --Ontario_Hydro_Network_(OHN)_-_Watercourse.dbf
 			| --Ontario_Hydro_Network_(OHN)_-_Watercourse.prj
@@ -59,22 +59,23 @@ file paths within scripts.
 			| --Ontario_Hydro_Network_(OHN)_-_Watercourse.sbx
 			| --Ontario_Hydro_Network_(OHN)_-_Watercourse.shp
 			| --Ontario_Hydro_Network_(OHN)_-_Watercourse.shx
-        | PWQMN_cleaned
-            |--Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv
-        | datastream
+		| PWQMN_cleaned
+			|--Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv
+		| datastream
 		| shapefiles
 	| errors
 	| examples
 		| ex1.py - ex12.py
 		| --example_index.md	[contains information about the examples]
 	| plots
-    | src
+	| src
 		| --gen_util.py
 		| --gdf_utils.py
 		| --plot_utils.py
 		| --load_data.py
 		| --browser.py
-		
+		| --check_files.py
+
 |Watershed_Delineation (https://github.com/twilight-goose/Watershed_Delineation/tree/patch-1)
 	| src
 		| PySheds
@@ -147,8 +148,12 @@ Raw data is available from these links:
 
 Hydat Data: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/ \
 HydroRIVERS: https://www.hydrosheds.org/products/hydrorivers \
+- download the North and Central America shapefile
 PWQMN Data: https://greatlakesdatastream.ca/explore/#/dataset/f3877597-9114-4ace-ad6f-e8a68435c0ba/
 OHN Data: https://geohub.lio.gov.on.ca/datasets/a222f2996e7c454f9e8d028aa05995d3/explore
+- Go to the shapefile
+- click download options
+- download previously generated version (unless you have a lot of time)
 
 ### Provincial (Stream) Water Quality Monitoring Network (PWQMN) data
 The following are Juliane's steps for pre-processing the PWQMN data (2023-09-10).
