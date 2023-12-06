@@ -197,7 +197,7 @@ and it's relevance is limited to its exact use case - creating and opening data 
 
 
 ## Use Cases and Usage Examples
-Refer to ../examples/ and ../examples/example index.md for examples and explainations.
+Refer to `../examples/` and `../examples/example index.md` for examples and explainations.
 
 
 ## Matching and Distance Criteria
