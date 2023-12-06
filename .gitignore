@@ -3,6 +3,10 @@ data/.DS_Store
 src/.DS_Store
 .DS_Store
 
+examples/q_c_pair_comparison.csv
+examplesq_c_pair_comparison2.csv
+examples/table.csv
+
 data/Hydat.sqlite3/Hydat.sqlite3
 Hydat.sqlite3.zip
 Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv.zip
