@@ -390,39 +390,56 @@ def delineate_matches(match_df, prefix1, data_1, prefix2, data_2):
         x, y = find_xy_fields(df)
         return df.rename(columns={x: "lon", y: "lat"})
     
-    print("Loading stations")
+    print("subsetting stations")
+    subset1 = match_df[prefix1 + "_id"]
+    subset2 = match_df[prefix2 + "_id"]
+    
+    data_1 = data_1.query("Station_ID in @subset1")
+    data_2 = data_2.query("Station_ID in @subset2")
+    
     data_1 = normalize(data_1)[['Station_ID', 'lat', 'lon']]
     data_2 = normalize(data_2)[['Station_ID', 'lat', 'lon']]
     
     stations = pd.concat([data_1, data_2], axis=0)
 
+    # create output folder
+    print("create output folder")
+    output_dir = "output"
+    if not os.path.isdir(output_dir):
+        os.mkdir(output_dir)
+
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    sys.path.append(dir_path + os.path.join("/..", "..", "Watershed_Delineation_branch", "src", "PySheds"))
-
+    
+    # change the next two lines to use a different method for the
+    # watershed delineation by changing the module and delineation
+    # function being imported
+    sys.path.append(dir_path + os.path.join("/..", "..", "Watershed_Delineation", "src", "PySheds"))
     from main import delineate
-
+    
+    print("begining delineations")
     delineate(basins=stations, id_field='Station_ID')
     
+    # read the delineated basins 
     print("Loading delineated watersheds and performing comparisons")
-    watersheds = gpd.read_file("watersheds.geojson")
-    watersheds = watersheds.query('LABEL == 1')
-    watersheds = watersheds.assign(ws_size=watersheds.geometry.to_crs(crs=Can_LCC_wkt).area)
-
-    # Keep only the Station_IDs and geometry area
-    watersheds = watersheds[['Station_ID', 'geometry', 'ws_size']]
-    watersheds.rename(columns={'geometry': 'wshed_geom'}, inplace=True)
-
-    match_df[pref_1 + '_id'] = match_df[pref_1 + '_id'].astype(str)
-    match_df[pref_2 + '_id'] = match_df[pref_2 + '_id'].astype(str)
+    wsheds_a_1 = []
+    wsheds_a_2 = []
+    overlap = []
     
-    match_df = match_df.merge(watersheds, how='left', left_on=pref_1 + '_id', right_on='Station_ID')
-    match_df = match_df.merge(watersheds, how='left', left_on=pref_2 + '_id', right_on='Station_ID',
-                              suffixes=("_" + pref_1, "_" + pref_2))
+    for ind, row in match_df.iterrows():
+        wshed1 = gpd.read_file(os.path.join("output", f"{row[prefix1 + '_id']}.geojson"))
+        wshed2 = gpd.read_file(os.path.join("output", f"{row[prefix2 + '_id']}.geojson"))
+        
+        wshed1 = wshed1.geometry.to_crs(crs=Can_LCC_wkt)
+        wshed2 = wshed2.geometry.to_crs(crs=Can_LCC_wkt)
+        
+        wsheds_a_1.append(wshed1.iloc[0].area)
+        wsheds_a_2.append(wshed2.iloc[0].area)
+        
+        overlap.append(wshed1.intersection(wshed2).iloc[0].area)
 
-    match_df = match_df.assign(overlap=match_df['wshed_geom_' + pref_1].intersection(match_df['wshed_geom_' + pref_2]).area)
-
-    match_df.drop(columns=['wshed_geom_hydat', 'wshed_geom_pwqmn', 'Station_ID_' + pref_1,
-                           'Station_ID_' + pref_2], inplace=True)
+    match_df[f'{prefix1}_wshed_area'] = wsheds_a_1
+    match_df[f'{prefix2}_wshed_area'] = wsheds_a_2
+    match_df[f'wshed_overlap'] = overlap
 
     return match_df
 
@@ -463,8 +480,8 @@ def assign_period_overlap(match_df, prefix1, drange_1, prefix2, drange_2):
         'total_{prefix1}_records', and 'total_{prefix2}_records' columns.
     """
     overlap_lst = []
-    h_count = []
-    p_count = []
+    set_1_count = []
+    set_2_count = []
 
     for ind, row in match_df.iterrows():
         # cast ids because using the @ operator in .query()
@@ -475,12 +492,15 @@ def assign_period_overlap(match_df, prefix1, drange_1, prefix2, drange_2):
         
         set_2_id = row[f"{prefix2}_id"]
         set_2_ps = drange_2.query('Station_ID == @set_2_id')
-
+    
+        # get the total number of records
         set_1_count.append(set_1_ps['Num_Days'].sum())
         set_2_count.append(set_2_ps['Num_Days'].sum())
-
+        
+        # calculate the amount of overlap between the two period sets
         overlap_lst.append(period_overlap(set_1_ps, set_2_ps))
     
+    # add the results to the matches
     match_df = match_df.assign(data_overlap=overlap_lst)
     match_df[f"total_{prefix1}_records"] = set_1_count
     match_df[f"total_{prefix2}_records"] = set_2_count

@@ -123,7 +123,7 @@ for dd in data['value'][start:end]:
     stations.append(tmp)
 
 # -------------------------------
-# perform delineation
+# perform matching
 # -------------------------------
 
 lines = load_data.load_rivers()
@@ -135,9 +135,6 @@ origin = pd.DataFrame(stations)
 origin = origin.assign(Station_ID=origin['id'])
 origin = gdf_utils.point_gdf_from_df(origin)
 
-hydat.to_file(os.path.join(load_data.shp_save_path, 'hydat.shp'))
-origin.to_file(os.path.join(load_data.shp_save_path, 'origin.shp'))
-
 # If you wish to snap stations to rivers that are farther than 
 # 750 m away, add "max_distance=X" where X is the desired maximum distance
 # to snap stations to rivers.
@@ -146,21 +143,48 @@ lines = gdf_utils.assign_stations(lines, origin, prefix="origin")
 
 network = gdf_utils.hyriv_gdf_to_network(lines)
 
-match_df = gdf_utils.dfs_search(network, max_distance=10000, prefix1="origin",
-                                prefix2="hydat")
-match_df.drop(columns=['path', 'seg_apart'], inplace=True)
-print(match_df.to_string())
-match_df.to_json("table.json")
-lines = gdf_utils.assign_stations(lines, hydat, prefix="hydat_", max_distance=10000)
-lines = gdf_utils.assign_stations(lines, origin, prefix="origin_", max_distance=10000)
-
-network = gdf_utils.hyriv_gdf_to_network(lines)
-
+# prefix1 and prefix2 must be featured/used when assigning stations
 match_df = gdf_utils.dfs_search(    network,
-                                    max_distance=1000000,   # in [m]
+                                    max_distance=1000000, # in [m]
                                     prefix1="origin_",    # list of stations to find a match for
                                     prefix2="hydat_",     # all stations to find a match from
                             )
+# In this iteration of the project, data overlap must be calculated
+# as a separate operation
+
+# gen_util.generate_data_range requires observations be a DataFrame
+# containng a 'Station_ID' field as well as a 'Date' field
+
+### hydat_dr = get_hydat_data_range(subset=match_df['hydat_id'].to_list())
+### origin_dr = gen_util.generate_data_range(observations)
+
+# data range consists of {"Station_ID", "P_Start", "P_End"} fields
+# where "Station_ID" contains every station id from observations
+
+### match_df = gdf_utils.assign_period_overlap( match_df,
+                                                ### 'hydat',
+                                                ### hydat_dr,
+                                                ### 'origin',
+                                                ### origin_dr
+                                                ### )
+
+# the path column contains line geometry of the network edges
+# between the origin and candidate node used for plotting
+# seg_apart is an arbitrary measure of distance from the origin
+# node, and the actual length of river separating the two is more
+# important
 match_df.drop(columns=['path', 'seg_apart'], inplace=True)
+
+# display the dataframe
 print(match_df.to_string())
-match_df.to_csv(os.path.join(output_folder,"table.csv"))
+
+# -------------------------------
+# perform delineation
+# -------------------------------
+
+# delineate_matches requires the prefixes as well as the station data to function
+# delineated = gdf_utils.delineate_matches(match_df, "origin", origin, "hydat", hydat)
+
+
+# save the dataframe to .csv
+match_df.to_csv(os.path.join(output_folder,f"{input_file}_{start}_{end}.csv"))

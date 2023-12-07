@@ -49,17 +49,22 @@ def main():
 
     # convert the dataset to a network, then match the stations
     network = gdf_utils.hyriv_gdf_to_network(lines)
-    match_df = gdf_utils.dfs_search(network, max_distance=15000)
+    match_df = gdf_utils.dfs_search(network, max_distance=10000)
     
-    hydat_dr = get_hydat_data_range(subset=match_df['hydat_id'].to_list())
-    pwqmn_dr = get_pwqmn_data_range(subset=match_df['pwqmn_id'].to_list())
+    # load the station data ranges
+    hydat_dr = load_data.get_hydat_data_range(subset=match_df['hydat_id'].to_list())
+    pwqmn_dr = load_data.get_pwqmn_data_range(subset=match_df['pwqmn_id'].to_list())
     match_df = gdf_utils.assign_period_overlap(
                         match_df, 'hydat', hydat_dr, "pwqmn", pwqmn_dr)
+                        
     # delineate the matches
-    match_df = gdf_utils.delineate_matches(match_df, "hydat", hydat, "pwqmn", pwqmn)
+    # to change the delineation method, modify delineate_matches
+    # to import a different delineation function
+    delineated = gdf_utils.delineate_matches(match_df.sample(5), "hydat", hydat, "pwqmn", pwqmn)
 
     # # display the list of matches
-    print(match_df.drop(columns='path').to_string())
+    # print(match_df.drop(columns='path').to_string())
+    print(delineated.drop(columns=['path', 'seg_apart']).to_string())
 
 
 if __name__ == "__main__":

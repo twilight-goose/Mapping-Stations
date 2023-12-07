@@ -56,6 +56,7 @@ def main():
     table = table.assign(error=(table['dist_hyRivers'] - table['dist_OHN']) / table['dist_OHN'])
 
     print(table)
+    print("saving to table.csv")
     # save the results to 'table.csv'
     table.to_csv('table.csv')
 

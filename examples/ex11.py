@@ -50,13 +50,19 @@ def main():
 
     # convert the dataset to a network, then match the stations
     network = gdf_utils.hyriv_gdf_to_network(lines)
-    edge_df = gdf_utils.dfs_search(network, max_distance=15000)
+    match_df = gdf_utils.dfs_search(network, max_distance=15000)
+
+    # load the station data ranges
+    hydat_dr = load_data.get_hydat_data_range(subset=match_df['hydat_id'].to_list())
+    pwqmn_dr = load_data.get_pwqmn_data_range(subset=match_df['pwqmn_id'].to_list())
+    match_df = gdf_utils.assign_period_overlap(
+                        match_df, 'hydat', hydat_dr, "pwqmn", pwqmn_dr)
 
     # format the table for output and saving to compare matches
-    edge_df.drop(columns=['path', 'seg_apart', "total_hydat_records",
+    match_df.drop(columns=['path', 'seg_apart', "total_hydat_records",
                            "total_pwqmn_records"], inplace=True)
                           
-    q_c_pairs = edge_df.merge(q_c_pairs, how='outer', right_on=['Q station ID', 'C station ID'], \
+    q_c_pairs = match_df.merge(q_c_pairs, how='outer', right_on=['Q station ID', 'C station ID'], \
                                 left_on=['hydat_id', 'pwqmn_id'],
                     suffixes=('_q_c', '_hydat'))
                     

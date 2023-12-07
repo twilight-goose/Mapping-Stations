@@ -31,8 +31,8 @@ def main():
     # match hydat to pwqmn stations
     match_df = gdf_utils.dfs_search(network, max_distance=100000)
     
-    hydat_dr = get_hydat_data_range(subset=match_df['hydat_id'].to_list())
-    pwqmn_dr = get_pwqmn_data_range(subset=match_df['pwqmn_id'].to_list())
+    hydat_dr = load_data.get_hydat_data_range(subset=match_df['hydat_id'].to_list())
+    pwqmn_dr = load_data.get_pwqmn_data_range(subset=match_df['pwqmn_id'].to_list())
     match_df = gdf_utils.assign_period_overlap(
                         match_df, 'hydat', hydat_dr, "pwqmn", pwqmn_dr)
     # display the list of matches
