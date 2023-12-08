@@ -188,5 +188,5 @@ if not os.path.isdir(output_folder):
     os.mkdir(output_folder)
 
 # remove the extension and the folders from the file path to extract only the filename
-filename = input_file.split('\\')[-1].split(".")[0]
+filename = os.path.splitext(os.path.basename(input_file))[0]
 match_df.to_csv(os.path.join(output_folder, f"{filename}_{start}_{end}.csv"))
