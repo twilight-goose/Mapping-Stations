@@ -23,6 +23,7 @@ Expected Terminal Output (file paths preceding "Mapping-Stations" will differ):
 >>> Dataframe successfully converted to geopandas point geodataframe
 
 Note: A matplotlib window will open. This window has to be closed manually.
+See examples/example_output/ex1.png for expected window appearence.
 """
 
 

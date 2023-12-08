@@ -13,6 +13,90 @@ from gen_util import lambert, geodetic, Can_LCC_wkt, BBox, Timer, Period, ON_bbo
 import pandas as pd
 
 
+"""
+Expected Terminal Output (file paths preceding "Mapping-Stations" will differ):
+
+>>> python ex10.py
+
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\Hydat\Hydat.sqlite3'
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\Hydat\Hydat.sqlite3'
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\PWQMN_cleaned\PWQMN.sqlite3'
+>>> Attempting conversion with the following CRS parameter: 4326
+>>> Dataframe successfully converted to geopandas point geodataframe
+>>> Attempting conversion with the following CRS parameter: 4326
+>>> Dataframe successfully converted to geopandas point geodataframe
+>>> Loading rivers from 'D:\Mapping-Stations\examples/..\data\Hydro_RIVERS_v10\HydroRIVERS_v10_na.shp'
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\Hydat\Hydat.sqlite3'
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\PWQMN_cleaned\PWQMN.sqlite3'
+>>> subsetting stations
+>>> create output folder
+>>> begining delineations
+>>> Compute flow directions
+>>> Specify pour point
+>>> Compute flow directions
+>>> Specify pour point
+>>> Calculate flow accumulation
+>>> Snapping pour point
+>>> Delineate the catchment
+>>> Merging Multi-Part Watersheds
+>>> Writing to shapefile
+>>> Calculate flow accumulation
+>>> Snapping pour point
+>>> Delineate the catchment
+>>> Merging Multi-Part Watersheds
+>>> Writing to shapefile
+>>> Calculate flow accumulation
+>>> Snapping pour point
+>>> Delineate the catchment
+>>> Merging Multi-Part Watersheds
+>>> Writing to shapefile
+>>> Calculate flow accumulation
+>>> Snapping pour point
+>>> Delineate the catchment
+>>> Merging Multi-Part Watersheds
+>>> Writing to shapefile
+>>> Calculate flow accumulation
+>>> Snapping pour point
+>>> Delineate the catchment
+>>> Merging Multi-Part Watersheds
+>>> Writing to shapefile
+>>> Calculate flow accumulation
+>>> Snapping pour point
+>>> Delineate the catchment
+>>> Merging Multi-Part Watersheds
+>>> Writing to shapefile
+>>> Calculate flow accumulation
+>>> Snapping pour point
+>>> Delineate the catchment
+>>> Merging Multi-Part Watersheds
+>>> Writing to shapefile
+>>> Calculate flow accumulation
+>>> Snapping pour point
+>>> Delineate the catchment
+>>> Merging Multi-Part Watersheds
+>>> Writing to shapefile
+>>> Calculate flow accumulation
+>>> Snapping pour point
+>>> Delineate the catchment
+>>> Merging Multi-Part Watersheds
+>>> Writing to shapefile
+>>> Calculate flow accumulation
+>>> Snapping pour point
+>>> Delineate the catchment
+>>> Merging Multi-Part Watersheds
+>>> Writing to shapefile
+>>> Loading delineated watersheds and performing comparisons
+>>>    hydat_id     pwqmn_id  hydat_dist_from_net  pwqmn_dist_from_net          dist      pos  data_overlap  total_hydat_records  total_pwqmn_records  hydat_wshed_area  pwqmn_wshed_area  wshed_overlap
+>>> 31  02GA018  16018415502            35.377813           103.454536   6590.248682  On-Down            17                25117                   17      2.428142e+09      2.428142e+09   2.428142e+09
+>>> 49  02GB001  16018400802            84.615396            63.007354   7182.449064  On-Down            48                30399                   48      3.300178e+05      5.399873e+09   3.300178e+05
+>>> 76  02GC026  16010900502           103.465066            91.785638   6245.401252     Down           178                16950                  215      6.791036e+11      6.791501e+11   6.791036e+11
+>>> 55  02GD003   4001301402            93.700858            66.835388    115.950839    On-Up            95                32742                   95      3.307239e+05      1.488050e+09   2.059958e+01
+>>> 38  02GA010  16018403302           749.565669           253.343482  18848.982128    On-Up           432                29922                  435      1.647338e+05      2.103505e+07   0.000000e+00
+
+Note: A matplotlib window will open. This window has to be closed manually.
+"""
+
+
 def check_equal(row):
     if row['C station ID'] == row["pwqmn_id"]:
         return "same"

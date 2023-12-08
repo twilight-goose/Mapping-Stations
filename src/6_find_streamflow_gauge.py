@@ -201,21 +201,29 @@ match_df = gdf_utils.dfs_search(    network,
 # In this iteration of the project, data overlap must be calculated
 # as a separate operation
 
+# ============
+# Calculate the periods and period overlaps
+# ============
+
 # Period.generate_data_range requires observations be a DataFrame
 # containng a 'Station_ID' field as well as a 'Date' field
 
-## hydat_dr = load_data.get_hydat_data_range(subset=match_df['hydat_id'].to_list())
-## origin_dr = Period.generate_data_range(observations)
+# hydat_dr = load_data.get_hydat_data_range(subset=match_df['hydat_id'].to_list())
+# origin_dr = Period.generate_data_range(observations)
 
-# data range consists of {"Station_ID", "P_Start", "P_End"} fields
-# where "Station_ID" contains every station id from observations
+## data range consists of {"Station_ID", "P_Start", "P_End"} fields
+## where "Station_ID" contains every station id from observations
+## adds 3 fields to the output table (see gdf_utils.assign_period_overlap())
 
-## match_df = gdf_utils.assign_period_overlap( match_df,
-                                                ## 'hydat',
-                                                ## hydat_dr,
-                                                ## 'origin',
-                                                ## origin_dr
-                                                ## )
+# match_df = gdf_utils.assign_period_overlap( match_df,
+                                                # 'hydat',
+                                                # hydat_dr,
+                                                # 'origin',
+                                                # origin_dr
+                                                # )
+
+# ============
+# ============
 
 # the path column contains line geometry of the network edges
 # between the origin and candidate node used for plotting
@@ -231,8 +239,13 @@ print(match_df.to_string())
 # perform delineation
 # -------------------------------
 
-# delineate_matches requires the prefixes as well as the station data to function
+## delineate_matches requires the prefixes as well as the station data to function
+## adds 3 fields to the ouput table (see gdf_utils.delineate_matches())
 # delineated = gdf_utils.delineate_matches(match_df, "origin", origin, "hydat", hydat)
+
+# -------------------------------
+# output
+# -------------------------------
 
 if not os.path.isdir(output_folder):
     print("creating output folder")

@@ -9,6 +9,26 @@ import gen_util
 import gdf_utils
 
 
+"""
+Expected Terminal Output (file paths preceding "Mapping-Stations" will differ):
+
+>>> python ex7.py
+
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\Hydat\Hydat.sqlite3'
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\Hydat\Hydat.sqlite3'
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\PWQMN_cleaned\PWQMN.sqlite3'
+>>> Attempting conversion with the following CRS parameter: 4326
+>>> Dataframe successfully converted to geopandas point geodataframe
+>>> Attempting conversion with the following CRS parameter: 4326
+>>> Dataframe successfully converted to geopandas point geodataframe
+>>> D:\Mapping-Stations\examples\ex7.py:23: UserWarning: Column names longer than 10 characters will be truncated when saved to ESRI Shapefile.
+>>>   hydat.to_file(os.path.join(load_data.shp_save_path, 'hydat.shp'))
+>>> D:\Mapping-Stations\examples\ex7.py:24: UserWarning: Column names longer than 10 characters will be truncated when saved to ESRI Shapefile.
+>>>   pwqmn.to_file(os.path.join(load_data.shp_save_path, 'pwqmn.shp'))
+
+"""
+
+
 def main():
     # load the station data
     hydat = load_data.get_hydat_stations()

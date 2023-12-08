@@ -12,6 +12,18 @@ from gen_util import lambert, geodetic, Can_LCC_wkt, BBox, Timer, Period, ON_bbo
 from matplotlib import pyplot as plt
 
 
+"""
+Expected Terminal Output (file paths preceding "Mapping-Stations" will differ):
+
+>>> python ex5.py
+
+>>> 
+
+Note: A matplotlib window will open. This window has to be closed manually.
+See examples/example_output/ex5.png for expected window appearence.
+"""
+
+
 def main():
     bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
 
