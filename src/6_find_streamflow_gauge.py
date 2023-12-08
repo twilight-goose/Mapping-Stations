@@ -184,7 +184,7 @@ origin = pd.DataFrame(stations)
 origin = origin.assign(Station_ID=origin['id'])
 origin = gdf_utils.point_gdf_from_df(origin)
 
-# If you wish to snap stations to rivers that are farther than 
+# If you wish to snap stations to rivers that are farther than
 # 750 m away, add "max_distance=X" where X is the desired maximum distance
 # to snap stations to rivers.
 lines = gdf_utils.assign_stations(lines, hydat, prefix="hydat")
@@ -237,10 +237,10 @@ print(match_df.to_string())
 if not os.path.isdir(output_folder):
     print("creating output folder")
     os.mkdir(output_folder)
-    
+
 # remove the extension and the folders from the file path to extract only the filename
 filename = os.path.splitext(os.path.basename(input_file))[0]
-output_file_path = os.path.join(output_folder, f"{filename}_{start}_{end}.csv")
+output_file_path = os.path.join(output_folder, f"{filename}_{start+1}_{end}.csv")
 match_df.to_csv(output_file_path)
 
 print(f"Output saved to: {output_file_path}")
