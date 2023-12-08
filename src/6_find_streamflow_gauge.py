@@ -42,7 +42,7 @@ import load_data
 import geopandas as gpd
 import pandas as pd
 import browser
-from gen_util import Can_LCC_wkt
+from gen_util import Can_LCC_wkt, Period
 
 input_file    = os.path.join("..", "data", "datastream", "Total_Phosphorus_mixed_forms_obs.json")
 output_folder = os.path.join("..", "data", "datastream")
@@ -150,21 +150,21 @@ match_df = gdf_utils.dfs_search(    network,
 # In this iteration of the project, data overlap must be calculated
 # as a separate operation
 
-# gen_util.generate_data_range requires observations be a DataFrame
+# Period.generate_data_range requires observations be a DataFrame
 # containng a 'Station_ID' field as well as a 'Date' field
 
-### hydat_dr = get_hydat_data_range(subset=match_df['hydat_id'].to_list())
-### origin_dr = gen_util.generate_data_range(observations)
+## hydat_dr = load_data.get_hydat_data_range(subset=match_df['hydat_id'].to_list())
+## origin_dr = Period.generate_data_range(observations)
 
 # data range consists of {"Station_ID", "P_Start", "P_End"} fields
 # where "Station_ID" contains every station id from observations
 
-### match_df = gdf_utils.assign_period_overlap( match_df,
-                                                ### 'hydat',
-                                                ### hydat_dr,
-                                                ### 'origin',
-                                                ### origin_dr
-                                                ### )
+## match_df = gdf_utils.assign_period_overlap( match_df,
+                                                ## 'hydat',
+                                                ## hydat_dr,
+                                                ## 'origin',
+                                                ## origin_dr
+                                                ## )
 
 # the path column contains line geometry of the network edges
 # between the origin and candidate node used for plotting
