@@ -340,6 +340,7 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
     matches.drop(columns=['unique_ind', 'other'], inplace=True)
     return matches
 
+
 def delineate_matches(match_df, prefix1, data_1, prefix2, data_2):
     """
     For each PWQMN and HYDAT station in match_df, delineates the
@@ -514,9 +515,9 @@ def get_true_path(match_df: pd.DataFrame, network: nx.DiGraph):
     true_paths = []
 
     for path in match_df['path']:
-        coords = path.coords
-
-        if len(coords) >= 3:
+        nodes = path.coords
+        
+        if len(coords) >= 5:
             origin = Point(coords[-1])
             orig_on_net = Point(coords[-2])
 
@@ -629,7 +630,26 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat', prefix2='pwqmn',
     """
     def bfs(source):
         pass
-
+    
+    # copied from the shapely documentation
+    def cut(line, distance):
+        # Cuts a line in two at a distance from its starting point
+        if distance <= 0.0 or distance >= line.length:
+            return [LineString(line)]
+            
+        coords = list(line.coords)
+        for i, p in enumerate(coords):
+            pd = line.project(Point(p))
+            if pd == distance:
+                return [
+                    LineString(coords[:i+1]),
+                    LineString(coords[i:])]
+            if pd > distance:
+                cp = line.interpolate(distance)
+                return [
+                    LineString(coords[:i] + [(cp.x, cp.y)]),
+                    LineString([(cp.x, cp.y)] + coords[i:])]
+    
     def dfs(source, prefix, direction, cum_dist, depth):
         """
         Traverses edges recursively along the network depth-first.
@@ -738,13 +758,31 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat', prefix2='pwqmn',
         direct_dist = station['geometry'].distance(row['geometry'])
         segment_dist = abs(station['dist_along'] - row['dist_along'])
         on_dist = max(segment_dist, direct_dist)
-
-        if on_dist < max_distance:
-            pos = 'On-' + ('Up' if station['dist_along'] > row['dist_along'] else 'Down')
-            add_to_matches(station['Station_ID'], row['Station_ID'],
-                           station['dist_from'], row['dist_from'],
-                           LineString([station['geometry'], row['geometry']]),
-                           on_dist, pos, 0)
+        
+        st_dist = data['geometry'].project(station['geometry'])
+        row_dist = data['geometry'].project(row['geometry'])
+        
+        split = cut(data['geometry'], st_dist)
+        
+        if st_dist < row_dist:
+            piece_coords = list(cut(split[1], row_dist - st_dist)[0].coords)
+        else:
+            piece_coords = list(cut(split[0], row_dist)[1].coords)
+            piece_coords.reverse()
+    
+        points = [
+            station['geometry'],
+            data['geometry'].interpolate(st_dist),
+            *piece_coords,
+            data['geometry'].interpolate(row_dist),
+            row['geometry']
+        ]
+        
+        pos = 'On-' + ('Up' if station['dist_along'] > row['dist_along'] else 'Down')
+        add_to_matches(station['Station_ID'], row['Station_ID'],
+                       station['dist_from'], row['dist_from'],
+                       LineString(points),
+                       on_dist, pos, 0)
 
     def off_segment(match_count):
         """
