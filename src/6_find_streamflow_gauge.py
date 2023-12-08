@@ -186,7 +186,10 @@ print(match_df.to_string())
 if not os.path.isdir(output_folder):
     print("creating output folder")
     os.mkdir(output_folder)
-
+    
 # remove the extension and the folders from the file path to extract only the filename
 filename = os.path.splitext(os.path.basename(input_file))[0]
-match_df.to_csv(os.path.join(output_folder, f"{filename}_{start}_{end}.csv"))
+output_file_path = os.path.join(output_folder, f"{filename}_{start}_{end}.csv")
+match_df.to_csv(output_file_path)
+
+print(f"Output saved to: {output_file_path}")
