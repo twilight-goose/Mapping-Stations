@@ -13,6 +13,40 @@ from gen_util import lambert, geodetic, Can_LCC_wkt, BBox, Timer, Period, ON_bbo
 import pandas as pd
 
 
+"""
+Expected Terminal Output (file paths preceding "Mapping-Stations" will differ):
+
+>>> python ex11.py
+
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\Hydat\Hydat.sqlite3'
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\Hydat\Hydat.sqlite3'
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\PWQMN_cleaned\PWQMN.sqlite3'
+>>> Attempting conversion with the following CRS parameter: 4326
+>>> Dataframe successfully converted to geopandas point geodataframe
+>>> Attempting conversion with the following CRS parameter: 4326
+>>> Dataframe successfully converted to geopandas point geodataframe
+>>> Loading rivers from 'D:\Mapping-Stations\examples/..\data\Hydro_RIVERS_v10\HydroRIVERS_v10_na.shp'
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\Hydat\Hydat.sqlite3'
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\PWQMN_cleaned\PWQMN.sqlite3'
+>>>    hydat_id     pwqmn_id  hydat_dist_from_net  pwqmn_dist_from_net          dist  data_overlap C station ID Q station ID
+>>> 0   02GA014  16018406702            57.509187            40.340714     17.345681           415         same      02GA014
+>>> 1   02GA014  16018403902            57.509187           128.654562   6272.487606           365          NaN          NaN
+>>> 2   02GA016  16018403702            70.067906            19.487934    736.928477           665         same      02GA016
+>>> 3   02GA016  16018401802            70.067906            48.480687    510.035506            78          NaN          NaN
+>>> 4   02GA028  16018407702           100.693319            94.153415      8.550945           404         same      02GA028
+>>> ..      ...          ...                  ...                  ...           ...           ...          ...          ...
+>>> 92  02GE003   4001305802            25.079773            76.197197  12109.403578           320         same      02GE003
+>>> 93  02GE003   4001305702            25.079773           236.634692   1366.875833            56          NaN          NaN
+>>> 94  02GH002   4001000302           217.734533            17.034799   4591.820577           157         same      02GH002
+>>> 95  02GH003  10000200202           462.910467           475.798308     13.064921           337         same      02GH003
+>>> 96  02GH003  10000200102           462.910467            14.883471  10565.294822           199          NaN          NaN
+
+>>> [97 rows x 8 columns]
+
+Note: A matplotlib window will open. This window has to be closed manually.
+"""
+
+
 def check_equal(row):
     if row['C station ID'] == row["pwqmn_id"]:
         return "same"
@@ -72,6 +106,7 @@ def main():
     print(q_c_pairs)
     
     # save the table to a csv
+    print("saving results to q_c_pair_comparison.csv")
     q_c_pairs.to_csv("q_c_pair_comparison.csv")
 
 

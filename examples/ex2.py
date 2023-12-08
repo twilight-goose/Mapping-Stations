@@ -11,6 +11,23 @@ from gen_util import BBox
 from matplotlib import pyplot as plt
 
 
+"""
+Expected Terminal Output (file paths preceding "Mapping-Stations" will differ):
+
+>>> python ex2.py
+
+>>> Loading rivers from 'D:\Mapping-Stations\examples/..\data\Hydro_RIVERS_v10\HydroRIVERS_v10_na.shp'
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\Hydat\Hydat.sqlite3'
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\Hydat\Hydat.sqlite3'
+>>> BBox provided but no lat/lon fields found. Skipping BBox query.
+>>> Attempting conversion with the following CRS parameter: 4326
+>>> Dataframe successfully converted to geopandas point geodataframe
+
+Note: A matplotlib window will open. This window has to be closed manually.
+See examples/example_output/ex2.png for expected window appearence.
+"""
+
+
 def main():
     # initialize period and bbox of interest
     period = ["2002-10-12", "2003-10-12"]

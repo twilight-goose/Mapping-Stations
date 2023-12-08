@@ -12,6 +12,11 @@ import geopandas as gpd
 from matplotlib import pyplot as plt
 
 
+"""
+DON'T RUN
+"""
+
+
 def main(timed=False):
     bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
 

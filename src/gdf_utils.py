@@ -481,7 +481,7 @@ def assign_period_overlap(match_df, prefix1, drange_1, prefix2, drange_2):
         gen_util.generate_data_range().
 
     :return: DataFrame
-        The original DataFrame with additional 'data_overlap',s
+        The original DataFrame with additional 'data_overlap',
         'total_{prefix1}_records', and 'total_{prefix2}_records' columns.
     """
     overlap_lst = []
