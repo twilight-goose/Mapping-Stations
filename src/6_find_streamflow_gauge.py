@@ -47,7 +47,7 @@ from gen_util import Can_LCC_wkt
 input_file    = os.path.join("..", "data", "datastream", "Total_Phosphorus_mixed_forms_obs.json")
 output_folder = os.path.join("..", "data", "datastream")
 start         = 1
-end           = 1000
+end           = 10
 
 parser  = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                   description='''Find close streamflow gauging station for list of water quality gauges.''')
@@ -66,6 +66,7 @@ output_folder = args.output_folder
 start         = int(args.start)
 end           = int(args.end)
 
+
 if (input_file is None):
     raise ValueError("Input file needs to be specified.")
 
@@ -74,9 +75,6 @@ if (output_folder is None):
 
 if not os.path.exists(input_file):
     raise ValueError("Input file {} does not exist.".format(input_file))
-
-if not os.path.exists(output_folder):
-    os.makedirs(output_folder)
 
 
 del parser, args
@@ -146,8 +144,8 @@ network = gdf_utils.hyriv_gdf_to_network(lines)
 # prefix1 and prefix2 must be featured/used when assigning stations
 match_df = gdf_utils.dfs_search(    network,
                                     max_distance=1000000, # in [m]
-                                    prefix1="origin_",    # list of stations to find a match for
-                                    prefix2="hydat_",     # all stations to find a match from
+                                    prefix1="origin",    # list of stations to find a match for
+                                    prefix2="hydat",     # all stations to find a match from
                             )
 # In this iteration of the project, data overlap must be calculated
 # as a separate operation
@@ -185,6 +183,10 @@ print(match_df.to_string())
 # delineate_matches requires the prefixes as well as the station data to function
 # delineated = gdf_utils.delineate_matches(match_df, "origin", origin, "hydat", hydat)
 
+if not os.path.isdir(output_folder):
+    print("creating output folder")
+    os.mkdir(output_folder)
 
-# save the dataframe to .csv
-match_df.to_csv(os.path.join(output_folder,f"{input_file}_{start}_{end}.csv"))
+# remove the extension and the folders from the file path to extract only the filename
+filename = input_file.split('\\')[-1].split(".")[0]
+match_df.to_csv(os.path.join(output_folder, f"{filename}_{start}_{end}.csv"))
