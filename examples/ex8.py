@@ -11,6 +11,20 @@ import browser
 from gen_util import lambert, geodetic, Can_LCC_wkt, BBox, Timer, Period, ON_bbox
 
 
+"""
+Expected Terminal Output (file paths preceding "Mapping-Stations" will differ):
+
+>>> python ex8.py
+
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\Hydat\Hydat.sqlite3'
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\Hydat\Hydat.sqlite3'
+>>> HYDAT station data saved to D:\Mapping-Stations\examples/..\data\Hydat\h_subset_station_data.csv
+>>> Creating a connection to 'D:\Mapping-Stations\examples/..\data\PWQMN_cleaned\PWQMN.sqlite3'
+>>> PWQMN station data saved to p_subset_station_data.csv
+
+"""
+
+
 def main():
     # load station data
     hydat = load_data.get_hydat_stations()

@@ -456,8 +456,10 @@ def get_pwqmn_data(tbl_name, to_csv=False, get_fields="*", **q_kwargs) -> pd.Dat
     
     data = pd.read_sql_query(f'SELECT {get_fields} FROM "{tbl_name}"' + query, conn)
     if to_csv:
-        data.to_csv(os.path.join(data_path, 'PWQMN_cleaned', f"{to_csv}.csv"))
-
+        output_path = os.path.join(data_path, 'PWQMN_cleaned', f"{to_csv}.csv")
+        data.to_csv(output_path)
+        print(f"PWQMN {tbl_name} data saved to {output_path}")
+    
     conn.close()
     return data
     
@@ -517,9 +519,10 @@ def get_pwqmn_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
 
     if station_df.empty:
         print("Chosen query resulted in empty GeoDataFrame.")
-    else:
-        if to_csv:
-            station_df.to_csv(f"{to_csv}.csv")
+    elif to_csv:
+        output_path = f"{to_csv}.csv"
+        station_df.to_csv(output_path)
+        print(f"PWQMN station data saved to '{output_path}'")
             
     return station_df
 
@@ -750,7 +753,9 @@ def get_hydat_data(tbl_name, get_fields='*', to_csv=False, **q_kwargs):
     
     data = pd.read_sql_query(f'SELECT {get_fields} FROM "{tbl_name}"' + query, conn)
     if to_csv:
-        data.to_csv(os.path.join(data_path, 'Hydat', f"{to_csv}.csv"))
+        output_path = os.path.join(data_path, 'Hydat', f"{to_csv}.csv")
+        data.to_csv(output_path)
+        print(f"HYDAT {tbl_name} data saved to {output_path}")
 
     conn.close()
     return data
@@ -855,7 +860,9 @@ def get_hydat_stations(to_csv=False, **q_kwargs) -> pd.DataFrame:
     if sample:
         stations = stations.sample(n=min(sample, stations.shape[0]))
     if to_csv:
-        stations.to_csv(os.path.join(data_path, 'Hydat', f"{to_csv}.csv"))
+        output_path = os.path.join(data_path, 'Hydat', f"{to_csv}.csv")
+        stations.to_csv(output_path)
+        print(f"HYDAT station data saved to {output_path}")
     
     return stations
 

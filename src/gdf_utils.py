@@ -418,7 +418,11 @@ def delineate_matches(match_df, prefix1, data_1, prefix2, data_2):
     from main import delineate
     
     print("begining delineations")
-    delineate(basins=stations, id_field='Station_ID')
+    try:
+        delineate(basins=stations, id_field='Station_ID')
+    except:
+        stations.rename(columns={'lon': 'lng'})
+        delineate(basins=stations, id_field='Station_ID')
     
     # read the delineated basins 
     print("Loading delineated watersheds and performing comparisons")
@@ -719,7 +723,10 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat', prefix2='pwqmn',
                             dist_froms.append(series['dist_from'])
                             dists.append(max(direct_dist, dist))
                             depths.append(depth)
-                            path_last_segs.append([series['geometry'], (u, v)[direction]])
+                            path_last_segs.append([
+                                series['geometry'],
+                                data['geometry'].interpolate(data['geometry'].project(series['geometry'])),
+                                (u, v)[direction]])
 
                         else:
                             break
@@ -764,7 +771,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat', prefix2='pwqmn',
         
         split = cut(data['geometry'], st_dist)
         
-        if st_dist < row_dist:
+        if st_dist <= row_dist:
             piece_coords = list(cut(split[1], row_dist - st_dist)[0].coords)
         else:
             piece_coords = list(cut(split[0], row_dist)[1].coords)

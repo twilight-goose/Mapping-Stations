@@ -2,10 +2,13 @@
 
 This repository exists
 
+# Instllation: Windows
+
 ## Python Environment
 It is recommended to conda to set up a Python environment, but any method of creating a python 3.9.18 environment
 should function as normal. Python 3.9.18 is recommended, as the code was written and tested in 3.9.18. Later
 versions with adequate compatibility with project packages may work, but use them at your own risk.
+
 
 ### Conda setup and installation
 From [the anaconda website](https://www.anaconda.com/) download the Anaconda installer compatible with your system.
@@ -28,6 +31,52 @@ conda install -n env-conda-3.9.18 -c conda-forge adjusttext=0.7.3.1
 conda install -n env-conda-3.9.18 -c conda-forge pytest
 conda install -n env-conda-3.9.18 -c conda-forge pysheds=0.3.5
 conda install -n env-conda-3.9.18 -c conda-forge area
+```
+
+# Installation: GRAHAM
+
+```
+git clone https://github.com/twilight-goose/Mapping-Stations.git
+cd Mapping-Stations/
+​
+module purge
+module load StdEnv/2020 netcdf/4.7.4 gcc/9.3.0 gdal/3.5.1
+module load mpi4py/3.1.3 proj/9.0.1
+module load geos/3.10.2
+module load nco/5.0.6
+module load python/3.10.2
+​
+mkdir env-3.10
+virtualenv --no-download env-3.10
+source env-3.10/bin/activate
+​
+pip install --no-index --upgrade pip
+​
+pip install netCDF4 --no-index # no need, it is for raven-hydro
+pip install GDAL --no-index
+pip install numpy --no-index
+pip install argparse --no-index
+pip install geopandas --no-index
+​
+pip install pandas --no-index
+pip install matplotlib --no-index
+pip install cartopy --no-index
+pip install momepy --no-index
+pip install networkx --no-index
+pip install matplotlib-scalebar --no-index
+pip install adjusttext --no-index
+pip install pytest --no-index
+pip install pysheds --no-index
+pip install area
+​
+​
+scp -r Hydat/Hydat.sqlite3 julemai@gra-platform.computecanada.ca:/home/julemai/projects/rpp-julemai/julemai/Mapping-Stations/data/Hydat/.
+scp -r datastream/Total_Phosphorus_mixed_forms_obs.json julemai@gra-platform.computecanada.ca:/home/julemai/projects/rpp-julemai/julemai/Mapping-Stations/data/datastream/.
+scp -r Hydro_RIVERS_v10 julemai@gra-platform.computecanada.ca:/home/julemai/projects/rpp-julemai/julemai/Mapping-Stations/data/.
+scp -r OHN julemai@gra-platform.computecanada.ca:/home/julemai/projects/rpp-julemai/julemai/Mapping-Stations/data/.
+scp -r PWQMN_cleaned julemai@gra-platform.computecanada.ca:/home/julemai/projects/rpp-julemai/julemai/Mapping-Stations/data/.
+​
+mkdir data/shapefiles
 ```
 
 Next, you need to configure project structure and data paths.
@@ -199,26 +248,50 @@ and it's relevance is limited to its exact use case - creating and opening data 
 
 
 ## Use Cases and Usage Examples
-Refer to `../examples/` for exampls; Explanations below. 
+Refer to `../examples/` for exampls; Explanations below. See files for expected terminal output/messages.
 
 * note: The first time running any process will likely take an extended period as the program builds/generates tables 
 ```
 ex1.py: FAST :: basic plotting
+
 ex2.py: FAST :: displays how stations are 'snapped' to river networks (you will need to zoom
 				in to see the conencting lines).
+				
 ex3.py: DONT RUN :: Loading stations from shapefiles (don't run, points1.shp and points2.shp don't exist.)
+
 ex4.py: FAST :: match browser. Load all stations within a specificed lat/lon bounding box,
 				load and assign data range overlaps, and create an interactive plot allowing
 				the user to click on stations and see a list of matches.
+				
 ex5.py: FAST :: same as ex4, except uses the OHN dataset for rivers.
+
 ex6.py: FAST :: match array
+
 ex7.py: FAST :: save to shapefile
+				- creates "data/shapefiles/hydat.shp" and "data/shapefiles/pwqmn.shp"
+				
 ex8.py: REALLY SLOW :: compare station matching between OHN and hydrorivers datasets, calculate the
 						error between the two, and save it to "table.csv"
+				- creates "examples/table.csv"
+				
+				GRAHAM: requireds too much memeory for login node
+						
 ex9.py: FAST :: loading lists of stations from .csv files and saving the station data to .csv files
+				- loads from "examples\ex9_hydat_subset.csv"
+				- loads from "examples\ex9_pwqmn_subset.csv"
+				- creates "examples\p_subset_station_data.csv"
+				- creates "data\Hydat\h_subset_station_data.csv"
+
 ex10.py: SLOW :: example of loading large lists of stations from .csv files and matching them, then delineating the watersheds of a sample of matches and comparing them.
+				- requires the "Watershed_Delineation" repository
+				
 ex11.py: FAST :: Load and match hydat stations in "MondayFileGallery/Q_C_pairs.csv", then compare the matches made.
+				- loads from "data\MondayFileGallery\Q_C_pairs.csv"
+				- creates "examples\q_c_pair_comparison.csv"
+				
 ex12.py: FAST :: Load and match pwqmn stations in "MondayFileGallery/Q_C_pairs.csv", then compare the matches made.
+				- loads from "data\MondayFileGallery\Q_C_pairs.csv"
+				- creates "examples\q_c_pair_comparison2.csv"
 ```
 
 ## Matching and Distance Criteria

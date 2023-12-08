@@ -24,6 +24,57 @@
 # python 6_find_streamflow_gauge.py -i "Total_Phosphorus_mixed_forms_obs.json" -o "test" -s 10 -e 15
 
 
+"""
+Expected ouput for (file path preceing Mapping-Stations will differ):
+>>> python 6_find_streamflow_gauge.py -i "../data/DataStream/Total_Phosphorus_mixed_forms_obs.json" -o test  -s 10 -e 15
+
+>>> ----------------------------------------------
+>>> Working on stations in file: ../data/DataStream/Total_Phosphorus_mixed_forms_obs.json
+>>> ----------------------------------------------
+>>> Read data from: ../data/DataStream/Total_Phosphorus_mixed_forms_obs.json
+>>> Loading rivers from 'D:\Mapping-Stations\data\Hydro_RIVERS_v10\HydroRIVERS_v10_na.shp'
+>>> Creating a connection to 'D:\Mapping-Stations\data\Hydat\Hydat.sqlite3'
+>>> Creating a connection to 'D:\Mapping-Stations\data\Hydat\Hydat.sqlite3'
+>>> Attempting conversion with the following CRS parameter: 4326
+>>> Dataframe successfully converted to geopandas point geodataframe
+>>> Attempting conversion with the following CRS parameter: 4326
+>>> Dataframe successfully converted to geopandas point geodataframe
+>>>    origin_id hydat_id  origin_dist_from_net  hydat_dist_from_net          dist      pos
+>>> 0       4827  01AR004            328.938335           209.353290  12531.236824     Down
+>>> 1       4809  01AR003            129.073887           299.295566  23130.041453     Down
+>>> 2       4829  01AR005            135.347087            55.037656    496.183237  On-Down
+>>> creating output folder
+>>> Output saved to: test\Total_Phosphorus_mixed_forms_obs_9_15.csv
+
+Output table field description:
+
+origin_id
+    - The ID of the station that was matched
+    - field name will differ based on assign_stations() parameters
+
+hydat_id
+    - The ID of the station that the origin station was matched to
+    - field name will differ based on assign_stations() parameters
+
+origin_dist_from_net
+    - The distance in metres between the origin station and the river network
+    - field name will differ based on assign_stations() parameters
+
+hydat_dist_from_net
+    - The distance in metres between the matched station and the river network
+    - field name will differ based on assign_stations() parameters
+
+dist
+    - The distance (in metres) between the origin and candidate station
+
+pos
+    - The position of the candidate station relative to the origin station
+        - starts with "On": same river segment
+        - contains "Down": downstream
+        - contains "Up": upstream
+
+"""
+
 import os
 import sys
 
