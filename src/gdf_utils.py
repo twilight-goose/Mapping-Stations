@@ -735,24 +735,32 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat', prefix2='pwqmn',
         segment_dist = abs(station['dist_along'] - row['dist_along'])
         on_dist = max(segment_dist, direct_dist)
 
-        st_dist = data['geometry'].project(station['geometry'])
-        row_dist = data['geometry'].project(row['geometry'])
-
-        split = cut(data['geometry'], st_dist)
-        
-        if st_dist <= row_dist:
-            piece_coords = list(cut(split[1], row_dist - st_dist)[0].coords)
-        else:
-            piece_coords = list(cut(split[0], row_dist)[1].coords)
-            piece_coords.reverse()
-
-        points = [
-            station['geometry'],
-            data['geometry'].interpolate(st_dist),
-            *piece_coords,
-            data['geometry'].interpolate(row_dist),
-            row['geometry']
-        ]
+        try:
+          st_dist = data['geometry'].project(station['geometry'])
+          row_dist = data['geometry'].project(row['geometry'])
+  
+          split = cut(data['geometry'], st_dist)
+          
+          if st_dist <= row_dist:
+              piece_coords = list(cut(split[1], row_dist - st_dist)[0].coords)
+          else:
+              piece_coords = list(cut(split[0], row_dist)[1].coords)
+              piece_coords.reverse()
+  
+          points = [
+              station['geometry'],
+              data['geometry'].interpolate(st_dist),
+              *piece_coords,
+              data['geometry'].interpolate(row_dist),
+              row['geometry']
+          ]
+        except:
+          points = [
+              station['geometry'],
+              data['geometry'].interpolate(st_dist),
+              data['geometry'].interpolate(row_dist),
+              row['geometry']
+          ]
 
         pos = 'On-' + ('Up' if station['dist_along'] > row['dist_along'] else 'Down')
         add_to_matches(station['Station_ID'], row['Station_ID'],
