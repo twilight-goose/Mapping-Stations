@@ -3,6 +3,8 @@ data/.DS_Store
 src/.DS_Store
 .DS_Store
 
+src/test/Total_Phosphorus_mixed_forms_obs_9_15.csv
+
 examples/q_c_pair_comparison.csv
 examplesq_c_pair_comparison2.csv
 examples/table.csv
@@ -154,3 +156,6 @@ src/datastream/Inorganic nitrogen (nitrate and nitrite)_full_data_range.csv
 src/datastream/Inorganic nitrogen (nitrate and nitrite)_duplicates.csv
 *.pptx
 src/test/table.csv
+examples/q_c_pair_comparison.csv
+examples/q_c_pair_comparison2.csv
+examples/table.csv
