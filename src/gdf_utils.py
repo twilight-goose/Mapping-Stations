@@ -671,8 +671,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat', prefix2='pwqmn',
         for u, v, data in edges:
             if type(data[prefix + '_data']) in [pd.DataFrame, gpd.GeoDataFrame]:
 
-                stations = data[prefix + '_data'].sort_values(
-                    by='dist_along', ascending=not direction)
+                cand_stations = data[prefix + '_data'].sort_values(by='dist_along', ascending=not direction)
 
                 ids = []
                 dist_froms = []
@@ -680,9 +679,14 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat', prefix2='pwqmn',
                 depths = []
                 path_last_segs = []
 
-                for ind, series in stations.iterrows():
-
-                    if series['Station_ID'] not in matches[prefix + '_id']:
+                for ind, series in cand_stations.iterrows():
+                    # get all indices where the origin and candidate station ids appear
+                    pref_1_indices = set([i for i, x, in enumerate(matches[prefix1 + '_id']) if x == station['Station_ID']])
+                    pref_2_indices = set([i for i, x, in enumerate(matches[prefix2 + '_id']) if x == series['Station_ID']])
+                    
+                    # if any of them appear at the same index with matches, it indicates that
+                    # the matched pair has already been added
+                    if len(pref_1_indices & pref_2_indices) == 0:
                         direct_dist = station['geometry'].distance(series['geometry'])
                         dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist_along'])
 
@@ -775,10 +779,10 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat', prefix2='pwqmn',
         """
         # Check for candidate stations upstream and downstream
         down_id, down_from, down_dist, down_depth, down_seg, *point_list = dfs(
-                v, prefix2, 0, data['LENGTH_M'] - station['dist_along'], 1)
+                v, prefix2, 0, data['LENGTH_M'] - station['dist_along'], 0)
 
         up_id, up_from, up_dist, up_depth, up_seg, *point_list2 = dfs(
-                u, prefix2, 1, station['dist_along'], 1)
+                u, prefix2, 1, station['dist_along'], 0)
 
         point_list.append(station['geometry'])
         if down_id != -1:
@@ -800,7 +804,9 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat', prefix2='pwqmn',
         return match_count
 
     # ===================================================================== #
-    # Instantiate dictionary to store matches
+    # Algorithm main
+    # ===================================================================== #
+    
     matches = {prefix1 + '_id': [], prefix2 + '_id' : [],
                prefix1 + '_dist_from_net': [], prefix2 + '_dist_from_net': [],
                'path': [], 'dist': [], 'pos': [], 'seg_apart': []}

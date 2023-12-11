@@ -147,7 +147,6 @@ def main():
     delineated = gdf_utils.delineate_matches(match_df.sample(5), "hydat", hydat, "pwqmn", pwqmn)
 
     # # display the list of matches
-    # print(match_df.drop(columns='path').to_string())
     print(delineated.drop(columns=['path', 'seg_apart']).to_string())
 
 

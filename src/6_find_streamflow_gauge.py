@@ -97,8 +97,8 @@ from gen_util import Can_LCC_wkt, Period
 
 input_file    = os.path.join("..", "data", "datastream", "Total_Phosphorus_mixed_forms_obs.json")
 output_folder = os.path.join("..", "data", "datastream")
-start         = 1
-end           = 10
+start         = 301
+end           = 400
 
 parser  = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                   description='''Find close streamflow gauging station for list of water quality gauges.''')
@@ -163,12 +163,15 @@ if end is None:
 # -------------------------------
 
 stations = []
+observations = []
+
 for dd in data['value'][start:end]:
 
     tmp = { 'id': dd['Id'],
             'lat': dd['LatitudeNormalized'],
-            'lon': dd['LongitudeNormalized'],
+            'lon': dd['LongitudeNormalized']
           }
+    observations += dd['observations']
     stations.append(tmp)
 
 # -------------------------------
@@ -184,19 +187,27 @@ origin = pd.DataFrame(stations)
 origin = origin.assign(Station_ID=origin['id'])
 origin = gdf_utils.point_gdf_from_df(origin)
 
+observations = pd.DataFrame(observations)
+observations.rename(columns={'LocationId': 'Station_ID', 'ActivityStartDate': 'Date'}, inplace=True)
+observations.drop(columns=['ResultSampleFraction', 'ResultValue', 'ResultUnit',
+                            'ResultStatusID', 'ResultDetectionCondition', 'ResultValueType',
+                            'ResultAnalyticalMethodContext', 'MethodSpeciation', 'ActivityEndDate'],
+                    inplace=True)
+
 # If you wish to snap stations to rivers that are farther than
 # 750 m away, add "max_distance=X" where X is the desired maximum distance
 # to snap stations to rivers.
-lines = gdf_utils.assign_stations(lines, hydat, prefix="hydat")
-lines = gdf_utils.assign_stations(lines, origin, prefix="origin")
+lines = gdf_utils.assign_stations(lines, hydat, prefix="hydat", max_distance=1500)
+lines = gdf_utils.assign_stations(lines, origin, prefix="origin", max_distance=1500)
 
 network = gdf_utils.hyriv_gdf_to_network(lines)
 
 # prefix1 and prefix2 must be featured/used when assigning stations
 match_df = gdf_utils.dfs_search(    network,
-                                    max_distance=1000000, # in [m]
+                                    max_distance=100000, # in [m]
                                     prefix1="origin",    # list of stations to find a match for
                                     prefix2="hydat",     # all stations to find a match from
+                                    max_depth=100
                             )
 # In this iteration of the project, data overlap must be calculated
 # as a separate operation
@@ -208,19 +219,19 @@ match_df = gdf_utils.dfs_search(    network,
 # Period.generate_data_range requires observations be a DataFrame
 # containng a 'Station_ID' field as well as a 'Date' field
 
-# hydat_dr = load_data.get_hydat_data_range(subset=match_df['hydat_id'].to_list())
-# origin_dr = Period.generate_data_range(observations)
+hydat_dr = load_data.get_hydat_data_range(subset=match_df['hydat_id'].to_list())
+origin_dr = Period.generate_data_range(observations)
 
 ## data range consists of {"Station_ID", "P_Start", "P_End"} fields
 ## where "Station_ID" contains every station id from observations
 ## adds 3 fields to the output table (see gdf_utils.assign_period_overlap())
 
-# match_df = gdf_utils.assign_period_overlap( match_df,
-                                                # 'hydat',
-                                                # hydat_dr,
-                                                # 'origin',
-                                                # origin_dr
-                                                # )
+match_df = gdf_utils.assign_period_overlap( match_df,
+                                            'hydat',
+                                            hydat_dr,
+                                            'origin',
+                                            origin_dr
+                                            )
 
 # ============
 # ============
