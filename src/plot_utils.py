@@ -420,7 +420,7 @@ def annotate_stations(*station_sets, adjust=True, ax=None):
         # dont adjust text if there are over 300 because it takes too long,
         # and at that scale its hard to see the text regardless
         adjust_text(texts)
-    elif adjust and len(text) > 300:
+    elif adjust and len(texts) > 300:
         print("adjust keyword overriden. Text positions not adjusted because there are too many.")
 
 
