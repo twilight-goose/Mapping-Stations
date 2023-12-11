@@ -78,17 +78,18 @@ scp -r PWQMN_cleaned julemai@gra-platform.computecanada.ca:/home/julemai/project
 ​
 mkdir data/shapefiles
 ```
-
+The best way to check that everything is installed correctly is by running the examples in "Mapping-Stations/examples" (excluding 3 and 8)
 Next, you need to configure project structure and data paths.
 
 ### 4. Configuring Project Structure and Data Paths
-In addition to Mapping-Stations, you will need [this fork](https://github.com/twilight-goose/Watershed_Delineation/tree/patch-1)
-of the Watershed_Delineation repository created by [Kasope Okubadejo](https://github.com/kokubadejo). 
+In addition to Mapping-Stations, you will need [Watershed Delineation](https://github.com/kokubadejo/Watershed_Delineation)
+created by [Kasope Okubadejo](https://github.com/kokubadejo). Follow the data installation instructions found in
+the README.md file and ignore the environment setup instructions as everything needed for both projects can be found above.
 Omitting many of the files included in the repositories, the downloaded data and watershed
 delineation repository should be structured and named as follows if you do not intend to change
 file paths within scripts.
 ```
-<project_folder>
+| Mapping-Stations
 	| data
 		| Hydro_RIVERS_v10
 			|--HydroRIVERS_v10_na.dbf
@@ -125,7 +126,7 @@ file paths within scripts.
 		| --browser.py
 		| --check_files.py
 
-|Watershed_Delineation (https://github.com/twilight-goose/Watershed_Delineation/tree/patch-1)
+| Watershed_Delineation (https://github.com/twilight-goose/Watershed_Delineation/tree/patch-1)
 	| src
 		| PySheds
 			| --main.py

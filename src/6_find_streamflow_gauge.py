@@ -204,7 +204,7 @@ network = gdf_utils.hyriv_gdf_to_network(lines)
 
 # prefix1 and prefix2 must be featured/used when assigning stations
 match_df = gdf_utils.dfs_search(    network,
-                                    max_distance=100000, # in [m]
+                                    max_distance=12000, # in [m]
                                     prefix1="origin",    # list of stations to find a match for
                                     prefix2="hydat",     # all stations to find a match from
                                     max_depth=100
