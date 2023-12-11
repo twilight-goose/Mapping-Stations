@@ -84,7 +84,8 @@ def main():
     network = gdf_utils.hyriv_gdf_to_network(lines)
     
     # match hydat to pwqmn stations
-    match_df = gdf_utils.dfs_search(network, max_distance=100000)
+    match_df = gdf_utils.dfs_search(network,
+                                    max_distance=100000 ) # [m] CHANGE THIS WHEN ACTUALLY MATCHING
     
     hydat_dr = load_data.get_hydat_data_range(subset=match_df['hydat_id'].to_list())
     pwqmn_dr = load_data.get_pwqmn_data_range(subset=match_df['pwqmn_id'].to_list())

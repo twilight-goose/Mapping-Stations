@@ -5,7 +5,7 @@ This repository exists
 # Instllation: Windows
 
 ## Python Environment
-It is recommended to conda to set up a Python environment, but any method of creating a python 3.9.18 environment
+It is recommended to conda to set up a Python environment, but any method of creating a python environment
 should function as normal. Python 3.9.18 is recommended, as the code was written and tested in 3.9.18. Later
 versions with adequate compatibility with project packages may work, but use them at your own risk.
 
@@ -31,6 +31,22 @@ conda install -n env-conda-3.9.18 -c conda-forge adjusttext=0.7.3.1
 conda install -n env-conda-3.9.18 -c conda-forge pytest
 conda install -n env-conda-3.9.18 -c conda-forge pysheds=0.3.5
 conda install -n env-conda-3.9.18 -c conda-forge area
+```
+## Using PIP
+Using pip may result in issues with GDAL.
+
+```bash
+pip install pandas
+pip install geopandas
+pip install matplotlib
+pip install cartopy
+pip install momepy
+pip install networkx
+pip install matplotlib-scalebar
+pip install adjusttext
+pip install pytest
+pip install pysheds
+pip intall area
 ```
 
 # Installation: GRAHAM
@@ -250,6 +266,8 @@ and it's relevance is limited to its exact use case - creating and opening data 
 
 ## Use Cases and Usage Examples
 Refer to `../examples/` for exampls; Explanations below. See files for expected terminal output/messages.
+Code explanations and workflow notes can be found in example files, as long as some information about
+function parameters.
 
 * note: The first time running any process will likely take an extended period as the program builds/generates tables 
 ```
@@ -264,7 +282,7 @@ ex4.py: FAST :: match browser. Load all stations within a specificed lat/lon bou
 				load and assign data range overlaps, and create an interactive plot allowing
 				the user to click on stations and see a list of matches.
 				
-ex5.py: FAST :: same as ex4, except uses the OHN dataset for rivers.
+ex5.py: SLOW (OHN IS A LARGE DATASET) :: same as ex4, except uses the OHN dataset for rivers.
 
 ex6.py: FAST :: match array
 

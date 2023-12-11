@@ -145,7 +145,7 @@ def match_browser(origin, cand, network, match_df, bbox, origin_pref="hydat",
 
     fig.canvas.mpl_connect('pick_event', browser.on_pick)
 
-    plot_utils.annotate_stations(origin, cand, ax=ax)
+    plot_utils.annotate_stations(origin, cand, ax=ax, adjust=False)
 
     legend_elements = [
         {'label': origin_pref.upper(), 'renderer': origin_artist},

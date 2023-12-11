@@ -687,6 +687,7 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat', prefix2='pwqmn',
                     # if any of them appear at the same index with matches, it indicates that
                     # the matched pair has already been added
                     if len(pref_1_indices & pref_2_indices) == 0:
+                    
                         direct_dist = station['geometry'].distance(series['geometry'])
                         dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist_along'])
 
@@ -703,9 +704,10 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat', prefix2='pwqmn',
 
                         else:
                             break
-
-                return ids, dist_froms, dists, depths, path_last_segs
-
+                            
+                if len(ids) > 0:
+                    return ids, dist_froms, dists, depths, path_last_segs
+            
             result = *dfs((u, v)[not direction], prefix2, direction, cum_dist + data['LENGTH_M'], depth + 1), \
                             (u, v)[direction]
 
