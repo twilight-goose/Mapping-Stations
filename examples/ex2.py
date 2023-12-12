@@ -43,8 +43,13 @@ def main():
     # Get the new points and lines connecting the original to new points
     new_points, connectors = gdf_utils.connect_points_to_feature(hydat_gdf, hydroRIVERS)
 
-    # plot setup
+    # Begin setting up the plot
+    
+    # add_map_to_plot can either add a map to an axes or create an axes and
+    # add a map to it, and then return it
     ax = plot_utils.add_map_to_plot(extent=bbox)
+    
+    # add plot elements
     ax.set_title('Projected Location of HYDAT Stations on HydroRIVERS Segments')
     plot_utils.add_grid_to_plot(ax=ax)
     rivers = plot_utils.plot_gdf(hydroRIVERS, color="grey")
@@ -58,7 +63,7 @@ def main():
     plot_utils.add_scalebar(ax=ax)
     plot_utils.annotate_stations(hydat_gdf, ax=ax)
 
-    # Configure custom legend
+    # Configure custom legend and add it to the plot
     legend_elements = [
         {'label': 'HYDAT', 'renderer': og},
         {'label': 'NEW', 'renderer': new},

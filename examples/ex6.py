@@ -54,10 +54,10 @@ def main():
     network = gdf_utils.hyriv_gdf_to_network(lines)
     
     # match origin to candidate stations
-    edge_df = gdf_utils.dfs_search(network)
+    match_df = gdf_utils.dfs_search(network, prefix1='hydat', prefix2='pwqmn')
     
     # Plot a match array
-    plot_utils.plot_match_array(edge_df)
+    plot_utils.plot_match_array(match_df)
 
 
 if __name__ == "__main__":

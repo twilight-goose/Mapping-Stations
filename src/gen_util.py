@@ -779,14 +779,23 @@ class Period:
     
     def generate_data_range(obs):
         """
+        Produces data ranges from a DataFrame of dates and station ids.
+        Each row of the output DataFrame holds a start and end date for
+        when data is availabe for that given station. Station IDs are
+        not unique, in the situation where stations have records 
+        available at 2 different periods of time.
         
+        i.e. (11/11/2001 - 12/09/2002), (11/17/2005 - 12/09/2007) will
+            be stored in 2 different rows.
         
         :param obs: DataFrame
             DataFrame containing observation data. Must contain
-            "Date" and "Station_ID" fields.
+            "Date" and "Station_ID" fields. Neither need to be unique.
         
         :return: DataFrame
-            The date ranges.
+            The date ranges. Has the following structure:
+            
+            Station_ID | P_Start | P_End |
         """
         def add_to_output(st_id, start, end):
             out_data['Station_ID'].append(st_id)

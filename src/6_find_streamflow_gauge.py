@@ -95,10 +95,10 @@ import pandas as pd
 import browser
 from gen_util import Can_LCC_wkt, Period
 
-input_file    = os.path.join("..", "data", "datastream", "Total_Phosphorus_mixed_forms_obs.json")
+input_file    = os.path.join("..", "data", "datastream", "Inorganic_nitrogen_(nitrate_and_nitrite)_obs.json")
 output_folder = os.path.join("..", "data", "datastream")
-start         = 301
-end           = 400
+start         = 701
+end           = 800
 
 parser  = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                   description='''Find close streamflow gauging station for list of water quality gauges.''')
@@ -245,6 +245,7 @@ match_df.drop(columns=['path', 'seg_apart'], inplace=True)
 
 # display the dataframe
 print(match_df.to_string())
+print(match_df.shape)
 
 # -------------------------------
 # perform delineation

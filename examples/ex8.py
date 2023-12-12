@@ -56,8 +56,8 @@ def main():
     hydroRIVERS_network = gdf_utils.hyriv_gdf_to_network(hydroRIVERS_lines)
 
     # perform the matching for each river network
-    ohn_edge_df = gdf_utils.dfs_search(ohn_network, max_depth=100, max_distance=10000)
-    hydro_edge_df = gdf_utils.dfs_search(hydroRIVERS_network, max_distance=10000)
+    ohn_edge_df = gdf_utils.dfs_search(ohn_network, prefix1='hydat', prefix2='pwqmn', max_depth=100, max_distance=10000)
+    hydro_edge_df = gdf_utils.dfs_search(hydroRIVERS_network, prefix1='hydat', prefix2='pwqmn', max_distance=10000)
     
     # format the output table
     ohn_edge_df.drop(columns=['path', 'seg_apart'], inplace=True)

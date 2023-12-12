@@ -441,7 +441,7 @@ def delineate_matches(match_df, prefix1, data_1, prefix2, data_2):
         wsheds_a_2.append(wshed2.iloc[0].area)
 
         overlap.append(wshed1.intersection(wshed2).iloc[0].area)
-
+    
     match_df[f'{prefix1}_wshed_area'] = wsheds_a_1
     match_df[f'{prefix2}_wshed_area'] = wsheds_a_2
     match_df[f'wshed_overlap'] = overlap
@@ -513,8 +513,8 @@ def assign_period_overlap(match_df, prefix1, drange_1, prefix2, drange_2):
     return match_df
 
 
-def dfs_search(network: nx.DiGraph, prefix1='hydat', prefix2='pwqmn',
-               max_distance=5000, max_depth=10, max_matches=10, **kwargs):
+def dfs_search(network: nx.DiGraph, prefix1, prefix2,
+               max_distance=5000, max_depth=100, max_matches=10, **kwargs):
     """
     For the station closest to each network edge denoted by prefix1,
     locates 1 upstream and 1 downstream station denoted by prefix2
@@ -546,11 +546,11 @@ def dfs_search(network: nx.DiGraph, prefix1='hydat', prefix2='pwqmn',
         The graph to search. Must contain station data stored as
         edge attributes.
 
-    :param prefix1: string (default='hydat')
+    :param prefix1: string
         Prefix denoting the network edge attribute holding origin
         station data.
 
-    :param prefix2: string (default='pwqmn')
+    :param prefix2: string
         Prefix denoting the network edge attribute holding candidate
         station data.
 

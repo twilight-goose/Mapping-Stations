@@ -19,21 +19,27 @@ DON'T RUN
 
 def main(timed=False):
     bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
-
+    
+    # load the origin and candidate stations from shapefiles
+    # geopanadas automatically loadas them as GeoDataFrames, so theres
+    # no need to convert them.
     origins = gpd.read_file("points1.shp")
     candidates = gpd.read_file("points1.shp")
-
+    
+    # load the river dataset
     lines = load_data.load_rivers(bbox=bbox)
-    hydat = gdf_utils.point_gdf_from_df(hydat)
-    pwqmn = gdf_utils.point_gdf_from_df(pwqmn)
-
-    lines = gdf_utils.assign_stations(lines, hydat, prefix='origin')
-    lines = gdf_utils.assign_stations(lines, pwqmn, prefix='candidate')
-
+    
+    # assign the stations/points to the river dataset
+    lines = gdf_utils.assign_stations(lines, origins, prefix='origin')
+    lines = gdf_utils.assign_stations(lines, candidates, prefix='candidate')
+    
+    # build a network from the river dataset
     network = gdf_utils.hyriv_gdf_to_network(lines)
-
-    edge_df = gdf_utils.dfs_search(network)
-
+    
+    # perform the matching
+    edge_df = gdf_utils.dfs_search(network, prefix1='origin', prefix2='candidate')
+    
+    # plot a match array
     plot_utils.plot_match_array(edge_df, add_to_plot=[plot_utils.add_map_to_plot])
 
 

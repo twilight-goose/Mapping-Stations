@@ -30,7 +30,7 @@ See examples/example_output/ex1.png for expected window appearence.
 def main():
     # initialize period and bbox of interest
     period = ["2002-10-12", "2003-10-12"]
-    bbox = BBox([-80, 45, -79, 46])
+    bbox = BBox([-80, 45, -79, 46])     # min lon, min lat, max lon, max lat
 
     # load hydat stations within the bbox coordinates that have
     # flow data during the period of interest and convert it to
@@ -39,11 +39,12 @@ def main():
     hydat_gdf = gdf_utils.point_gdf_from_df(hydat)
 
     # Begin setting up the plot
-    # Add a background map, and get the matplotlib axes object that
-    # the map was drawn onto
-    ax = plot_utils.add_map_to_plot(extent=bbox)
+    
+    # add_map_to_plot can either add a map to an axes or create an axes and
+    # add a map to it, and then return it
+    ax = plot_utils.add_map_to_plot(extent=bbox)    
 
-    # Add the other desired elements to the axes
+    # Add other desired elements to the axes
     ax.set_title('HYDAT Stations')
     plot_utils.add_grid_to_plot(ax=ax)
 
@@ -56,6 +57,7 @@ def main():
     plot_utils.annotate_stations(hydat_gdf, ax=ax)
 
     # using the artist object returned from plot_gdf, configure a legend
+    # See plot_utils.configure_legend on more information
     legend_elements = [
         {'label': 'HYDAT', 'renderer': renderer}
     ]
