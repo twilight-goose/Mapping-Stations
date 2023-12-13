@@ -424,7 +424,7 @@ def annotate_stations(*station_sets, adjust=True, ax=None):
         print("adjust keyword overriden. Text positions not adjusted because there are too many.")
 
 
-def plot_match_array(match_df):
+def plot_match_array(match_df, timed=False):
     """
     Creates and displays a series of plots in a matplotlib window;
     one for each pwqmn station in match_df.
@@ -492,7 +492,10 @@ def plot_match_array(match_df):
         plot_subplot(n)
         n += 1
 
-    plt.show()
+    if timed:
+        timed_display()
+    else:
+        plt.show()
     
 
 def add_scalebar(ax=None):

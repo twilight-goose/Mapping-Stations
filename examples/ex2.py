@@ -28,7 +28,7 @@ See examples/example_output/ex2.png for expected window appearence.
 """
 
 
-def main():
+def main(timed=False):
     # initialize period and bbox of interest
     period = ["2002-10-12", "2003-10-12"]
     bbox = BBox([-80, 45, -79, 46])
@@ -72,7 +72,10 @@ def main():
     ]
     plot_utils.configure_legend(legend_elements, ax=ax)
     
-    plt.show()
+    if timed:
+        plot_utils.timed_display()
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

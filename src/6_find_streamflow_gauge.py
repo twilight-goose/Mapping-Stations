@@ -19,9 +19,6 @@
 
 # You should have received a copy of the GNU Lesser General Public License
 # along with Juliane Mai's personal code library.  If not, see <http://www.gnu.org/licenses/>.
-#
-# pyenv activate env-385-new
-# python 6_find_streamflow_gauge.py -i "Total_Phosphorus_mixed_forms_obs.json" -o "test" -s 10 -e 15
 
 
 """
@@ -32,19 +29,19 @@ Expected ouput for (file path preceing Mapping-Stations will differ):
 >>> Working on stations in file: ../data/DataStream/Total_Phosphorus_mixed_forms_obs.json
 >>> ----------------------------------------------
 >>> Read data from: ../data/DataStream/Total_Phosphorus_mixed_forms_obs.json
->>> Loading rivers from 'D:\Mapping-Stations\data\Hydro_RIVERS_v10\HydroRIVERS_v10_na.shp'
->>> Creating a connection to 'D:\Mapping-Stations\data\Hydat\Hydat.sqlite3'
->>> Creating a connection to 'D:\Mapping-Stations\data\Hydat\Hydat.sqlite3'
+>>> Loading rivers from 'C:\Users\jcw46\Documents\GitHub\Mapping-Stations\data\Hydro_RIVERS_v10\HydroRIVERS_v10_na.shp'
+>>> Creating a connection to 'C:\Users\jcw46\Documents\GitHub\Mapping-Stations\data\Hydat\Hydat.sqlite3'
+>>> Creating a connection to 'C:\Users\jcw46\Documents\GitHub\Mapping-Stations\data\Hydat\Hydat.sqlite3'
 >>> Attempting conversion with the following CRS parameter: 4326
 >>> Dataframe successfully converted to geopandas point geodataframe
 >>> Attempting conversion with the following CRS parameter: 4326
 >>> Dataframe successfully converted to geopandas point geodataframe
->>>    origin_id hydat_id  origin_dist_from_net  hydat_dist_from_net          dist      pos
->>> 0       4827  01AR004            328.938335           209.353290  12531.236824     Down
->>> 1       4809  01AR003            129.073887           299.295566  23130.041453     Down
->>> 2       4829  01AR005            135.347087            55.037656    496.183237  On-Down
->>> creating output folder
->>> Output saved to: test\Total_Phosphorus_mixed_forms_obs_9_15.csv
+>>> Creating a connection to 'C:\Users\jcw46\Documents\GitHub\Mapping-Stations\data\Hydat\Hydat.sqlite3'
+>>>    origin_id hydat_id  origin_dist_from_net  hydat_dist_from_net        dist      pos  data_overlap  total_hydat_records  total_origin_records
+>>> 0       4829  01AR005            135.347169             55.03769  496.183479  On-Down             0                17166                     2
+>>> (1, 9)
+>>> Output saved to: test\Total_Phosphorus_mixed_forms_obs_10_15.csv
+
 
 Output table field description:
 
@@ -72,7 +69,16 @@ pos
         - starts with "On": same river segment
         - contains "Down": downstream
         - contains "Up": upstream
-
+        
+total_origin_records
+    - The number of days where observation data is available for the origin station
+    
+total_hydat_records
+    - The number of days where observation data is available for the hydat station
+    
+data_overlap
+    - The number of days where observation ata is available for both the origin and hydat station
+    
 """
 
 import os

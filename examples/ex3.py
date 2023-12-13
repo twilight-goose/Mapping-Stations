@@ -40,7 +40,7 @@ def main(timed=False):
     edge_df = gdf_utils.dfs_search(network, prefix1='origin', prefix2='candidate')
     
     # plot a match array
-    plot_utils.plot_match_array(edge_df, add_to_plot=[plot_utils.add_map_to_plot])
+    plot_utils.plot_match_array(edge_df, add_to_plot=[plot_utils.add_map_to_plot], timed=timed)
 
 
 if __name__ == "__main__":

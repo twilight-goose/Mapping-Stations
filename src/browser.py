@@ -38,7 +38,7 @@ from gen_util import lambert, geodetic
 
 
 def match_browser(origin, cand, network, match_df, bbox, origin_pref="hydat",
-                  cand_pref="pwqmn"):
+                  cand_pref="pwqmn", timed=False):
     """
     Creates and opens a basic interactive matplotlib window for exploring
     matches created by gdf_utils.dfs_search()
@@ -166,4 +166,7 @@ def match_browser(origin, cand, network, match_df, bbox, origin_pref="hydat",
                              rotate_labels=False, color='black', alpha=0.3)
     gridliner.color = 'blue'
 
-    plt.show()
+    if timed:
+        plot_utils.timed_display()
+    else:
+        plt.show()

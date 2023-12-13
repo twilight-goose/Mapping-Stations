@@ -66,7 +66,7 @@ def main():
     # merge the results
     table = hydro_edge_df.merge(ohn_edge_df, how='outer', on=['hydat_id', 'pwqmn_id'],
                                 suffixes=('_hyRivers', '_OHN'))
-    # calculate the error
+    # calculate the % difference between the OHN and hydroRIVERS distance
     table = table.assign(error=(table['dist_hyRivers'] - table['dist_OHN']) / table['dist_OHN'])
 
     print(table)

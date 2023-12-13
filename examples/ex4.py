@@ -65,7 +65,7 @@ See examples/example_output/ex4.png for expected window appearence.
 """
 
 
-def main():
+def main(timed=False):
     bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
 
     hydat = load_data.get_hydat_stations(bbox=bbox)
@@ -101,7 +101,7 @@ def main():
     print(match_df.drop(columns='path').to_string())
 
     # plot the matches in an interactive plot
-    browser.match_browser(hydat, pwqmn, network, match_df, bbox)
+    browser.match_browser(hydat, pwqmn, network, match_df, bbox, timed=timed)
     
 
 if __name__ == "__main__":

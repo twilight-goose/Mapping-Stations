@@ -32,7 +32,7 @@ See examples/example_output/ex6.png for expected window appearence.
 
 
 
-def main():
+def main(timed=False):
     bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
     
     # load stations within a lat/lon bounding box
@@ -57,7 +57,7 @@ def main():
     match_df = gdf_utils.dfs_search(network, prefix1='hydat', prefix2='pwqmn')
     
     # Plot a match array
-    plot_utils.plot_match_array(match_df)
+    plot_utils.plot_match_array(match_df, timed=timed)
 
 
 if __name__ == "__main__":

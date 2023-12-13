@@ -98,9 +98,10 @@ The best way to check that everything is installed correctly is by running the e
 Next, you need to configure project structure and data paths.
 
 ### 4. Configuring Project Structure and Data Paths
-In addition to Mapping-Stations, you will need [Watershed Delineation](https://github.com/kokubadejo/Watershed_Delineation)
-created by [Kasope Okubadejo](https://github.com/kokubadejo). Follow the data installation instructions found in
-the README.md file and ignore the environment setup instructions as everything needed for both projects can be found above.
+In addition to Mapping-Stations, you will need the [Watershed Delineation](https://github.com/kokubadejo/Watershed_Delineation)
+repository created by [Kasope Okubadejo](https://github.com/kokubadejo). Following the data installation instructions found there
+ and ignore the environment setup instructions as everything needed for both projects can be found above.
+ 
 Omitting many of the files included in the repositories, the downloaded data and watershed
 delineation repository should be structured and named as follows if you do not intend to change
 file paths within scripts.
@@ -128,6 +129,7 @@ file paths within scripts.
 		| PWQMN_cleaned
 			|--Provincial_Water_Quality_Monitoring_Network_PWQMN_cleaned.csv
 		| datastream
+			| shapefiles
 		| shapefiles
 	| errors
 	| examples
@@ -142,7 +144,7 @@ file paths within scripts.
 		| --browser.py
 		| --check_files.py
 
-| Watershed_Delineation (https://github.com/twilight-goose/Watershed_Delineation/tree/patch-1)
+| Watershed_Delineation
 	| src
 		| PySheds
 			| --main.py
@@ -271,6 +273,10 @@ function parameters.
 
 * note: The first time running any process will likely take an extended period as the program builds/generates tables 
 ```
+ex_run_all.py: VERY SLOW :: Runs examples 1-12, excluding 3. The easiest way to check that all required
+							dependencies are installed and built correctly, and all project files/data
+							are present and in the correct locations.
+
 ex1.py: FAST :: basic plotting
 
 ex2.py: FAST :: displays how stations are 'snapped' to river networks (you will need to zoom
