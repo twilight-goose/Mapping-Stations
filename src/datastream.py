@@ -360,13 +360,13 @@ def generate_data_range(variable):
     duplicates = pd.DataFrame(duplicates)
     full_ranges = pd.DataFrame(full_ranges)
     
-    if not os.path.isdir(f"datastream/{variable}"):
-        os.mkdir(f"datastream/{variable}")
+    if not os.path.isdir(f"../data/datastream/{variable}"):
+        os.mkdir(f"../data/datastream/{variable}")
     
     # save the data to appropriately named folder
-    all_results.to_csv(f"datastream/{variable}/observations.csv")
-    duplicates.to_csv(f"datastream/{variable}/duplicates.csv")
-    full_ranges.to_csv(f"datastream/{variable}/full_data_range.csv")
+    all_results.to_csv(f"../data/datastream/{variable}/observations.csv")
+    duplicates.to_csv(f"../data/datastream/{variable}/duplicates.csv")
+    full_ranges.to_csv(f"../data/datastream/{variable}/full_data_range.csv")
 
 
 def main():

@@ -105,6 +105,7 @@ input_file    = os.path.join("..", "data", "datastream", "Inorganic_nitrogen_(ni
 output_folder = os.path.join("..", "data", "datastream")
 start         = 701
 end           = 800
+dataset       = None
 
 parser  = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                   description='''Find close streamflow gauging station for list of water quality gauges.''')
@@ -116,12 +117,15 @@ parser.add_argument('-s', '--start', action='store', default=start, dest='start'
                     help="Station number to start with. This is an index. If start=1, first station will be delineated. If start=10, 10th station will be delineated first and first 9 will be skipped. If None, start=1. Default: None.")
 parser.add_argument('-e', '--end', action='store', default=end, dest='end',
                     help="Station number to end with. This is an index. If end=2, second station is last station to delineate. If end=5, 5th station is the last one that will be delineated. If None, end=len(stations). Default: None.")
+parser.add_argument('-d', '--dataset', action='store', default=dataset, dest='dataset',
+                    help="River network dataset to perform the matching with.")
 
 args          = parser.parse_args()
 input_file    = args.input_file
 output_folder = args.output_folder
 start         = int(args.start)
 end           = int(args.end)
+dataset       = args.dataset
 
 
 if (input_file is None):
@@ -183,8 +187,11 @@ for dd in data['value'][start:end]:
 # -------------------------------
 # perform matching
 # -------------------------------
-
-lines = load_data.load_rivers()
+if dataset is None:
+    lines = load_data.load_rivers()
+else:
+    lines = load_data.load_rivers(path=dataset)
+    
 
 hydat = load_data.get_hydat_stations()
 hydat = gdf_utils.point_gdf_from_df(hydat)
@@ -211,9 +218,9 @@ network = gdf_utils.hyriv_gdf_to_network(lines)
 # prefix1 and prefix2 must be featured/used when assigning stations
 match_df = gdf_utils.dfs_search(    network,
                                     max_distance=12000, # in [m]
-                                    prefix1="origin",    # list of stations to find a match for
-                                    prefix2="hydat",     # all stations to find a match from
-                                    max_depth=100
+                                    prefix1="origin",   # list of stations to find a match for
+                                    prefix2="hydat",    # all stations to find a match from
+                                    max_depth=1200      # I recommend a max_depth around 1/10th of the max_distance
                             )
 # In this iteration of the project, data overlap must be calculated
 # as a separate operation
