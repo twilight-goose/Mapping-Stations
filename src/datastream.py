@@ -23,6 +23,7 @@
 
 # Modfied by James Wang
 
+
 # ========================================================================= ##
 # License ================================================================= ##
 # ========================================================================= ##
@@ -46,6 +47,13 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+
+
+"""
+
+See main() for default behaviour
+
+"""
 
 
 import os
@@ -73,6 +81,21 @@ from load_data import datastream_path
 DATASTREAM_API_KEY = "qoaJ6s42ryD2wGezfzkDhx9qSek1YGal"
 api_prefix = "https://api.datastream.org/v1/odata/v4/"
 headers = {'x-api-key': '{0}'.format(DATASTREAM_API_KEY)}
+
+
+
+variables_P = [    "Orthophosphate",
+                   "Phosphorus, hydrolyzable",
+                   "Soluble Reactive Phosphorus (SRP)",
+                   "Total Phosphorus, mixed forms",
+                   "Organic phosphorus"]
+                   
+variables_N = [    "Inorganic nitrogen (ammonia, nitrate and nitrite)",
+                   "Inorganic nitrogen (nitrate and nitrite)",
+                   "Nitrate",
+                   "Organic Nitrogen",
+                   "Total Nitrogen, mixed forms"]
+                   
 
 
 def build_api_str(endpoint, variable, top=10000, **kwargs):
@@ -159,22 +182,9 @@ def build_api_str(endpoint, variable, top=10000, **kwargs):
     query = query.replace(":", "%3A")
     
     return api_prefix + endpoint + "?" + query
-    
-
-variables_P = [    "Orthophosphate",
-                   "Phosphorus, hydrolyzable",
-                   "Soluble Reactive Phosphorus (SRP)",
-                   "Total Phosphorus, mixed forms",
-                   "Organic phosphorus"]
-                   
-variables_N = [    "Inorganic nitrogen (ammonia, nitrate and nitrite)",
-                   "Inorganic nitrogen (nitrate and nitrite)",
-                   "Nitrate",
-                   "Organic Nitrogen",
-                   "Total Nitrogen, mixed forms"]
 
 
-def api_request(endpoint, variable, select=None, top=None, **kwargs):
+def api_request(endpoint, variable, select=None, top=10000, **kwargs):
     """
     Requests data from the Datastream api.
     
@@ -253,28 +263,30 @@ def api_request(endpoint, variable, select=None, top=None, **kwargs):
         elif endpoint == "Records":
             select = r_select
     
+    # build the initial call string
     api_str = build_api_str(
-        endpoint=endpoint, variable=variable, top=top, select=select,
-        **kwargs)
+        endpoint=endpoint, variable=variable, top=top, select=select, **kwargs)
                             
     has_data = True
     print(api_str)
-
+    
+    # make API get requests until the desired amount of data has been retrieved
     while has_data:
+        # make api request
         response = requests.get(api_str, headers=headers)
 
-        # load data
+        # load data from the api response
         data = json.loads(response.content.decode('utf-8'))
         dump = json.dumps(data)
         
-        if not data.get('value') is None:
+        if not (data.get('value') is None):
             all_results += data.get('value')
         else:
             break
-            
-        if not data.get("@odata.nextLink") is None and \
-                (not top is None and len(all_results) < top) and \
-                kwargs.get('count') is None:
+        
+        # If there is more data to retreive and the user wants to retreive
+        # more than 10000 records, 
+        if not (data.get("@odata.nextLink") is None) and top >= 10000 and kwargs.get('count') is None:
                 
             print("loaded 10,000 records. Loading more...")
             api_str = data.get("@odata.nextLink")
@@ -283,6 +295,9 @@ def api_request(endpoint, variable, select=None, top=None, **kwargs):
             break
     
     all_results = pd.DataFrame(all_results)
+    
+    print(all_results)
+    # drop records with null result values
     if kwargs.get('count') is None:
         all_results.dropna(subset="ResultValue", inplace=True)
     return all_results
@@ -344,59 +359,22 @@ def generate_data_range(variable):
         
     duplicates = pd.DataFrame(duplicates)
     full_ranges = pd.DataFrame(full_ranges)
-    ###
-
-    all_results.to_csv(f"datastream/{variable}_observations.csv")
-    duplicates.to_csv(f"datastream/{variable}_duplicates.csv")
-    full_ranges.to_csv(f"datastream/{variable}_full_data_range.csv")
     
-    all_results.to_json(f"datastream_jsons/{variable}_observations.json")
-    duplicates.to_json(f"datastream_jsons/{variable}_duplicates.json")
-    full_ranges.to_json(f"datastream_jsons/{variable}_full_data_range.json")
- 
-
-def drange_from_json(path):
-    def sort_by_date(obs_dict):
-        return obs_dict["ActivityStartDate"]
+    if not os.path.isdir(f"datastream/{variable}"):
+        os.mkdir(f"datastream/{variable}")
     
-    with open(path, 'r', encoding='utf-8') as ff:
-
-        data = json.load(ff)['value']
-        drange = []
-        
-        for st_dict in data:
-            out_dict = st_dict.copy()
-            del out_dict['observations']
-
-            obs_dates = pd.DataFrame(st_dict['observations'])
-            obs_dates = obs_dates['ActivityStartDate'].to_list()
-            
-            out_dict['First Date'] = obs_dates[0]
-            out_dict["Last Date"] = obs_dates[-1]
-            out_dict["Total Observations"] = len(obs_dates)
-            out_dict["Unique Days"] = len(set(obs_dates))
-            
-            drange.append(out_dict)
-
-    return drange
-    
-
-def get_dranges(dirpath=datastream_path):
-    """
-    
-    """
-    all_data = {}
-
-    for file in filter(lambda x:x.endswith(".json"), os.listdir(dirpath)):
-        
-        drange = drange_from_json(os.path.join(dirpath, file))
-        all_data[file[:-5]] = drange
-    
-    return all_data
+    # save the data to appropriately named folder
+    all_results.to_csv(f"datastream/{variable}/observations.csv")
+    duplicates.to_csv(f"datastream/{variable}/duplicates.csv")
+    full_ranges.to_csv(f"datastream/{variable}/full_data_range.csv")
 
 
 def main():
-    return 
+    """
+    Reads record data from the datastream API for each variable in 
+    variables N and variables P near the top of the file and saves
+    the to "/datastream/variable" in the form of .csv files.
+    """
     for var in variables_N:
         generate_data_range(var)
     
