@@ -690,9 +690,14 @@ def dfs_search(network: nx.DiGraph, prefix1, prefix2,
                     
                         direct_dist = station['geometry'].distance(series['geometry'])
                         dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist_along'])
-
+                        
+                        st_dist = data['geometry'].project(series['geometry'])
+                        seg = list(cut(data['geometry'], st_dist)[direction].coords)
+                        
+                        if direction == 0:
+                            seg.reverse()
+                        
                         if dist < max_distance:
-
                             ids.append(series['Station_ID'])
                             dist_froms.append(series['dist_from'])
                             dists.append(max(direct_dist, dist))
@@ -700,16 +705,21 @@ def dfs_search(network: nx.DiGraph, prefix1, prefix2,
                             path_last_segs.append([
                                 series['geometry'],
                                 data['geometry'].interpolate(data['geometry'].project(series['geometry'])),
-                                (u, v)[direction]])
-
+                                *seg])
                         else:
                             break
                             
                 if len(ids) > 0:
                     return ids, dist_froms, dists, depths, path_last_segs
             
-            result = *dfs((u, v)[not direction], prefix2, direction, cum_dist + data['LENGTH_M'], depth + 1), \
-                            (u, v)[direction]
+            if direction == 0:
+                segment = list(data['geometry'].coords)
+                segment.reverse()
+            else:
+                segment = list(data['geometry'].coords)
+                
+            result = *dfs((u, v)[not direction], prefix2, direction, cum_dist + data['LENGTH_M'], depth + 1), *segment
+                            
 
             if result[0] != -1:
                 return result
@@ -740,33 +750,33 @@ def dfs_search(network: nx.DiGraph, prefix1, prefix2,
         direct_dist = station['geometry'].distance(row['geometry'])
         segment_dist = abs(station['dist_along'] - row['dist_along'])
         on_dist = max(segment_dist, direct_dist)
-
+        
+        st_dist = data['geometry'].project(station['geometry'])
+        row_dist = data['geometry'].project(row['geometry'])
+        
         try:
-          st_dist = data['geometry'].project(station['geometry'])
-          row_dist = data['geometry'].project(row['geometry'])
-  
-          split = cut(data['geometry'], st_dist)
-          
-          if st_dist <= row_dist:
-              piece_coords = list(cut(split[1], row_dist - st_dist)[0].coords)
-          else:
-              piece_coords = list(cut(split[0], row_dist)[1].coords)
-              piece_coords.reverse()
-  
-          points = [
-              station['geometry'],
-              data['geometry'].interpolate(st_dist),
-              *piece_coords,
-              data['geometry'].interpolate(row_dist),
-              row['geometry']
-          ]
+            split = cut(data['geometry'], st_dist)
+
+            if st_dist <= row_dist:
+                piece_coords = list(cut(split[1], row_dist - st_dist)[0].coords)
+            else:
+                piece_coords = list(cut(split[0], row_dist)[1].coords)
+                piece_coords.reverse()
+
+            points = [
+                station['geometry'],
+                data['geometry'].interpolate(st_dist),
+                *piece_coords,
+                data['geometry'].interpolate(row_dist),
+                row['geometry']
+            ]
         except:
-          points = [
-              station['geometry'],
-              data['geometry'].interpolate(st_dist),
-              data['geometry'].interpolate(row_dist),
-              row['geometry']
-          ]
+            points = [
+                station['geometry'],
+                data['geometry'].interpolate(st_dist),
+                data['geometry'].interpolate(row_dist),
+                row['geometry']
+            ]
 
         pos = 'On-' + ('Up' if station['dist_along'] > row['dist_along'] else 'Down')
         add_to_matches(station['Station_ID'], row['Station_ID'],
@@ -785,8 +795,21 @@ def dfs_search(network: nx.DiGraph, prefix1, prefix2,
 
         up_id, up_from, up_dist, up_depth, up_seg, *point_list2 = dfs(
                 u, prefix2, 1, station['dist_along'], 0)
-
-        point_list.append(station['geometry'])
+        
+        st_dist = data['geometry'].project(station['geometry'])
+        split = cut(data['geometry'], st_dist)
+        start = [data['geometry'].interpolate(st_dist), station['geometry']]
+        
+        try:
+            coords = list(split[1].coords)
+            coords.reverse()
+            coords2 = list(split[0].coords)
+        except IndexError:
+            coords, coords2 = [],  []
+        
+        point_list += coords + start
+        point_list2 += coords2 + start
+        
         if down_id != -1:
             for i in range(len(down_id)):
                 pts = down_seg[i] + point_list
@@ -795,7 +818,6 @@ def dfs_search(network: nx.DiGraph, prefix1, prefix2,
                                down_from[i], LineString(pts), down_dist[i],
                                "Down", down_depth[i])
 
-        point_list2.append(station['geometry'])
         if up_id != -1:
             for i in range(len(up_id)):
                 pts = up_seg[i] + point_list2
