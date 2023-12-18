@@ -264,7 +264,7 @@ def assign_stations(edges: gpd.GeoDataFrame, stations: gpd.GeoDataFrame,
         The unit of the len_f field.
 
     :return: Geopandas GeoDataFrame
-        A copy of edges merged that includes selected station related
+        A copy of edges that includes selected station related
         data. Has the following additional fields:
 
         <prefix>_data (DataFrame)

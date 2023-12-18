@@ -78,6 +78,7 @@ def match_browser(origin, cand, network, match_df, bbox, origin_pref="hydat",
                                      marker='*', zorder=6)
 
         def on_pick(self, event):
+            """Handles clicking on points on the plot"""
             self.event_artist = event.artist
             self.event_ind = event.ind[0]
             self.update()
@@ -95,29 +96,31 @@ def match_browser(origin, cand, network, match_df, bbox, origin_pref="hydat",
                 data_key_2 = cand_pref + '_id'
                 data = origin.iloc[self.event_ind]
                 ax2.set_title(origin_pref.upper() + ' Station Info')
+                
             elif self.event_artist == cand_artist:
                 data_key_1 = cand_pref + '_id'
                 data_key_2 = origin_pref + '_id'
                 data = cand.iloc[self.event_ind]
                 ax2.set_title(cand_pref.upper() + ' Station Info')
 
-            for key in list(data.keys())[:-1]:
+            for key in ["Station_ID", "Station_Name", "Latitude", "Longitude"]:
                 display_data.append((key, str(data[key])))
-
+            
             for ind, row in match_df.iterrows():
                 if row[data_key_1] == data['Station_ID']:
                     display_data.append((f'Match: {row[data_key_2]}', f"{row['dist']} m"))
-
+            
+            # add a table to the second axes
             table = mpl_table.table(ax2, cellText=display_data, loc='upper center',
                                     colWidths=[0.4, 0.6], cellLoc='left')
             table.auto_set_font_size(False)
             table.set_fontsize(9)
             table.scale(1, 2)
             ax2.set_axis_off()
-
+            
+            # show the star to highlight the selected point
             self.selected.set_visible(True)
             self.selected.set_data((data['geometry'].x, data['geometry'].y))
-            # self.text.set_text('selected: %d' % dataind)
             fig.canvas.draw()
 
     fig = plt.figure(figsize=(14, 7))

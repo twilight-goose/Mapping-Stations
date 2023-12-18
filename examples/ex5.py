@@ -64,7 +64,8 @@ See examples/example_output/ex5.png for expected window appearence.
 
 def main(timed=False):
     bbox = BBox(min_x=-80, max_x=-79, min_y=45, max_y=46)
-
+    
+    # load stations
     hydat = load_data.get_hydat_stations(bbox=bbox)
     pwqmn = load_data.get_pwqmn_stations(bbox=bbox)
 

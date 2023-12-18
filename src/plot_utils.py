@@ -422,6 +422,8 @@ def annotate_stations(*station_sets, adjust=True, ax=None):
         adjust_text(texts)
     elif adjust and len(texts) > 300:
         print("adjust keyword overriden. Text positions not adjusted because there are too many.")
+    
+    return texts
 
 
 def plot_match_array(match_df, timed=False):
