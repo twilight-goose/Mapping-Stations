@@ -265,6 +265,11 @@ The browser.py module contains complex code that creates interactive matplotlib 
 Code within browser.py is not useful for performing any operations outside of the script,
 and it's relevance is limited to its exact use case - creating and opening data browsers.
 
+The datastream.py module contains code for making get requests to the datastream API. The code
+within this function requires a datastream API key to make API requests, which should be copied into
+line 81. Running the script/the main function within the script retrieves and saves all observation data for
+a specified set of phosphorus and nitrogen variables to "data/datastream".
+
 
 ## Use Cases and Usage Examples
 Refer to `../examples/` for exampls; Explanations below. See files for expected terminal output/messages.

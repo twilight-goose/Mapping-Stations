@@ -78,9 +78,11 @@ from datetime import date
 from load_data import datastream_path
 
 
-DATASTREAM_API_KEY = "qoaJ6s42ryD2wGezfzkDhx9qSek1YGal"
+DATASTREAM_API_KEY = "REPLACE WITH YOUR OWN API KEY"
 api_prefix = "https://api.datastream.org/v1/odata/v4/"
 headers = {'x-api-key': '{0}'.format(DATASTREAM_API_KEY)}
+
+
 
 
 
@@ -110,6 +112,9 @@ def build_api_str(endpoint, variable, top=10000, **kwargs):
         CharacteristicName(s) to filter the data request by.
         Requesting more than 1 variable while also filtering by
         extent may lead to unintended behaviour.
+        
+        ex: variable="Orthophosphate"
+            variable=["Orthophosphate", "Nitrate"]
     
     :param top: int (default=10000)
         Number of rows to retrieve from Datastream.
@@ -375,6 +380,14 @@ def main():
     variables N and variables P near the top of the file and saves
     the to "/datastream/variable" in the form of .csv files.
     """
+    
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description='''''')
+                                     
+    parser.add_argument('-k', '--key', action='store', default=DATASTREAM_API_KEY, dest='key'
+                        help='Datastream API key to use to request data from Datastream')
+    DATASTREAM_API_KEY = parser.parse_args().key
+    
     for var in variables_N:
         generate_data_range(var)
     
