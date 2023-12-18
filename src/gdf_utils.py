@@ -366,7 +366,7 @@ def delineate_matches(match_df, prefix1, data_1, prefix2, data_2):
         i.e. "hydat" => searches for "hydat_id"
 
     :param data_1: DataFrame
-        The station data associated with stations in "{prefix1}id".
+        The station data associated with stations in "{prefix1}_id".
         Must contain a latitude/longitude field. Must contain a
         Station_ID field.
 
@@ -692,7 +692,11 @@ def dfs_search(network: nx.DiGraph, prefix1, prefix2,
                         dist = cum_dist + abs(direction * data['LENGTH_M'] - series['dist_along'])
                         
                         st_dist = data['geometry'].project(series['geometry'])
-                        seg = list(cut(data['geometry'], st_dist)[direction].coords)
+                        
+                        try:
+                            seg = list(cut(data['geometry'], st_dist)[direction].coords)
+                        except IndexError:
+                            seg = []
                         
                         if direction == 0:
                             seg.reverse()

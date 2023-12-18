@@ -273,9 +273,12 @@ function parameters.
 
 * note: The first time running any process will likely take an extended period as the program builds/generates tables 
 ```
-ex_run_all.py: VERY SLOW :: Runs examples 1-12, excluding 3. The easiest way to check that all required
-							dependencies are installed and built correctly, and all project files/data
-							are present and in the correct locations.
+ex_run_all.py:  Runs examples 1-12, excluding 3. The easiest way to check that all required
+				dependencies are installed and built correctly, and all project files/data
+				are present and in the correct locations.
+				
+		 FAST: Run all except ex8: >>> python ex_run_all.py
+	   VERY SLOW: Run all examples >>> python ex_run_all.py -m s
 
 ex1.py: FAST :: basic plotting
 

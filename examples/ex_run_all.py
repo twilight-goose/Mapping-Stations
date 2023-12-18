@@ -10,6 +10,27 @@ import ex10
 import ex11
 import ex12
 
+import argparse
+
+"""
+Run all examples excluding ex8 (which is the slowest)
+>>> python ex_run_all.py
+
+Run ALL examples
+>>> python ex_run_all.py -m s
+"""
+
+parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                 description='''Run all examples''')
+parser.add_argument('-m', '--method', action='store', default='f', dest='method',
+                    help="Run method. 'f' (fast; skips ex8) or 's' (slow; runs all examples).")
+
+method = parser.parse_args().method
+
+if method not in ('f', 's'):
+    print(f"Method argument '{method}' is invalid. Using the default f (fast)")
+    method = 'f'
+
 print("Starting ex1\n")
 ex1.main(timed=True)
 
@@ -28,8 +49,9 @@ ex6.main(timed=True)
 print("\nStarting ex7\n")
 ex7.main()
 
-print("\nStarting ex8\n")
-ex8.main()
+if method == 's':
+    print("\nStarting ex8\n")
+    ex8.main()
 
 print("\nStarting ex9\n")
 ex9.main()
