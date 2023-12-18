@@ -53,6 +53,10 @@
 
 See main() for default behaviour
 
+Run example where asdfja3k3j2o23423j is your datastream API key
+
+>>> python datastream.py -k asdfja3k3j2o23423j
+
 """
 
 
@@ -80,9 +84,15 @@ from load_data import datastream_path
 
 DATASTREAM_API_KEY = "REPLACE WITH YOUR OWN API KEY"
 api_prefix = "https://api.datastream.org/v1/odata/v4/"
+
+parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description='''key''')
+                                     
+parser.add_argument('-k', '--key', action='store', default=DATASTREAM_API_KEY, dest='key',
+                    help='Datastream API key to use to request data from Datastream')
+DATASTREAM_API_KEY = parser.parse_args().key
+
 headers = {'x-api-key': '{0}'.format(DATASTREAM_API_KEY)}
-
-
 
 
 
@@ -303,8 +313,10 @@ def api_request(endpoint, variable, select=None, top=10000, **kwargs):
     
     print(all_results)
     # drop records with null result values
-    if kwargs.get('count') is None:
+    if kwargs.get('count') is None and not all_results.empty:
         all_results.dropna(subset="ResultValue", inplace=True)
+    else:
+        print(f"Endpoint '{endpoint}' has no records for '{variable}'")
     return all_results
 
 
@@ -380,14 +392,6 @@ def main():
     variables N and variables P near the top of the file and saves
     the to "/datastream/variable" in the form of .csv files.
     """
-    
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     description='''''')
-                                     
-    parser.add_argument('-k', '--key', action='store', default=DATASTREAM_API_KEY, dest='key'
-                        help='Datastream API key to use to request data from Datastream')
-    DATASTREAM_API_KEY = parser.parse_args().key
-    
     for var in variables_N:
         generate_data_range(var)
     
